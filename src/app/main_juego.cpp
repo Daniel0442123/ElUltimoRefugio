@@ -4,7 +4,8 @@
 /// Escena «Partida» (por defecto): Mara reúne medicamentos, combustible y batería y activa la
 /// radio mientras los infectados exploran, la oyen, la persiguen con A* y la atacan.
 ///   WASD / flechas = mover, Shift = correr, Ctrl = sigilo, E = recoger / activar la radio,
-///   F1 = depuración (conos de visión, rutas, ruido), R = nueva partida, Tab = laboratorio.
+///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), C = modo coordinado,
+///   R = nueva partida, Tab = laboratorio.
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
 /// Con --bench o --estres-recursion se ejecuta sin ventana.
@@ -32,7 +33,10 @@ constexpr int kAnchoPanel = 256;
 constexpr int kCelda = 32;
 constexpr int kColumnas = (kAnchoVentana - kAnchoPanel) / kCelda;  // 32
 constexpr int kFilas = kAltoVentana / kCelda;                       // 22
-constexpr int kInfectados = 8;
+constexpr int kInfectados = 10;
+// config/ia.json fija flowfield_umbral = 8 para la horda completa; con 10 infectados en el
+// prototipo se baja a 5 para que el campo de flujo se vea en una partida normal.
+constexpr int kUmbralCampoPrototipo = 5;
 
 // ------------------------------------------------------------------------------- Partida
 class EscenaPartida {
@@ -41,14 +45,21 @@ public:
 
     void reiniciar(std::uint64_t semilla) {
         semilla_ = semilla;
+        juego::ConfigPartida cfg;
+        cfg.flowfieldUmbral = kUmbralCampoPrototipo;
+        cfg.coordinado = coordinado_;
         partida_ = std::make_unique<juego::Partida>(
-            juego::crearEscenarioAleatorio(kColumnas, kFilas, kInfectados, semilla), juego::ConfigPartida{}, semilla);
+            juego::crearEscenarioAleatorio(kColumnas, kFilas, kInfectados, semilla), cfg, semilla);
         acumulado_ = 0.0f;
     }
 
     void actualizar() {
         if (IsKeyPressed(KEY_R)) reiniciar(semilla_ + 1);
         if (IsKeyPressed(KEY_F1)) depuracion_ = !depuracion_;
+        if (IsKeyPressed(KEY_C)) {  // RF-084: comparar horda aislada y coordinada
+            coordinado_ = !coordinado_;
+            partida_->fijarCoordinado(coordinado_);
+        }
 
         juego::EntradaJugador e;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) e.ejeX += 1.0f;
@@ -85,6 +96,7 @@ private:
     std::uint64_t semilla_{42};
     float acumulado_{0.0f};
     bool depuracion_{false};
+    bool coordinado_{true};
 };
 
 // --------------------------------------------------------------------------- Laboratorio

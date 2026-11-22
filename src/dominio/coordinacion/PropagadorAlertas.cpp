@@ -26,8 +26,27 @@ __attribute__((noinline)) std::uintptr_t direccionMarcoActual() {
 ResultadoPropagacion PropagadorAlertas::propagar(const std::vector<Vec2>& posiciones, const Quadtree& indice,
                                                  std::uint32_t origen, float confianza) {
     ResultadoPropagacion r;
+    propagarEn(posiciones, indice, origen, confianza, r);
+    return r;
+}
+
+void PropagadorAlertas::reservar(std::size_t maxAgentes, ResultadoPropagacion& r) {
+    const auto niveles = static_cast<std::size_t>(std::max(parametros_.profundidadMax, 0) + 1);
+    if (bufferPorNivel_.size() < niveles) bufferPorNivel_.resize(niveles);
+    for (auto& b : bufferPorNivel_) b.reserve(maxAgentes);
+    visitado_.reserve(maxAgentes);
+    r.mensajes.reserve(maxAgentes);  // cada agente recibe a lo sumo un mensaje
+    r.saltoPorAgente.reserve(maxAgentes);
+}
+
+void PropagadorAlertas::propagarEn(const std::vector<Vec2>& posiciones, const Quadtree& indice, std::uint32_t origen,
+                                   float confianza, ResultadoPropagacion& r) {
+    r.mensajes.clear();
     r.saltoPorAgente.assign(posiciones.size(), -1);
-    if (origen >= posiciones.size()) return r;
+    r.profundidadAlcanzada = 0;
+    r.llamadas = 0;
+    r.bytesPilaEstimados = 0;
+    if (origen >= posiciones.size()) return;
 
     posiciones_ = &posiciones;
     indice_ = &indice;
@@ -43,7 +62,6 @@ ResultadoPropagacion PropagadorAlertas::propagar(const std::vector<Vec2>& posici
     posiciones_ = nullptr;
     indice_ = nullptr;
     resultado_ = nullptr;
-    return r;
 }
 
 void PropagadorAlertas::propagarRec(std::uint32_t agente, int profundidad, float confianza) {

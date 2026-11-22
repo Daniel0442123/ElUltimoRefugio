@@ -60,6 +60,14 @@ public:
     ResultadoPropagacion propagar(const std::vector<Vec2>& posiciones, const Quadtree& indice,
                                   std::uint32_t origen, float confianza);
 
+    /// Igual que propagar() pero escribe en @p r reutilizando su memoria. Tras reservar(n), no
+    /// asigna memoria con hasta n agentes (RNF-006): se usa dentro del bucle de juego.
+    void propagarEn(const std::vector<Vec2>& posiciones, const Quadtree& indice, std::uint32_t origen,
+                    float confianza, ResultadoPropagacion& r);
+
+    /// Reserva visitados, búferes por nivel y mensajes para @p maxAgentes agentes.
+    void reservar(std::size_t maxAgentes, ResultadoPropagacion& r);
+
     [[nodiscard]] const ParametrosAlerta& parametros() const noexcept { return parametros_; }
 
 private:

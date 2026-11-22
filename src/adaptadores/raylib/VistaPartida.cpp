@@ -81,6 +81,28 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
     for (const auto& o : p.objetos())
         if (!o.recogido) dibujarObjeto(o.tipo, centroCelda(o.celda, e), tc * 0.55f);
 
+    if (depuracion && p.campoActivo()) {  // RF-028: flecha de cada celda hacia su siguiente paso
+        const auto& g = p.mapa();
+        for (mundo::Nodo n = 0; n < g.numCeldas(); ++n) {
+            if (!g.transitable(n) || !p.campo().alcanzable(n) || p.campo().siguiente(n) == n) continue;
+            const Vector2 a = centroCelda(g.celda(n), e);
+            const Vector2 b = centroCelda(g.celda(p.campo().siguiente(n)), e);
+            DrawLineEx(a, {a.x + (b.x - a.x) * 0.4f, a.y + (b.y - a.y) * 0.4f}, 2.0f, Fade(DARKBLUE, 0.35f));
+            DrawCircleV(a, 1.5f, Fade(DARKBLUE, 0.35f));
+        }
+    }
+
+    // RF-073: los mensajes de la última alerta se ven 1 s como líneas emisor -> receptor.
+    if (p.huboAlerta() && p.tick() - p.tickUltimaAlerta() < 60) {
+        const float vida = 1.0f - static_cast<float>(p.tick() - p.tickUltimaAlerta()) / 60.0f;
+        for (const auto& m : p.ultimaPropagacion().mensajes) {
+            const Vector2 a = aPantalla(p.infectados()[m.emisor].pos, e);
+            const Vector2 b = aPantalla(p.infectados()[m.receptor].pos, e);
+            DrawLineEx(a, b, 3.0f, Fade(YELLOW, vida * m.confianza));
+            DrawCircleLinesV(b, tc * 0.5f, Fade(YELLOW, vida));
+        }
+    }
+
     if (depuracion) {
         const auto& cfg = p.config();
         for (const auto& z : p.infectados()) {
@@ -167,11 +189,22 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     y += 15;
     std::snprintf(buf, sizeof(buf), "tiempo A*: %.1f us   FPS: %d", p.tiempoBusquedaUltimoTickIaUs(), fps);
     DrawText(buf, x, y, 12, LIGHTGRAY);
-    y += 22;
+    y += 15;
+    if (p.campoActivo())
+        std::snprintf(buf, sizeof(buf), "Flow field: %u agentes, %.0f us", p.agentesEnCampo(), p.campo().tiempoUs());
+    else
+        std::snprintf(buf, sizeof(buf), "Flow field: inactivo (umbral %d)", cfg.flowfieldUmbral);
+    DrawText(buf, x, y, 12, p.campoActivo() ? SKYBLUE : LIGHTGRAY);
+    y += 15;
+    std::snprintf(buf, sizeof(buf), "Coordinado (C): %s  alertas %llu / msj %llu", cfg.coordinado ? "si" : "no",
+                  static_cast<unsigned long long>(p.alertasEmitidas()),
+                  static_cast<unsigned long long>(p.mensajesAlerta()));
+    DrawText(buf, x, y, 12, cfg.coordinado ? YELLOW : LIGHTGRAY);
+    y += 20;
 
     DrawText("Transiciones FSM", x, y, 16, GOLD);
     y += 20;
-    const std::size_t n = p.numTransiciones() < 7 ? p.numTransiciones() : 7;
+    const std::size_t n = p.numTransiciones() < 6 ? p.numTransiciones() : 6;
     for (std::size_t i = 0; i < n; ++i) {
         const auto& t = p.ultimaTransicion(i);
         const auto a = agentes::nombreEstado(t.desde);
@@ -192,7 +225,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     yc += 16;
     DrawText("E: recoger / activar radio", x, yc, 13, LIGHTGRAY);
     yc += 16;
-    DrawText("F1: depuracion  R: reiniciar", x, yc, 13, LIGHTGRAY);
+    DrawText("F1: depuracion  R: reiniciar  C: coord.", x, yc, 13, LIGHTGRAY);
     yc += 16;
     DrawText("Tab: laboratorio Dijkstra/A*", x, yc, 13, LIGHTGRAY);
 }

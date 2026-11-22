@@ -28,6 +28,7 @@ enum class MotivoTransicion : std::uint8_t {
     EnAlcance,        ///< Perseguir -> Atacar (distancia <= alcance)
     FueraDeAlcance,   ///< Atacar -> Perseguir / Buscar
     SinRuta,          ///< RF-027: la búsqueda no encontró ruta -> otro comportamiento
+    RecibeAlerta,     ///< Explorar / Buscar -> Investigar el punto que avisó otro infectado (RF-047)
 };
 
 [[nodiscard]] std::string_view nombreEstado(EstadoInfectado e) noexcept;
@@ -38,6 +39,7 @@ struct PercepcionInfectado {
     bool veAMara{false};
     float distanciaMara{0.0f};  ///< Solo válida si veAMara.
     bool oyeRuido{false};
+    bool recibeAlerta{false};  ///< Llegó una alerta de otro infectado (modo coordinado, RF-047).
 };
 
 /// Estado interno del agente que la FSM necesita además de la percepción.

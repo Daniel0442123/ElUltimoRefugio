@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.2.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.3.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,6 +24,7 @@ add_library(refugio_dominio STATIC
     src/dominio/mundo/Grafo.cpp
     src/dominio/navegacion/BuscadorRuta.cpp
     src/dominio/navegacion/Quadtree.cpp
+    src/dominio/navegacion/CampoFlujo.cpp
     src/dominio/coordinacion/PropagadorAlertas.cpp
     src/dominio/experimentos/Benchmark.cpp
     src/dominio/experimentos/EstresRecursion.cpp
