@@ -1,0 +1,70 @@
+#include "dominio/agentes/MaquinaEstados.hpp"
+
+namespace refugio::agentes {
+
+std::string_view nombreEstado(EstadoInfectado e) noexcept {
+    switch (e) {
+        case EstadoInfectado::Explorar: return "Explorar";
+        case EstadoInfectado::Investigar: return "Investigar";
+        case EstadoInfectado::Perseguir: return "Perseguir";
+        case EstadoInfectado::Buscar: return "Buscar";
+        case EstadoInfectado::Atacar: return "Atacar";
+    }
+    return "?";
+}
+
+std::string_view nombreMotivo(MotivoTransicion m) noexcept {
+    switch (m) {
+        case MotivoTransicion::Ninguno: return "-";
+        case MotivoTransicion::VeAMara: return "ve a Mara";
+        case MotivoTransicion::OyeRuido: return "oye ruido";
+        case MotivoTransicion::LlegaAlOrigen: return "llega al origen";
+        case MotivoTransicion::PierdeVision: return "pierde la vision";
+        case MotivoTransicion::BusquedaAgotada: return "busqueda agotada";
+        case MotivoTransicion::EnAlcance: return "en alcance";
+        case MotivoTransicion::FueraDeAlcance: return "fuera de alcance";
+        case MotivoTransicion::SinRuta: return "sin ruta";
+    }
+    return "?";
+}
+
+Transicion decidirTransicion(EstadoInfectado actual, const PercepcionInfectado& p, const ContextoFsm& c,
+                             const ParametrosFsm& par) noexcept {
+    using E = EstadoInfectado;
+    using M = MotivoTransicion;
+    const Transicion seguir{actual, M::Ninguno};
+
+    switch (actual) {
+        case E::Explorar:
+            if (p.veAMara) return {E::Perseguir, M::VeAMara};
+            if (p.oyeRuido) return {E::Investigar, M::OyeRuido};
+            return seguir;  // al llegar elige otra frontera, sin cambiar de estado (RF-045)
+
+        case E::Investigar:
+            if (p.veAMara) return {E::Perseguir, M::VeAMara};
+            if (c.sinRuta) return {E::Explorar, M::SinRuta};
+            if (p.oyeRuido) return seguir;  // nuevo origen: se reorienta sin cambiar de estado
+            if (c.llegoAlObjetivo) return {E::Buscar, M::LlegaAlOrigen};
+            return seguir;
+
+        case E::Perseguir:
+            if (!p.veAMara) return {E::Buscar, M::PierdeVision};
+            if (p.distanciaMara <= par.alcanceAtaque) return {E::Atacar, M::EnAlcance};
+            if (c.sinRuta) return {E::Explorar, M::SinRuta};
+            return seguir;
+
+        case E::Buscar:
+            if (p.veAMara) return {E::Perseguir, M::VeAMara};
+            if (p.oyeRuido) return {E::Investigar, M::OyeRuido};
+            if (c.tiempoEnEstado >= par.tiempoBuscar) return {E::Explorar, M::BusquedaAgotada};
+            return seguir;
+
+        case E::Atacar:
+            if (!p.veAMara) return {E::Buscar, M::FueraDeAlcance};
+            if (p.distanciaMara > par.alcanceAtaque + par.histeresisAtaque) return {E::Perseguir, M::FueraDeAlcance};
+            return seguir;
+    }
+    return seguir;
+}
+
+}  // namespace refugio::agentes

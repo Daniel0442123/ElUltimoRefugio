@@ -4,6 +4,10 @@ add_executable(refugio_tests
     unit/test_busqueda.cpp
     unit/test_propagador_alertas.cpp
     unit/test_quadtree.cpp
+    unit/test_percepcion.cpp
+    unit/test_maquina_estados.cpp
+    unit/test_partida.cpp
+    unit/contador_asignaciones.cpp
 )
 target_link_libraries(refugio_tests PRIVATE refugio_dominio Catch2::Catch2WithMain)
 refugio_configurar_objetivo(refugio_tests)

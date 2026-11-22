@@ -45,6 +45,9 @@ public:
     [[nodiscard]] bool transitable(Nodo n) const noexcept { return costo_[n] != kBloqueado; }
     [[nodiscard]] bool transitable(int x, int y) const noexcept { return dentro(x, y) && transitable(nodo(x, y)); }
 
+    /// Acceso directo a los multiplicadores (fila mayor) para los bucles internos de búsqueda.
+    [[nodiscard]] const std::uint8_t* datosCosto() const noexcept { return costo_.data(); }
+
     /// Fija m(v). Valores mayores que kCostoMax se recortan. 0 bloquea la celda (barricada, pared).
     void fijarMultiplicador(int x, int y, std::uint8_t m) noexcept;
     void bloquear(int x, int y) noexcept { fijarMultiplicador(x, y, kBloqueado); }

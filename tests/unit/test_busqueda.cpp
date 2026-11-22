@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "dominio/experimentos/GeneradorMapas.hpp"
+#include "contador_asignaciones.hpp"
 #include "dominio/navegacion/BuscadorRuta.hpp"
 
 using namespace refugio;
@@ -143,4 +144,21 @@ TEST_CASE("Reutilizar el buscador no contamina busquedas siguientes", "[RF-021]"
         CHECK(a.costo == b.costo);
         CHECK(a.expandidos == b.expandidos);
     }
+}
+
+TEST_CASE("CP-106 A* reutilizando el resultado no asigna memoria", "[RNF-006][RF-022]") {
+    nucleo::Pcg32 rng(5, 1);
+    const auto g = experimentos::generarMapa({128, 128, 0.25, 0.10}, rng);
+    const auto pares = experimentos::generarPares(g, 50, rng);
+    auto ast = navegacion::crearBuscador(Algoritmo::AEstrella);
+    navegacion::ResultadoBusqueda r;
+    // Calentamiento con todos los pares: la abierta y la ruta alcanzan su capacidad máxima.
+    for (const auto& [o, d] : pares) ast->buscarEn(g, o, d, r);
+    std::uint64_t asignaciones = 0;
+    {
+        refugio::pruebas::VentanaAsignaciones ventana;
+        for (const auto& [o, d] : pares) ast->buscarEn(g, o, d, r);
+        asignaciones = ventana.asignaciones();
+    }
+    CHECK(asignaciones == 0);
 }
