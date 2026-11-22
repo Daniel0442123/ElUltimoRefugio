@@ -1,0 +1,25 @@
+{
+  "version": 6,
+  "configurePresets": [
+    { "name": "base", "hidden": true, "binaryDir": "${sourceDir}/build/${presetName}", "generator": "Ninja" },
+    { "name": "debug", "inherits": "base", "displayName": "Debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "release", "inherits": "base", "displayName": "Release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "headless", "inherits": "base", "displayName": "Release sin ventana (benchmark y pruebas)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "REFUGIO_BUILD_GAME": "OFF" } },
+    { "name": "asan", "inherits": "base", "displayName": "Debug con ASan + UBSan",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "REFUGIO_BUILD_GAME": "OFF", "REFUGIO_SANITIZERS": "ON" } }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "headless", "configurePreset": "headless" },
+    { "name": "asan", "configurePreset": "asan" }
+  ],
+  "testPresets": [
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "headless", "configurePreset": "headless", "output": { "outputOnFailure": true } },
+    { "name": "asan", "configurePreset": "asan", "output": { "outputOnFailure": true } }
+  ]
+}

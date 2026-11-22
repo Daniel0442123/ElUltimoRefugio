@@ -1,0 +1,17 @@
+{
+  "_comentario": "Parámetros de la IA (SRS §2). Valores iniciales ajustables; los optimizados por RF-085 reemplazan estos.",
+  "tick_sim_hz": 60,
+  "tick_ia_hz": 10,
+  "movimiento": { "vel_sigilo": 1.5, "vel_caminar": 3.0, "vel_correr": 6.0 },
+  "ruido": { "sigilo": 1, "caminar": 3, "correr": 6, "puerta_metalica": 10 },
+  "mision": { "t_instalacion_s": 8, "t_extraccion_s": 60, "salud_max": 100, "cura_medicamento": 35, "integridad_refugio_max": 100 },
+  "senuelo": { "alcance": 8, "radio": 8, "duracion_s": 10, "periodo_s": 1 },
+  "memoria": { "capacidad": 16, "semivida_s": 10 },
+  "alertas": { "radio_comunicacion": 5, "profundidad_max": 3, "atenuacion": 0.7 },
+  "coordinacion": { "max_agentes_por_celda": 2, "flowfield_umbral": 8 },
+  "navegacion": { "presupuesto_nodos_tick": 4000, "factor_desvio_barricada": 2.0 },
+  "prototipos": {
+    "explorador": { "vision_radio": 7, "vision_angulo": 110, "velocidad": 2.0 },
+    "perseguidor": { "vision_radio": 5, "vision_angulo": 90, "velocidad": 4.0, "danio_por_segundo": 10 }
+  }
+}

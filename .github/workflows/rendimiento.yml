@@ -1,0 +1,59 @@
+name: Rendimiento y estrés
+
+# Experimentos de GUIA §7: Dijkstra vs A* en varios tamaños con >= 5 repeticiones y semilla registrada,
+# y estrés de las funciones recursivas (RNF-027). Se ejecuta cada noche y bajo demanda.
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 02:00 en Bogotá
+  workflow_dispatch:
+    inputs:
+      semilla:
+        description: Semilla maestra
+        default: "42"
+      repeticiones:
+        description: Repeticiones por condición (mínimo 5)
+        default: "5"
+      tamanos:
+        description: Tamaños de mapa separados por coma
+        default: "32,64,128,256"
+
+jobs:
+  experimentos:
+    name: Experimentos (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    env:
+      SEMILLA: ${{ github.event.inputs.semilla || '42' }}
+      REPS: ${{ github.event.inputs.repeticiones || '5' }}
+      TAMANOS: ${{ github.event.inputs.tamanos || '32,64,128,256' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar sin ventana (Release)
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DREFUGIO_BUILD_GAME=OFF -DREFUGIO_BUILD_TESTS=OFF
+          cmake --build build --config Release --parallel
+      - name: Benchmark Dijkstra vs A*
+        shell: bash
+        run: |
+          exe=build/refugio_bench; [ -f build/Release/refugio_bench.exe ] && exe=build/Release/refugio_bench.exe
+          "$exe" --bench --tamanos "$TAMANOS" --pares 20 --reps "$REPS" --semilla "$SEMILLA" \
+                 --salida "results/bench_${{ runner.os }}_${SEMILLA}.csv"
+      - name: Estrés de recursión
+        shell: bash
+        run: |
+          exe=build/refugio_bench; [ -f build/Release/refugio_bench.exe ] && exe=build/Release/refugio_bench.exe
+          "$exe" --estres-recursion --agentes 50,100,200,500,1000,2000 --profundidades 1,2,3,6,10 \
+                 --reps "$REPS" --semilla "$SEMILLA" --salida "results/estres_${{ runner.os }}_${SEMILLA}.csv"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resumen
+        shell: bash
+        run: python tools/resumen_bench.py "results/bench_${{ runner.os }}_${SEMILLA}.csv" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resultados-${{ runner.os }}-${{ env.SEMILLA }}
+          path: results/

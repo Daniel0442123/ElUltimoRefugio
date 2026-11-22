@@ -1,0 +1,23 @@
+# Compilación
+build/
+out/
+cmake-build-*/
+compile_commands.json
+
+# Resultados y datos generados en tiempo de ejecución
+results/
+logs/
+saves/
+*.sav
+
+# IDE y sistema
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.user
+.DS_Store
+Thumbs.db
+
+# Perfilado
+*.tracy

@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar-y-probar:
+    name: ${{ matrix.nombre }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: Linux GCC
+            os: ubuntu-24.04
+            cc: gcc
+            cxx: g++
+          - nombre: Linux Clang
+            os: ubuntu-24.04
+            cc: clang
+            cxx: clang++
+          - nombre: Windows MSVC
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias de raylib (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+
+      - name: Configurar (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configurar (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build
+
+      - name: Compilar
+        run: cmake --build build --config Release --parallel
+
+      - name: Pruebas
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Humo de benchmark y estrés de recursión
+        shell: bash
+        run: |
+          exe=build/refugio_bench; [ -f build/Release/refugio_bench.exe ] && exe=build/Release/refugio_bench.exe
+          "$exe" --bench --tamanos 32,64 --pares 5 --reps 5 --salida results/bench_humo.csv
+          "$exe" --estres-recursion --agentes 50,200 --reps 3 --salida results/estres_humo.csv
+
+  sanitizadores:
+    name: ASan + UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      - name: Configurar y compilar
+        run: |
+          cmake --preset asan
+          cmake --build --preset asan
+      - name: Pruebas con sanitizadores
+        env:
+          ASAN_OPTIONS: detect_leaks=1:detect_stack_use_after_return=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --preset asan
+      - name: Estrés de recursión con sanitizadores
+        run: ./build/asan/refugio_bench --estres-recursion --agentes 50,500,2000 --reps 3 --salida results/estres_asan.csv
+
+  dependencias-dominio:
+    name: Dominio sin raylib (RNF-023)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tools/check_deps.sh
