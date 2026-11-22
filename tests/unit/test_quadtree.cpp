@@ -32,7 +32,7 @@ TEST_CASE("CP-030 Quadtree coincide con fuerza bruta", "[RF-030]") {
     CHECK(qt.profundidadMaxima() <= Quadtree::kProfundidadMax);
 }
 
-TEST_CASE("CP-127 Quadtree con 10000 puntos coincidentes no supera la profundidad máxima", "[RF-030][RNF-027]") {
+TEST_CASE("CP-127 Quadtree con 10000 puntos coincidentes no supera la profundidad maxima", "[RF-030][RNF-027]") {
     Quadtree qt({0, 0, 64, 64});
     for (std::uint32_t i = 0; i < 10000; ++i) qt.insertar(i, {10.0f, 10.0f});
     CHECK(qt.profundidadMaxima() == Quadtree::kProfundidadMax);
@@ -41,7 +41,7 @@ TEST_CASE("CP-127 Quadtree con 10000 puntos coincidentes no supera la profundida
     CHECK(salida.size() == 10000);
 }
 
-TEST_CASE("Quadtree rechaza puntos fuera de los límites y se puede limpiar", "[RF-030]") {
+TEST_CASE("Quadtree rechaza puntos fuera de los limites y se puede limpiar", "[RF-030]") {
     Quadtree qt({0, 0, 10, 10});
     CHECK_FALSE(qt.insertar(0, {11.0f, 5.0f}));
     CHECK(qt.insertar(1, {5.0f, 5.0f}));

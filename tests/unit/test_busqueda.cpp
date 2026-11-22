@@ -48,7 +48,7 @@ double costoRuta(const mundo::GrafoRejilla& g, const std::vector<mundo::Nodo>& r
 }
 }  // namespace
 
-TEST_CASE("CP-021 / CP-022 Dijkstra y A* son óptimos frente a Bellman-Ford", "[RF-021][RF-022][RNF-019]") {
+TEST_CASE("CP-021 / CP-022 Dijkstra y A* son optimos frente a Bellman-Ford", "[RF-021][RF-022][RNF-019]") {
     const auto semilla = GENERATE(Catch::Generators::range(1, 11));  // 10 mapas
     nucleo::Pcg32 rng(static_cast<std::uint64_t>(semilla), 1u);
     const auto g = experimentos::generarMapa({16, 16, 0.25, 0.15}, rng);
@@ -72,7 +72,7 @@ TEST_CASE("CP-021 / CP-022 Dijkstra y A* son óptimos frente a Bellman-Ford", "[
     }
 }
 
-TEST_CASE("CP-022 La heurística octil es admisible y consistente", "[RF-022]") {
+TEST_CASE("CP-022 La heuristica octil es admisible y consistente", "[RF-022]") {
     nucleo::Pcg32 rng(99, 1u);
     const auto g = experimentos::generarMapa({12, 12, 0.25, 0.2}, rng);
     const auto destino = experimentos::generarPares(g, 1, rng).front().second;
@@ -89,7 +89,7 @@ TEST_CASE("CP-022 La heurística octil es admisible y consistente", "[RF-022]") 
     }
 }
 
-TEST_CASE("CP-023 Métricas de búsqueda completas", "[RF-023]") {
+TEST_CASE("CP-023 Metricas de busqueda completas", "[RF-023]") {
     mundo::GrafoRejilla g(20, 20);
     auto ast = navegacion::crearBuscador(Algoritmo::AEstrella);
     const auto r = ast->buscar(g, g.nodo(0, 0), g.nodo(19, 19), true);
@@ -119,7 +119,7 @@ TEST_CASE("CP-027 Destino encerrado devuelve SinRuta", "[RF-027]") {
     }
 }
 
-TEST_CASE("CP-025 Una barricada cambia la ruta en la siguiente búsqueda", "[RF-025]") {
+TEST_CASE("CP-025 Una barricada cambia la ruta en la siguiente busqueda", "[RF-025]") {
     mundo::GrafoRejilla g(10, 3);
     auto ast = navegacion::crearBuscador(Algoritmo::AEstrella);
     const auto antes = ast->buscar(g, g.nodo(0, 1), g.nodo(9, 1));
@@ -130,7 +130,7 @@ TEST_CASE("CP-025 Una barricada cambia la ruta en la siguiente búsqueda", "[RF-
     for (auto n : despues.ruta) CHECK(n != g.nodo(5, 1));
 }
 
-TEST_CASE("Reutilizar el buscador no contamina búsquedas siguientes", "[RF-021]") {
+TEST_CASE("Reutilizar el buscador no contamina busquedas siguientes", "[RF-021]") {
     nucleo::Pcg32 rng(5, 1u);
     const auto g = experimentos::generarMapa({32, 32, 0.2, 0.1}, rng);
     const auto pares = experimentos::generarPares(g, 30, rng);

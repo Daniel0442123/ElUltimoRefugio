@@ -10,3 +10,6 @@ refugio_configurar_objetivo(refugio_tests)
 
 include(Catch)
 catch_discover_tests(refugio_tests)
+
+# Los nombres de TEST_CASE deben ser ASCII: CTest pasa el nombre como filtro y en Windows la
+# consola no conserva los caracteres acentuados, así que la prueba no se encontraría.
