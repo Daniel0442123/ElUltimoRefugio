@@ -7,6 +7,7 @@ add_executable(refugio_tests
     unit/test_percepcion.cpp
     unit/test_maquina_estados.cpp
     unit/test_partida.cpp
+    unit/test_coordinacion_horda.cpp
     unit/contador_asignaciones.cpp
 )
 target_link_libraries(refugio_tests PRIVATE refugio_dominio Catch2::Catch2WithMain)

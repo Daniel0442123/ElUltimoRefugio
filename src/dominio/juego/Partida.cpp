@@ -17,6 +17,7 @@ constexpr std::size_t kBloqueVisitasU = 4;
 constexpr int kBloqueVisitas = 4;        // RF-045: mapa de visitas en bloques de 4 x 4 celdas
 constexpr float kRadioSeparacion = 0.7f;  // Distancia mínima entre infectados (celdas)
 constexpr float kLlegadaWaypoint = 0.08f;
+constexpr float kConfianzaAvistamiento = 1.0f;  // ver a Mara directamente es evidencia segura
 
 float longitud(Vec2 v) noexcept { return std::sqrt(v.x * v.x + v.y * v.y); }
 float distancia(Vec2 a, Vec2 b) noexcept { return longitud({b.x - a.x, b.y - a.y}); }
@@ -86,6 +87,7 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
       objetos_(std::move(esc.objetos)),
       radio_(esc.radio),
       rng_(semilla, 7u),
+      propagador_(cfg.alertas),
       quadtree_({0.0f, 0.0f, static_cast<float>(mapa_.ancho()), static_cast<float>(mapa_.alto())}) {
     mara_.pos = esc.inicioMara;
     mara_.salud = cfg_.saludMax;
@@ -108,6 +110,9 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     resultado_.ruta.reserve(mapa_.numCeldas());
     buscador_.reservar(mapa_.numCeldas());
     quadtree_.reservar(infectados_.size());
+    propagador_.reservar(infectados_.size(), propagacion_);
+    posiciones_.reserve(infectados_.size());
+    campo_.reservar(mapa_.numCeldas());
     desdeUltimoRuido_ = cfg_.periodoRuido;
 }
 
@@ -221,6 +226,7 @@ void Partida::tickIa() {
     ruidoUltimoTickIa_ = ruidoPendiente_;
     ruidoPendiente_ = false;
     for (std::size_t i = 0; i < infectados_.size(); ++i) percibirYDecidir(i);
+    actualizarCampo();
     planificarRutas();
     // Mapa de visitas propio (RF-045): cada agente marca el bloque en el que está.
     const int bloquesX = (mapa_.ancho() + kBloqueVisitas - 1) / kBloqueVisitas;
@@ -287,11 +293,18 @@ void Partida::percibirYDecidir(std::size_t i) {
                 (dMara <= cfg_.sentidoCercano && agentes::lineaDeVisionLibre(mapa_, aqui, celdaMara));
     p.distanciaMara = dMara;
     p.oyeRuido = ruidoUltimoTickIa_ && agentes::oye(mapa_, z.pos, origenRuido_, radioRuido_);
+    // Mensajes recibidos (RF-041 los cuenta como percepción): solo en modo coordinado.
+    p.recibeAlerta = cfg_.coordinado && z.alertaPendiente;
+    const Celda celdaAlerta = z.celdaAlerta;
+    z.alertaPendiente = false;
 
     // Memoria (primer corte de RF-043): última posición vista de Mara.
     if (p.veAMara) {
         z.recuerdaMara = true;
         z.ultimaPosMara = celdaMara;
+    } else if (p.recibeAlerta) {
+        z.recuerdaMara = true;  // evidencia indirecta: la posición que avisó otro infectado
+        z.ultimaPosMara = celdaAlerta;
     }
 
     // Decisión (RF-044).
@@ -305,7 +318,12 @@ void Partida::percibirYDecidir(std::size_t i) {
         registrar(i, z.estado, t.hacia, t.motivo);
         z.estado = t.hacia;
         z.tiempoEnEstado = 0.0f;
+        z.usaCampo = false;  // actualizarCampo() decide de nuevo en este tick
     }
+    // RF-047: quien ve a Mara (evidencia directa, confianza 1) avisa a los cercanos, con pausa.
+    if (p.veAMara && cfg_.coordinado && z.desdeUltimaAlerta >= cfg_.periodoAlerta &&
+        kConfianzaAvistamiento >= cfg_.confianzaMinimaAlerta)
+        emitirAlerta(i);
     const bool sinRuta = z.sinRuta;
     z.sinRuta = false;
 
@@ -316,7 +334,10 @@ void Partida::percibirYDecidir(std::size_t i) {
             if (entra || c.llegoAlObjetivo || sinRuta) elegirObjetivo(i);
             break;
         case E::Investigar:
-            if (p.oyeRuido) fijarObjetivo(z, celdaDe(origenRuido_));
+            if (p.recibeAlerta)
+                fijarObjetivo(z, celdaAlerta);
+            else if (p.oyeRuido)
+                fijarObjetivo(z, celdaDe(origenRuido_));
             break;
         case E::Perseguir:
             if (entra || (!(celdaMara == z.objetivo) && z.desdeUltimaRuta >= cfg_.periodoReplan))
@@ -356,6 +377,7 @@ void Partida::planificarRutas() {
         const Celda c = celdaDe(z.pos);
         buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_);
         ++busquedasTickIa_;
+        ++busquedasTotales_;
         nodosTickIa_ += resultado_.expandidos;
         tiempoTickIaUs_ += resultado_.tiempoUs;
         z.rutaPendiente = false;
@@ -377,6 +399,7 @@ void Partida::ejecutarInfectado(std::size_t i) {
     auto& z = infectados_[i];
     z.tiempoEnEstado += dt_;
     z.desdeUltimaRuta += dt_;
+    z.desdeUltimaAlerta += dt_;
     using E = EstadoInfectado;
     const float factor = factorTerreno(z.pos);
 
@@ -399,7 +422,14 @@ void Partida::ejecutarInfectado(std::size_t i) {
                       : z.estado == E::Investigar ? 0.5f * (cfg_.velExplorar + cfg_.velPerseguir)
                                                   : cfg_.velExplorar;
     float restante = vel * factor * dt_;
-    while (restante > 0.0f && z.indiceRuta < z.ruta.size()) {
+    // RF-028: con el campo activo, el siguiente paso sale de la celda actual en O(1).
+    if (z.estado == E::Perseguir && z.usaCampo && campoActivo_) {
+        const Celda c = celdaDe(z.pos);
+        const mundo::Nodo n = mapa_.nodo(c.x, c.y);
+        const mundo::Nodo sig = campo_.siguiente(n);
+        if (sig != n) moverHacia(z, centroDe(mapa_.celda(sig)), restante);
+    }
+    while (restante > 0.0f && !z.usaCampo && z.indiceRuta < z.ruta.size()) {
         const Vec2 meta = centroDe(mapa_.celda(z.ruta[z.indiceRuta]));
         const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
         const float l = longitud(d);
@@ -413,14 +443,87 @@ void Partida::ejecutarInfectado(std::size_t i) {
         restante -= paso;
         if (paso >= l) ++z.indiceRuta;
     }
-    // Al final de la ruta y con Mara a la vista, el último tramo es directo.
-    if (z.estado == E::Perseguir && z.indiceRuta >= z.ruta.size() && restante > 0.0f) {
+    // Al final de la ruta (o en la celda destino del campo) y con Mara a la vista, el último tramo es directo.
+    if (z.estado == E::Perseguir && (z.usaCampo || z.indiceRuta >= z.ruta.size()) && restante > 0.0f) {
         const Vec2 haciaMara{mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y};
         const float d = longitud(haciaMara);
         if (d > 0.6f) {
             z.orientacion = normalizar(haciaMara);
             const float paso = std::min(restante, d - 0.6f);
             z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
+        }
+    }
+}
+
+void Partida::moverHacia(Infectado& z, Vec2 meta, float& restante) {
+    const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
+    const float l = longitud(d);
+    if (l <= 1e-5f) return;
+    const float paso = std::min(restante, l);
+    z.orientacion = {d.x / l, d.y / l};
+    z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
+    restante -= paso;
+}
+
+// RF-047: alerta recursiva acotada por el grafo de comunicación (vecinos a radioComunicacion
+// o menos, pedidos al quadtree). Cada receptor la procesa en su siguiente ciclo de IA.
+void Partida::emitirAlerta(std::size_t i) {
+    auto& z = infectados_[i];
+    z.desdeUltimaAlerta = 0.0f;
+    posiciones_.clear();
+    for (const auto& otro : infectados_) posiciones_.push_back(otro.pos);  // cabe: capacidad reservada
+    quadtree_.limpiar();
+    for (std::size_t k = 0; k < infectados_.size(); ++k)
+        quadtree_.insertar(static_cast<std::uint32_t>(k), infectados_[k].pos);
+    propagador_.propagarEn(posiciones_, quadtree_, static_cast<std::uint32_t>(i), kConfianzaAvistamiento, propagacion_);
+    const Celda celdaMara = celdaDe(mara_.pos);
+    for (const auto& m : propagacion_.mensajes) {
+        auto& r = infectados_[m.receptor];
+        if (r.alertaPendiente && r.confianzaAlerta >= m.confianza) continue;  // ya tiene una mejor
+        r.alertaPendiente = true;
+        r.celdaAlerta = celdaMara;
+        r.confianzaAlerta = m.confianza;
+    }
+    ++alertasEmitidas_;
+    mensajesAlerta_ += propagacion_.mensajes.size();
+    tickUltimaAlerta_ = tick_;
+}
+
+// RF-028: si FLOWFIELD_UMBRAL o más infectados persiguen a Mara (mismo destino: su celda), se
+// calcula un único campo con Dijkstra inverso y esos agentes dejan de pedir rutas A*.
+void Partida::actualizarCampo() {
+    std::uint32_t perseguidores = 0;
+    for (const auto& z : infectados_)
+        if (z.estado == EstadoInfectado::Perseguir) ++perseguidores;
+    const bool activar = perseguidores >= static_cast<std::uint32_t>(std::max(1, cfg_.flowfieldUmbral));
+    if (!activar) {
+        if (campoActivo_) {
+            for (auto& z : infectados_) {
+                if (!z.usaCampo) continue;
+                z.usaCampo = false;
+                if (z.estado == EstadoInfectado::Perseguir) fijarObjetivo(z, celdaDe(mara_.pos));  // vuelve a A*
+            }
+        }
+        campoActivo_ = false;
+        agentesEnCampo_ = 0;
+        return;
+    }
+    const Celda cm = celdaDe(mara_.pos);
+    const mundo::Nodo destino = mapa_.nodo(cm.x, cm.y);
+    if (!campoActivo_ || campo_.destino() != destino) {  // solo se recalcula si Mara cambió de celda
+        campoActivo_ = campo_.calcular(mapa_, destino);
+        ++camposCalculados_;
+    }
+    agentesEnCampo_ = 0;
+    for (auto& z : infectados_) {
+        if (z.estado != EstadoInfectado::Perseguir) continue;
+        const Celda c = celdaDe(z.pos);
+        z.usaCampo = campoActivo_ && campo_.alcanzable(mapa_.nodo(c.x, c.y));
+        if (z.usaCampo) {
+            z.rutaPendiente = false;  // sin A* individual
+            z.ruta.clear();
+            z.indiceRuta = 0;
+            ++agentesEnCampo_;
         }
     }
 }

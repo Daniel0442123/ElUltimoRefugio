@@ -24,6 +24,7 @@ std::string_view nombreMotivo(MotivoTransicion m) noexcept {
         case MotivoTransicion::EnAlcance: return "en alcance";
         case MotivoTransicion::FueraDeAlcance: return "fuera de alcance";
         case MotivoTransicion::SinRuta: return "sin ruta";
+        case MotivoTransicion::RecibeAlerta: return "recibe alerta";
     }
     return "?";
 }
@@ -37,13 +38,14 @@ Transicion decidirTransicion(EstadoInfectado actual, const PercepcionInfectado& 
     switch (actual) {
         case E::Explorar:
             if (p.veAMara) return {E::Perseguir, M::VeAMara};
+            if (p.recibeAlerta) return {E::Investigar, M::RecibeAlerta};  // posición más fiable que un ruido
             if (p.oyeRuido) return {E::Investigar, M::OyeRuido};
             return seguir;  // al llegar elige otra frontera, sin cambiar de estado (RF-045)
 
         case E::Investigar:
             if (p.veAMara) return {E::Perseguir, M::VeAMara};
             if (c.sinRuta) return {E::Explorar, M::SinRuta};
-            if (p.oyeRuido) return seguir;  // nuevo origen: se reorienta sin cambiar de estado
+            if (p.recibeAlerta || p.oyeRuido) return seguir;  // nuevo punto: se reorienta sin cambiar de estado
             if (c.llegoAlObjetivo) return {E::Buscar, M::LlegaAlOrigen};
             return seguir;
 
@@ -55,6 +57,7 @@ Transicion decidirTransicion(EstadoInfectado actual, const PercepcionInfectado& 
 
         case E::Buscar:
             if (p.veAMara) return {E::Perseguir, M::VeAMara};
+            if (p.recibeAlerta) return {E::Investigar, M::RecibeAlerta};
             if (p.oyeRuido) return {E::Investigar, M::OyeRuido};
             if (c.tiempoEnEstado >= par.tiempoBuscar) return {E::Explorar, M::BusquedaAgotada};
             return seguir;

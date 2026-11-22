@@ -24,11 +24,18 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
     const PercepcionInfectado veCerca{true, 0.5f, false};
     const PercepcionInfectado ruido{false, 0.0f, true};
     const ContextoFsm sinNovedad{};
+    const PercepcionInfectado alerta{false, 0.0f, false, true};
+    const PercepcionInfectado alertaYRuido{false, 0.0f, true, true};
 
     const Fila tabla[] = {
         {"Explorar + ve a Mara -> Perseguir", E::Explorar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
         {"Explorar + ruido -> Investigar", E::Explorar, ruido, sinNovedad, E::Investigar, M::OyeRuido},
         {"Explorar sin nada sigue", E::Explorar, nada, {0, true, false}, E::Explorar, M::Ninguno},
+        {"Explorar + alerta -> Investigar (RF-047)", E::Explorar, alerta, sinNovedad, E::Investigar, M::RecibeAlerta},
+        {"Explorar + alerta y ruido: manda la alerta", E::Explorar, alertaYRuido, sinNovedad, E::Investigar, M::RecibeAlerta},
+        {"Buscar + alerta -> Investigar", E::Buscar, alerta, sinNovedad, E::Investigar, M::RecibeAlerta},
+        {"Investigar + alerta sigue (se reorienta)", E::Investigar, alerta, {0, true, false}, E::Investigar, M::Ninguno},
+        {"Perseguir ignora alertas: ya la ve", E::Perseguir, {true, 4.0f, false, true}, sinNovedad, E::Perseguir, M::Ninguno},
         {"Investigar + ve a Mara -> Perseguir", E::Investigar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
         {"Investigar llega sin evidencia -> Buscar", E::Investigar, nada, {0, true, false}, E::Buscar, M::LlegaAlOrigen},
         {"Investigar sin ruta -> Explorar (RF-027)", E::Investigar, nada, {0, false, true}, E::Explorar, M::SinRuta},
@@ -55,5 +62,5 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
 
 TEST_CASE("CP-044 Cada estado y motivo tiene nombre para el registro", "[RF-044][RF-072]") {
     for (int e = 0; e <= static_cast<int>(E::Atacar); ++e) CHECK(nombreEstado(static_cast<E>(e)) != "?");
-    for (int m = 0; m <= static_cast<int>(M::SinRuta); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
+    for (int m = 0; m <= static_cast<int>(M::RecibeAlerta); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
 }

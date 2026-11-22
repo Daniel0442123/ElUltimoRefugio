@@ -14,9 +14,11 @@
 #include <vector>
 
 #include "dominio/agentes/MaquinaEstados.hpp"
+#include "dominio/coordinacion/PropagadorAlertas.hpp"
 #include "dominio/agentes/Percepcion.hpp"
 #include "dominio/mundo/Grafo.hpp"
 #include "dominio/navegacion/BuscadorRuta.hpp"
+#include "dominio/navegacion/CampoFlujo.hpp"
 #include "dominio/navegacion/Quadtree.hpp"
 #include "dominio/nucleo/Pcg32.hpp"
 
@@ -54,6 +56,13 @@ struct ConfigPartida {
     float radioExplorar{10.0f};
     int presupuestoNodosTick{4000};  ///< RF-026: nodos expandidos por tick de IA como máximo.
     agentes::ParametrosFsm fsm{};
+    // Coordinación (RF-047, config/ia.json «alertas»)
+    bool coordinado{true};             ///< Modo coordinado: los infectados se avisan al ver a Mara.
+    coordinacion::ParametrosAlerta alertas{};  ///< radio 5, profundidad 3, atenuación 0,7
+    float confianzaMinimaAlerta{0.6f};  ///< RF-047: solo se propaga una evidencia con confianza >= 0,6.
+    float periodoAlerta{2.0f};          ///< Segundos entre dos alertas del mismo infectado.
+    // Horda (RF-028, config/ia.json «flowfield_umbral»)
+    int flowfieldUmbral{8};  ///< Con este número de perseguidores o más se usa un campo de flujo.
 };
 
 struct Superviviente {
@@ -89,6 +98,12 @@ struct Infectado {
     std::vector<mundo::Nodo> ruta;  ///< Capacidad reservada al crear la partida.
     std::size_t indiceRuta{0};
     std::vector<std::uint8_t> visitas;  ///< Mapa de visitas propio en bloques de 4x4 (RF-045).
+    // Coordinación
+    bool alertaPendiente{false};  ///< Recibió una alerta; la procesa en su próximo ciclo de IA.
+    mundo::Celda celdaAlerta{};
+    float confianzaAlerta{0.0f};
+    float desdeUltimaAlerta{1e9f};
+    bool usaCampo{false};  ///< Persigue siguiendo el campo de flujo compartido en vez de su ruta A*.
 };
 
 struct RegistroTransicion {
@@ -151,6 +166,22 @@ public:
     [[nodiscard]] bool huboRuidoUltimoTickIa() const noexcept { return ruidoUltimoTickIa_; }
     [[nodiscard]] float radioUltimoRuido() const noexcept { return radioRuido_; }
     [[nodiscard]] Vec2 origenUltimoRuido() const noexcept { return origenRuido_; }
+    [[nodiscard]] std::uint64_t busquedasTotales() const noexcept { return busquedasTotales_; }
+
+    /// Coordinación (RF-047, RF-073).
+    void fijarCoordinado(bool activo) noexcept { cfg_.coordinado = activo; }
+    [[nodiscard]] std::uint64_t alertasEmitidas() const noexcept { return alertasEmitidas_; }
+    [[nodiscard]] std::uint64_t mensajesAlerta() const noexcept { return mensajesAlerta_; }
+    /// Última propagación (mensajes emisor -> receptor con salto y confianza) y su tick.
+    [[nodiscard]] const coordinacion::ResultadoPropagacion& ultimaPropagacion() const noexcept { return propagacion_; }
+    [[nodiscard]] std::uint64_t tickUltimaAlerta() const noexcept { return tickUltimaAlerta_; }
+    [[nodiscard]] bool huboAlerta() const noexcept { return alertasEmitidas_ > 0; }
+
+    /// Campo de flujo de la horda (RF-028).
+    [[nodiscard]] bool campoActivo() const noexcept { return campoActivo_; }
+    [[nodiscard]] const navegacion::CampoFlujo& campo() const noexcept { return campo_; }
+    [[nodiscard]] std::uint64_t camposCalculados() const noexcept { return camposCalculados_; }
+    [[nodiscard]] std::uint32_t agentesEnCampo() const noexcept { return agentesEnCampo_; }
 
 private:
     void moverMara(const EntradaJugador& e);
@@ -161,6 +192,9 @@ private:
     void planificarRutas();
     void ejecutarInfectado(std::size_t i);
     void separarInfectados();
+    void emitirAlerta(std::size_t i);
+    void actualizarCampo();
+    void moverHacia(Infectado& z, Vec2 meta, float& restante);
     void registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado hacia, MotivoTransicion m);
     void fijarObjetivo(Infectado& z, mundo::Celda c);
     [[nodiscard]] Vec2 moverConColision(Vec2 pos, Vec2 delta) const noexcept;
@@ -195,7 +229,23 @@ private:
     std::uint32_t nodosTickIa_{0};
     double tiempoTickIaUs_{0.0};
 
-    // Consulta espacial para la separación (RF-030).
+    std::uint64_t busquedasTotales_{0};
+
+    // Coordinación por alertas recursivas (RF-047).
+    coordinacion::PropagadorAlertas propagador_;
+    coordinacion::ResultadoPropagacion propagacion_;
+    std::vector<Vec2> posiciones_;
+    std::uint64_t alertasEmitidas_{0};
+    std::uint64_t mensajesAlerta_{0};
+    std::uint64_t tickUltimaAlerta_{0};
+
+    // Campo de flujo compartido (RF-028).
+    navegacion::CampoFlujo campo_;
+    bool campoActivo_{false};
+    std::uint64_t camposCalculados_{0};
+    std::uint32_t agentesEnCampo_{0};
+
+    // Consulta espacial para la separación y las alertas (RF-030).
     navegacion::Quadtree quadtree_;
     std::vector<std::uint32_t> vecinos_;
 

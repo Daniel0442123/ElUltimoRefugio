@@ -15,7 +15,22 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.2.0)
+## Estado actual (0.3.0)
+
+**Horda coordinada.** Sobre el prototipo jugable de 0.2.0:
+
+- **Alertas recursivas entre infectados** (RF-046, RF-047): quien ve a Mara avisa a los que tiene a
+  5 celdas o menos, y estos a los suyos, hasta 3 saltos, con un conjunto de visitados y confianza
+  ×0,7 por salto. Los alertados pasan a *Investigar* la celda donde la vieron (motivo «recibe alerta»).
+  En pantalla, los mensajes se ven 1 s como líneas amarillas. La tecla **C** activa o desactiva el
+  modo coordinado para comparar (RF-084).
+- **Flow field compartido** (RF-028): cuando 5 o más infectados persiguen a Mara (8 en
+  `config/ia.json`; el prototipo usa 5 porque solo tiene 10), se calcula un único campo con Dijkstra
+  inverso desde su celda y esos agentes dejan de pedir rutas A*. Solo se recalcula si Mara cambia de
+  celda. Con F1 se ven las flechas del campo.
+- Las alertas y el campo tampoco asignan memoria en el bucle (CP-106).
+
+### Versión 0.2.0
 
 **Primer prototipo jugable.** Mara recorre una ciudad generada con semilla, reúne medicamentos,
 combustible y una batería y mantiene E en la radio 8 s para ganar, mientras 8 infectados autónomos
@@ -97,7 +112,8 @@ Partida (escena inicial):
 | WASD / flechas | Mover a Mara |
 | Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
 | E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) |
-| F1 | Depuración: conos de visión, rutas de A\* y radio del último ruido |
+| F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido y flechas del campo de flujo |
+| C | Activar / desactivar el modo coordinado (alertas entre infectados) |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 
