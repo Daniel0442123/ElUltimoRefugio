@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.1.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.2.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,9 @@ add_library(refugio_dominio STATIC
     src/dominio/experimentos/Benchmark.cpp
     src/dominio/experimentos/EstresRecursion.cpp
     src/dominio/experimentos/GeneradorMapas.cpp
+    src/dominio/agentes/Percepcion.cpp
+    src/dominio/agentes/MaquinaEstados.cpp
+    src/dominio/juego/Partida.cpp
 )
 target_include_directories(refugio_dominio PUBLIC src)
 refugio_configurar_objetivo(refugio_dominio)
@@ -43,7 +46,8 @@ refugio_configurar_objetivo(refugio_bench)
 # Juego (adaptadores raylib)
 # ---------------------------------------------------------------------------
 if(REFUGIO_BUILD_GAME)
-    add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp)
+    add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp
+                                           src/adaptadores/raylib/VistaPartida.cpp)
     target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 

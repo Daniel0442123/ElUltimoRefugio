@@ -16,7 +16,7 @@ void dibujarGrafo(const mundo::GrafoRejilla& g, const EstiloVista& e) {
         const auto m = g.multiplicador(n);
         Color color = {40, 44, 52, 255};                       // pared o barricada
         if (m == 1) color = {200, 200, 190, 255};               // calle
-        else if (m > 1) color = {120, 120, 150, 255};           // escombros (más caro)
+        else if (m > 1) color = {130, 100, 70, 255};            // escombros (más caro): marrón
         DrawRectangleRec(rectCelda(g, n, e), color);
     }
     for (int x = 0; x <= g.ancho(); ++x)
@@ -28,7 +28,8 @@ void dibujarGrafo(const mundo::GrafoRejilla& g, const EstiloVista& e) {
 }
 
 void dibujarExpansion(const mundo::GrafoRejilla& g, const navegacion::ResultadoBusqueda& r, const EstiloVista& e) {
-    const Color c = r.algoritmo == navegacion::Algoritmo::Dijkstra ? Color{70, 130, 220, 90} : Color{230, 120, 40, 90};
+    // Cian para Dijkstra y magenta para A*: ninguno se confunde con el marrón de los escombros.
+    const Color c = r.algoritmo == navegacion::Algoritmo::Dijkstra ? Color{0, 200, 220, 110} : Color{220, 60, 220, 110};
     for (const auto n : r.ordenExpansion) DrawRectangleRec(rectCelda(g, n, e), c);
 }
 

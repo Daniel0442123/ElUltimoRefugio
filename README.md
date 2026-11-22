@@ -15,18 +15,42 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.1.0)
+## Estado actual (0.2.0)
 
-Base del proyecto con el núcleo algorítmico ya funcional y probado:
+**Primer prototipo jugable.** Mara recorre una ciudad generada con semilla, reúne medicamentos,
+combustible y una batería y mantiene E en la radio 8 s para ganar, mientras 8 infectados autónomos
+la buscan solo con lo que ven y oyen:
 
-- Grafo implícito 8-conexo con costos de terreno ≥ 1 (RF-020, RF-031).
-- **Dijkstra y A\*** (heurística octil admisible y consistente) sobre el mismo grafo, con métricas: costo,
-  nodos expandidos y generados, tamaño máximo de la abierta, tiempo y memoria (RF-021 a RF-024).
-- **Propagación recursiva acotada de alertas** con conjunto de visitados y medición real de la pila (RF-047).
-- **Quadtree** recursivo con nodos en un pool indexado (RF-030).
-- PCG32 con semilla para experimentos reproducibles (RF-086).
-- Benchmark sin ventana Dijkstra vs A* y prueba de estrés de recursión (RF-080 a RF-082, RNF-027).
-- Prototipo con ventana: comparación en vivo de Dijkstra y A* con barricadas (HU-16).
+- Mara con modos sigilo / caminar / correr (1,5 / 3 / 6 celdas/s), ruido de radio 1 / 3 / 6 dos veces
+  por segundo y colisiones que deslizan contra las paredes (RF-002 a RF-005, RF-007, RF-008, RF-010, RF-011).
+- Infectados con **máquina de estados** Explorar → Investigar → Perseguir → Buscar → Atacar; cada
+  transición se registra con su motivo y se ve en el panel (RF-040, RF-044). Interceptar y
+  AtacarBarricada llegan con la coordinación.
+- **Percepción local sin omnisciencia**: cono de visión con línea de visión por Bresenham y oído que
+  pierde 2 celdas de alcance por pared (RF-041, RF-042). Exploración con mapa de visitas propio (RF-045).
+- Persecución con **A\*** compartido y presupuesto de nodos por tick de IA (RF-026, RF-027); separación
+  entre infectados con el quadtree (RF-030).
+- Bucle de paso fijo a 60 Hz con IA a 10 Hz (ADR-0005) y **cero asignaciones de memoria por paso**
+  tras la carga, comprobado por prueba (RNF-006, CP-106).
+
+Núcleo algorítmico (desde 0.1.0): grafo 8-conexo con costos de terreno (RF-020, RF-031), Dijkstra y A\*
+octil con métricas (RF-021 a RF-024), alertas recursivas acotadas (RF-047), quadtree (RF-030), PCG32
+(RF-086), benchmark y estrés de recursión (RF-080 a RF-082, RNF-027) y el laboratorio Dijkstra / A\* (HU-16).
+
+### Rendimiento de A\* (RNF-003)
+
+`refugio_bench --bench --tamanos 128 --pares 50 --reps 10 --semilla 42`, mapa 128 × 128 con 25 % de
+obstáculos, GCC 13 -O3, Xeon 2,3 GHz:
+
+| Versión | Mediana | p95 | Memoria |
+|---|---|---|---|
+| 0.1.0 | 126 µs | 427 µs | 328 KB |
+| 0.2.0 | 84 µs | 306 µs | 261 KB |
+
+Cambios: bucle de vecinos sin divisiones ni comprobaciones repetidas, estado de cada nodo en un
+registro de 16 bytes, entradas de la abierta de 16 bytes, extracción del montículo «de abajo arriba»
+con elección del hijo sin saltos y resultados reutilizables (`buscarEn`) que no asignan memoria.
+Los nodos expandidos y los costos no cambian (el benchmark sigue sin discrepancias de optimalidad).
 
 Lo que sigue está en el backlog de [docs/02_historias_usuario.md](docs/02_historias_usuario.md).
 
@@ -40,6 +64,7 @@ raylib y Catch2 se descargan solos con `FetchContent`.
 # Juego + pruebas (Release)
 cmake --preset release
 cmake --build --preset release
+ctest --test-dir build/release --output-on-failure
 ./build/release/refugio
 
 # Solo dominio, pruebas y benchmark (sin ventana, sin raylib)
@@ -51,17 +76,47 @@ ctest --preset headless
 cmake --preset asan && cmake --build --preset asan && ctest --preset asan
 ```
 
-En Windows con Visual Studio sin Ninja: `cmake -S . -B build` y `cmake --build build --config Release`.
+Los presets de prueba son `debug`, `headless` y `asan` (no hay `ctest --preset release`); para el
+build `release` usa `ctest --test-dir build/release --output-on-failure`.
 
-### Controles del prototipo
+En Windows con Visual Studio sin Ninja (Developer PowerShell for VS 2022):
+
+```powershell
+cmake -S . -B build
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+.\build\Release\refugio.exe
+```
+
+### Controles
+
+Partida (escena inicial):
+
+| Tecla | Acción |
+|---|---|
+| WASD / flechas | Mover a Mara |
+| Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
+| E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) |
+| F1 | Depuración: conos de visión, rutas de A\* y radio del último ruido |
+| R | Nueva partida (siguiente semilla) |
+| Tab | Ir al laboratorio Dijkstra / A\* |
+
+Colores de los infectados: verde = explorar, amarillo = investigar, naranja = perseguir,
+magenta = buscar, rojo = atacar.
+
+Laboratorio Dijkstra / A\*:
 
 | Tecla | Acción |
 |---|---|
 | Clic izquierdo / derecho | Fijar origen / destino |
 | B | Poner o quitar una barricada bajo el cursor |
-| F2 | Alternar Dijkstra / A* |
+| F2 | Alternar Dijkstra / A\* |
 | F3 | Comparar ambos algoritmos en el panel |
 | R | Nuevo mapa (siguiente semilla) |
+| Tab | Volver a la partida |
+
+En el laboratorio los nodos expandidos por Dijkstra se pintan en cian y los de A\* en magenta; los
+escombros (costo 2 a 5) son marrones.
 
 ## Experimentos
 
@@ -88,7 +143,8 @@ supera 64 KB (RNF-027).
 ## Estructura
 
 ```text
-src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, coordinación, experimentos, puertos
+src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agentes (FSM, percepción),
+                   juego (partida), coordinación, experimentos, puertos
 src/adaptadores/   Implementaciones con raylib (y luego archivos, Tiled, raygui)
 src/app/           main del juego, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)

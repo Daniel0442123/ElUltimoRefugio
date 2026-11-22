@@ -22,6 +22,8 @@ ResumenBenchmark ejecutarBenchmark(const ConfigBenchmark& cfg, const std::vector
 
     auto dijkstra = navegacion::crearBuscador(Algoritmo::Dijkstra);
     auto aestrella = navegacion::crearBuscador(Algoritmo::AEstrella);
+    navegacion::ResultadoBusqueda rd;
+    navegacion::ResultadoBusqueda ra;
 
     for (const int tam : cfg.tamanos) {
         // Semilla derivada por tamaño: cada mapa se puede regenerar de forma independiente.
@@ -33,14 +35,15 @@ ResumenBenchmark ejecutarBenchmark(const ConfigBenchmark& cfg, const std::vector
         for (std::size_t i = 0; i < pares.size(); ++i) {
             const auto [o, d] = pares[i];
             for (int rep = 0; rep < cfg.repeticiones; ++rep) {
-                // Se alterna el orden para no favorecer a ninguno por efectos de caché.
-                navegacion::IBuscadorRuta* orden[2] = {dijkstra.get(), aestrella.get()};
-                if (rep % 2 == 1) std::swap(orden[0], orden[1]);
-                navegacion::ResultadoBusqueda res[2];
-                for (int k = 0; k < 2; ++k) res[k] = orden[k]->buscar(grafo, o, d);
-                const auto& rd = res[orden[0] == dijkstra.get() ? 0 : 1];
-                const auto& ra = res[orden[0] == dijkstra.get() ? 1 : 0];
-
+                // Se alterna el orden para no favorecer a ninguno por efectos de caché. Los
+                // resultados se reutilizan, como en el juego: no se mide la asignación de memoria.
+                if (rep % 2 == 0) {
+                    dijkstra->buscarEn(grafo, o, d, rd);
+                    aestrella->buscarEn(grafo, o, d, ra);
+                } else {
+                    aestrella->buscarEn(grafo, o, d, ra);
+                    dijkstra->buscarEn(grafo, o, d, rd);
+                }
                 if (rd.encontrada != ra.encontrada || (rd.encontrada && std::abs(rd.costo - ra.costo) > 1e-6))
                     ++resumen.discrepanciasOptimalidad;
                 if (!rd.encontrada) ++resumen.consultasSinRuta;

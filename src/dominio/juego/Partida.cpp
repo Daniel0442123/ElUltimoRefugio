@@ -1,0 +1,459 @@
+#include "dominio/juego/Partida.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+
+#include "dominio/experimentos/GeneradorMapas.hpp"
+
+namespace refugio::juego {
+
+using agentes::celdaDe;
+using agentes::centroDe;
+using mundo::Celda;
+
+namespace {
+constexpr std::size_t kBloqueVisitasU = 4;
+constexpr int kBloqueVisitas = 4;        // RF-045: mapa de visitas en bloques de 4 x 4 celdas
+constexpr float kRadioSeparacion = 0.7f;  // Distancia mínima entre infectados (celdas)
+constexpr float kLlegadaWaypoint = 0.08f;
+
+float longitud(Vec2 v) noexcept { return std::sqrt(v.x * v.x + v.y * v.y); }
+float distancia(Vec2 a, Vec2 b) noexcept { return longitud({b.x - a.x, b.y - a.y}); }
+Vec2 normalizar(Vec2 v) noexcept {
+    const float l = longitud(v);
+    return l > 1e-6f ? Vec2{v.x / l, v.y / l} : Vec2{0.0f, 0.0f};
+}
+bool operator==(Vec2 a, Vec2 b) noexcept { return a.x == b.x && a.y == b.y; }
+
+/// Celdas alcanzables desde @p inicio (BFS 8-conexo, mismas reglas que el grafo). Solo al crear.
+std::vector<mundo::Nodo> alcanzables(const mundo::GrafoRejilla& g, mundo::Nodo inicio) {
+    std::vector<mundo::Nodo> orden;
+    std::vector<bool> visto(g.numCeldas(), false);
+    orden.push_back(inicio);
+    visto[inicio] = true;
+    for (std::size_t i = 0; i < orden.size(); ++i) {
+        g.paraCadaVecino(orden[i], [&](mundo::Nodo v, double) {
+            if (!visto[v]) {
+                visto[v] = true;
+                orden.push_back(v);
+            }
+        });
+    }
+    return orden;
+}
+}  // namespace
+
+// --------------------------------------------------------------------------------- Escenario
+Escenario crearEscenarioAleatorio(int ancho, int alto, int numInfectados, std::uint64_t semilla) {
+    for (int intento = 0; intento < 16; ++intento) {
+        nucleo::Pcg32 rng(semilla + static_cast<std::uint64_t>(intento) * 7919u, 1u);
+        Escenario e;
+        e.mapa = experimentos::generarMapa({ancho, alto, 0.22, 0.10}, rng);
+        e.mapa.fijarMultiplicador(1, 1, mundo::kCostoMin);
+        e.mapa.fijarMultiplicador(0, 1, mundo::kCostoMin);
+        e.mapa.fijarMultiplicador(1, 0, mundo::kCostoMin);
+        const mundo::Nodo inicio = e.mapa.nodo(1, 1);
+        const auto region = alcanzables(e.mapa, inicio);
+        if (region.size() < static_cast<std::size_t>(ancho * alto) / 3) continue;  // ciudad demasiado partida
+
+        e.inicioMara = centroDe(e.mapa.celda(inicio));
+        auto lejos = [&](mundo::Nodo n, float minimo) {
+            return distancia(centroDe(e.mapa.celda(n)), e.inicioMara) >= minimo;
+        };
+        auto elegir = [&](float minimo) -> Celda {
+            for (int k = 0; k < 4096; ++k) {
+                const mundo::Nodo n = region[rng.enteroMenorQue(static_cast<std::uint32_t>(region.size()))];
+                if (lejos(n, minimo)) return e.mapa.celda(n);
+            }
+            return e.mapa.celda(region.back());
+        };
+        const float diag = std::sqrt(static_cast<float>(ancho * ancho + alto * alto));
+        for (int t = 0; t < kNumTiposObjeto; ++t) e.objetos.push_back({static_cast<TipoObjeto>(t), elegir(diag * 0.35f), false});
+        e.radio = elegir(diag * 0.5f);
+        for (int z = 0; z < numInfectados; ++z) e.infectados.push_back(centroDe(elegir(12.0f)));
+        return e;
+    }
+    throw std::runtime_error("crearEscenarioAleatorio: no se encontró un mapa jugable");
+}
+
+// ----------------------------------------------------------------------------------- Partida
+Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
+    : cfg_(cfg),
+      dt_(1.0f / static_cast<float>(cfg.tickSimHz)),
+      pasosPorTickIa_(std::max(1, cfg.tickSimHz / std::max(1, cfg.tickIaHz))),
+      mapa_(std::move(esc.mapa)),
+      objetos_(std::move(esc.objetos)),
+      radio_(esc.radio),
+      rng_(semilla, 7u),
+      quadtree_({0.0f, 0.0f, static_cast<float>(mapa_.ancho()), static_cast<float>(mapa_.alto())}) {
+    mara_.pos = esc.inicioMara;
+    mara_.salud = cfg_.saludMax;
+    const auto ancho = static_cast<std::size_t>(mapa_.ancho());
+    const auto alto = static_cast<std::size_t>(mapa_.alto());
+    const std::size_t bloques = ((ancho + kBloqueVisitasU - 1) / kBloqueVisitasU) * ((alto + kBloqueVisitasU - 1) / kBloqueVisitasU);
+    infectados_.resize(esc.infectados.size());
+    for (std::size_t i = 0; i < infectados_.size(); ++i) {
+        auto& z = infectados_[i];
+        z.pos = esc.infectados[i];
+        // Orientación inicial variada y determinista.
+        const float a = static_cast<float>(rng_.real01()) * 6.2831853f;
+        z.orientacion = {std::cos(a), std::sin(a)};
+        z.ruta.reserve(mapa_.numCeldas());
+        z.visitas = std::vector<std::uint8_t>(bloques, std::uint8_t{0});
+    }
+    vecinos_.reserve(infectados_.size() + 8);
+    // Calentamiento: la primera búsqueda dimensiona los arreglos del buscador y del resultado.
+    // Toda la memoria de trabajo se reserva aquí, en la carga (RNF-006).
+    resultado_.ruta.reserve(mapa_.numCeldas());
+    buscador_.reservar(mapa_.numCeldas());
+    quadtree_.reservar(infectados_.size());
+    desdeUltimoRuido_ = cfg_.periodoRuido;
+}
+
+bool Partida::tieneTodosLosObjetos() const noexcept {
+    return std::all_of(mara_.inventario.begin(), mara_.inventario.end(), [](bool b) { return b; });
+}
+
+std::size_t Partida::numTransiciones() const noexcept {
+    return static_cast<std::size_t>(std::min<std::uint64_t>(totalTransiciones_, kCapacidadRegistro));
+}
+
+const RegistroTransicion& Partida::ultimaTransicion(std::size_t haceN) const noexcept {
+    const std::uint64_t idx = (totalTransiciones_ - 1 - haceN) % kCapacidadRegistro;
+    return registro_[static_cast<std::size_t>(idx)];
+}
+
+void Partida::paso(const EntradaJugador& entrada) {
+    if (estado_ != EstadoPartida::EnCurso) return;
+    mara_.recibioDanio = false;
+    moverMara(entrada);
+    if (tick_ % static_cast<std::uint64_t>(pasosPorTickIa_) == 0) tickIa();
+    for (std::size_t i = 0; i < infectados_.size(); ++i) ejecutarInfectado(i);
+    separarInfectados();
+    interactuar(entrada);
+    if (mara_.salud <= 0.0f) {
+        mara_.salud = 0.0f;
+        estado_ = EstadoPartida::Derrota;  // RF-011
+    }
+    ++tick_;
+}
+
+// ----------------------------------------------------------------------------- Movimiento
+bool Partida::libre(Vec2 p) const noexcept {
+    const float r = cfg_.radioCuerpo;
+    const Celda a = celdaDe({p.x - r, p.y - r});
+    const Celda b = celdaDe({p.x + r, p.y + r});
+    for (int y = a.y; y <= b.y; ++y)
+        for (int x = a.x; x <= b.x; ++x)
+            if (!mapa_.transitable(x, y)) return false;
+    return true;
+}
+
+// Ejes por separado: contra una pared se desliza en vez de quedarse pegado (RF-004).
+Vec2 Partida::moverConColision(Vec2 pos, Vec2 delta) const noexcept {
+    Vec2 p = pos;
+    if (const Vec2 px{p.x + delta.x, p.y}; libre(px)) p = px;
+    if (const Vec2 py{p.x, p.y + delta.y}; libre(py)) p = py;
+    return p;
+}
+
+float Partida::factorTerreno(Vec2 p) const noexcept {
+    const Celda c = celdaDe(p);
+    if (!mapa_.dentro(c.x, c.y)) return 1.0f;
+    const auto m = mapa_.multiplicador(mapa_.nodo(c.x, c.y));
+    return m <= 1 ? 1.0f : 1.0f / (1.0f + 0.25f * static_cast<float>(m - 1));
+}
+
+void Partida::moverMara(const EntradaJugador& e) {
+    Vec2 dir{e.ejeX, e.ejeY};
+    if (longitud(dir) > 1.0f) dir = normalizar(dir);
+    mara_.modo = e.modo;
+    const float vel = e.modo == ModoMovimiento::Sigilo   ? cfg_.velSigilo
+                      : e.modo == ModoMovimiento::Correr ? cfg_.velCorrer
+                                                         : cfg_.velCaminar;
+    const float paso = vel * factorTerreno(mara_.pos) * dt_;
+    const Vec2 antes = mara_.pos;
+    mara_.pos = moverConColision(mara_.pos, {dir.x * paso, dir.y * paso});
+    const bool seMovio = !(mara_.pos == antes);
+    if (!seMovio) {
+        desdeUltimoRuido_ = cfg_.periodoRuido;  // al volver a moverse hace ruido enseguida
+        return;
+    }
+    mara_.orientacion = normalizar(dir);
+    // RF-003: mientras se mueve emite un Ruido cada periodoRuido con radio según el modo.
+    if (desdeUltimoRuido_ >= cfg_.periodoRuido - 1e-5f) {
+        ruidoPendiente_ = true;
+        origenRuido_ = mara_.pos;
+        radioRuido_ = e.modo == ModoMovimiento::Sigilo   ? cfg_.ruidoSigilo
+                      : e.modo == ModoMovimiento::Correr ? cfg_.ruidoCorrer
+                                                         : cfg_.ruidoCaminar;
+        desdeUltimoRuido_ = 0.0f;
+    }
+    desdeUltimoRuido_ += dt_;
+}
+
+void Partida::interactuar(const EntradaJugador& e) {
+    if (!e.interactuar) {
+        mara_.progresoInstalacion = 0.0f;
+        return;
+    }
+    // RF-005: recoger a distancia <= alcance (centro de la celda del objeto).
+    for (auto& o : objetos_) {
+        if (o.recogido || distancia(mara_.pos, centroDe(o.celda)) > cfg_.alcanceInteraccion) continue;
+        o.recogido = true;
+        mara_.inventario[static_cast<std::size_t>(o.tipo)] = true;
+        return;  // un objeto por pulsación
+    }
+    // RF-007 / RF-008: instalar la radio manteniendo interactuar; el daño reinicia el progreso.
+    const bool enRadio = distancia(mara_.pos, centroDe(radio_)) <= cfg_.alcanceInteraccion;
+    if (!enRadio || !tieneTodosLosObjetos() || mara_.recibioDanio) {
+        mara_.progresoInstalacion = 0.0f;
+        return;
+    }
+    mara_.progresoInstalacion += dt_;
+    if (mara_.progresoInstalacion >= cfg_.tInstalacion) estado_ = EstadoPartida::Victoria;  // RF-010
+}
+
+// -------------------------------------------------------------------------------- Ciclo de IA
+// RF-040: percepción -> memoria -> decisión -> planificación, para cada agente y en ese orden.
+void Partida::tickIa() {
+    ruidoUltimoTickIa_ = ruidoPendiente_;
+    ruidoPendiente_ = false;
+    for (std::size_t i = 0; i < infectados_.size(); ++i) percibirYDecidir(i);
+    planificarRutas();
+    // Mapa de visitas propio (RF-045): cada agente marca el bloque en el que está.
+    const int bloquesX = (mapa_.ancho() + kBloqueVisitas - 1) / kBloqueVisitas;
+    for (auto& z : infectados_) {
+        const Celda c = celdaDe(z.pos);
+        auto& v = z.visitas[static_cast<std::size_t>((c.y / kBloqueVisitas) * bloquesX + c.x / kBloqueVisitas)];
+        if (v < 255) ++v;
+    }
+}
+
+void Partida::fijarObjetivo(Infectado& z, Celda c) {
+    z.objetivo = c;
+    z.tieneObjetivo = true;
+    z.rutaPendiente = true;
+}
+
+bool Partida::celdaLibreAleatoriaCerca(Celda centro, float radio, Celda& salida) {
+    const int r = std::max(1, static_cast<int>(radio));
+    const auto lado = static_cast<std::uint32_t>(2 * r + 1);
+    for (int k = 0; k < 24; ++k) {
+        const Celda c{centro.x - r + static_cast<int>(rng_.enteroMenorQue(lado)),
+                      centro.y - r + static_cast<int>(rng_.enteroMenorQue(lado))};
+        if (!(c == centro) && mapa_.transitable(c.x, c.y)) {
+            salida = c;
+            return true;
+        }
+    }
+    return false;
+}
+
+// RF-045 (primer corte): entre varias celdas candidatas cercanas elige la de menos visitas
+// propias y, a igualdad, la más cercana. Solo usa el mapa de visitas del propio agente.
+void Partida::elegirObjetivo(std::size_t i) {
+    auto& z = infectados_[i];
+    const Celda aqui = celdaDe(z.pos);
+    const int bloquesX = (mapa_.ancho() + kBloqueVisitas - 1) / kBloqueVisitas;
+    float mejor = 1e30f;
+    Celda elegida{};
+    bool hay = false;
+    for (int k = 0; k < 8; ++k) {
+        Celda c{};
+        if (!celdaLibreAleatoriaCerca(aqui, cfg_.radioExplorar, c)) continue;
+        const auto visitas =
+            z.visitas[static_cast<std::size_t>((c.y / kBloqueVisitas) * bloquesX + c.x / kBloqueVisitas)];
+        const float puntos = 4.0f * static_cast<float>(visitas) + 0.15f * distancia(centroDe(aqui), centroDe(c));
+        if (puntos < mejor) {
+            mejor = puntos;
+            elegida = c;
+            hay = true;
+        }
+    }
+    if (hay) fijarObjetivo(z, elegida);
+}
+
+void Partida::percibirYDecidir(std::size_t i) {
+    auto& z = infectados_[i];
+    const Celda aqui = celdaDe(z.pos);
+    const Celda celdaMara = celdaDe(mara_.pos);
+
+    // Percepción local (RF-041, RF-042): cono de visión + línea de visión, y oído.
+    agentes::PercepcionInfectado p;
+    const float dMara = distancia(z.pos, mara_.pos);
+    p.veAMara = agentes::ve(mapa_, z.pos, z.orientacion, mara_.pos, cfg_.visionRadio, cfg_.visionAngulo) ||
+                (dMara <= cfg_.sentidoCercano && agentes::lineaDeVisionLibre(mapa_, aqui, celdaMara));
+    p.distanciaMara = dMara;
+    p.oyeRuido = ruidoUltimoTickIa_ && agentes::oye(mapa_, z.pos, origenRuido_, radioRuido_);
+
+    // Memoria (primer corte de RF-043): última posición vista de Mara.
+    if (p.veAMara) {
+        z.recuerdaMara = true;
+        z.ultimaPosMara = celdaMara;
+    }
+
+    // Decisión (RF-044).
+    agentes::ContextoFsm c;
+    c.tiempoEnEstado = z.tiempoEnEstado;
+    c.llegoAlObjetivo = !z.tieneObjetivo || (aqui == z.objetivo && z.indiceRuta >= z.ruta.size());
+    c.sinRuta = z.sinRuta;
+    const auto t = agentes::decidirTransicion(z.estado, p, c, cfg_.fsm);
+    const bool entra = t.motivo != MotivoTransicion::Ninguno;
+    if (entra) {
+        registrar(i, z.estado, t.hacia, t.motivo);
+        z.estado = t.hacia;
+        z.tiempoEnEstado = 0.0f;
+    }
+    const bool sinRuta = z.sinRuta;
+    z.sinRuta = false;
+
+    // Planificación: qué objetivo necesita el estado actual.
+    using E = EstadoInfectado;
+    switch (z.estado) {
+        case E::Explorar:
+            if (entra || c.llegoAlObjetivo || sinRuta) elegirObjetivo(i);
+            break;
+        case E::Investigar:
+            if (p.oyeRuido) fijarObjetivo(z, celdaDe(origenRuido_));
+            break;
+        case E::Perseguir:
+            if (entra || (!(celdaMara == z.objetivo) && z.desdeUltimaRuta >= cfg_.periodoReplan))
+                fijarObjetivo(z, celdaMara);
+            break;
+        case E::Buscar:
+            if (entra) {
+                fijarObjetivo(z, z.recuerdaMara ? z.ultimaPosMara : aqui);
+            } else if (c.llegoAlObjetivo || sinRuta) {
+                Celda alrededor{};
+                if (celdaLibreAleatoriaCerca(z.recuerdaMara ? z.ultimaPosMara : aqui, 3.0f, alrededor))
+                    fijarObjetivo(z, alrededor);
+            }
+            break;
+        case E::Atacar:
+            z.ruta.clear();
+            z.indiceRuta = 0;
+            z.rutaPendiente = false;
+            break;
+    }
+}
+
+// RF-026: se atienden solicitudes por turno rotativo hasta agotar el presupuesto de nodos.
+void Partida::planificarRutas() {
+    busquedasTickIa_ = 0;
+    nodosTickIa_ = 0;
+    tiempoTickIaUs_ = 0.0;
+    const std::size_t n = infectados_.size();
+    for (std::size_t k = 0; k < n; ++k) {
+        const std::size_t i = (inicioCola_ + k) % n;
+        auto& z = infectados_[i];
+        if (!z.rutaPendiente) continue;
+        if (nodosTickIa_ >= static_cast<std::uint32_t>(cfg_.presupuestoNodosTick)) {
+            inicioCola_ = i;  // el siguiente tick empieza por quien quedó esperando
+            return;
+        }
+        const Celda c = celdaDe(z.pos);
+        buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_);
+        ++busquedasTickIa_;
+        nodosTickIa_ += resultado_.expandidos;
+        tiempoTickIaUs_ += resultado_.tiempoUs;
+        z.rutaPendiente = false;
+        z.desdeUltimaRuta = 0.0f;
+        z.ruta.clear();
+        z.indiceRuta = 0;
+        if (resultado_.encontrada) {
+            z.ruta.insert(z.ruta.end(), resultado_.ruta.begin(), resultado_.ruta.end());  // cabe: capacidad reservada
+            z.indiceRuta = 1;  // la primera celda es donde ya está
+        } else {
+            z.sinRuta = true;  // RF-027: otro comportamiento en el siguiente tick de IA
+        }
+    }
+    inicioCola_ = n == 0 ? 0 : (inicioCola_ + 1) % n;
+}
+
+// --------------------------------------------------------------------------------- Ejecución
+void Partida::ejecutarInfectado(std::size_t i) {
+    auto& z = infectados_[i];
+    z.tiempoEnEstado += dt_;
+    z.desdeUltimaRuta += dt_;
+    using E = EstadoInfectado;
+    const float factor = factorTerreno(z.pos);
+
+    if (z.estado == E::Atacar) {
+        const Vec2 haciaMara{mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y};
+        const float d = longitud(haciaMara);
+        z.orientacion = normalizar(haciaMara);
+        if (d > 0.6f) {
+            const float paso = std::min(cfg_.velPerseguir * factor * dt_, d - 0.6f);
+            z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
+        }
+        if (d <= cfg_.fsm.alcanceAtaque) {
+            mara_.salud -= cfg_.danioPorSegundo * dt_;
+            mara_.recibioDanio = true;
+        }
+        return;
+    }
+
+    const float vel = z.estado == E::Perseguir    ? cfg_.velPerseguir
+                      : z.estado == E::Investigar ? 0.5f * (cfg_.velExplorar + cfg_.velPerseguir)
+                                                  : cfg_.velExplorar;
+    float restante = vel * factor * dt_;
+    while (restante > 0.0f && z.indiceRuta < z.ruta.size()) {
+        const Vec2 meta = centroDe(mapa_.celda(z.ruta[z.indiceRuta]));
+        const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
+        const float l = longitud(d);
+        if (l <= kLlegadaWaypoint) {
+            ++z.indiceRuta;
+            continue;
+        }
+        const float paso = std::min(restante, l);
+        z.orientacion = {d.x / l, d.y / l};
+        z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
+        restante -= paso;
+        if (paso >= l) ++z.indiceRuta;
+    }
+    // Al final de la ruta y con Mara a la vista, el último tramo es directo.
+    if (z.estado == E::Perseguir && z.indiceRuta >= z.ruta.size() && restante > 0.0f) {
+        const Vec2 haciaMara{mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y};
+        const float d = longitud(haciaMara);
+        if (d > 0.6f) {
+            z.orientacion = normalizar(haciaMara);
+            const float paso = std::min(restante, d - 0.6f);
+            z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
+        }
+    }
+}
+
+// Separación simple (anticipo de RF-029) con vecinos del quadtree (RF-030).
+void Partida::separarInfectados() {
+    quadtree_.limpiar();
+    for (std::size_t i = 0; i < infectados_.size(); ++i)
+        quadtree_.insertar(static_cast<std::uint32_t>(i), infectados_[i].pos);
+    for (std::size_t i = 0; i < infectados_.size(); ++i) {
+        auto& z = infectados_[i];
+        vecinos_.clear();
+        quadtree_.consultarRadio(z.pos, kRadioSeparacion, vecinos_);
+        Vec2 empuje{};
+        for (const auto j : vecinos_) {
+            if (j == i) continue;
+            const Vec2 d{z.pos.x - infectados_[j].pos.x, z.pos.y - infectados_[j].pos.y};
+            const float l = longitud(d);
+            const float solape = kRadioSeparacion - l;
+            if (solape <= 0.0f) continue;
+            // Si coinciden exactamente se separan en una dirección fija según el índice.
+            const Vec2 u = l > 1e-4f ? Vec2{d.x / l, d.y / l} : Vec2{i < j ? 1.0f : -1.0f, 0.0f};
+            empuje.x += u.x * solape * 0.25f;
+            empuje.y += u.y * solape * 0.25f;
+        }
+        if (empuje.x != 0.0f || empuje.y != 0.0f) z.pos = moverConColision(z.pos, empuje);
+    }
+}
+
+void Partida::registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado hacia, MotivoTransicion m) {
+    registro_[static_cast<std::size_t>(totalTransiciones_ % kCapacidadRegistro)] =
+        RegistroTransicion{tick_, static_cast<std::uint16_t>(i), desde, hacia, m};
+    ++totalTransiciones_;
+}
+
+}  // namespace refugio::juego

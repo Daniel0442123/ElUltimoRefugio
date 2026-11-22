@@ -15,10 +15,31 @@ bool Rect::intersecaCirculo(Vec2 c, float r) const noexcept {
 
 Quadtree::Quadtree(Rect limites) : raiz_(limites) { limpiar(); }
 
+// Los nodos y sus vectores de puntos se conservan entre reconstrucciones: tras los primeros
+// ticks no se asigna memoria (RNF-006).
 void Quadtree::limpiar() {
-    nodos_.clear();
-    nodos_.push_back(NodoQT{raiz_, -1, 0, {}});
+    if (nodos_.empty()) nodos_.push_back(NodoQT{raiz_, -1, 0, {}});
+    for (std::size_t i = 0; i < usados_; ++i) nodos_[i].puntos.clear();
+    nodos_[0].primerHijo = -1;
+    usados_ = 1;
     profundidadMaxima_ = 0;
+}
+
+void Quadtree::reservar(std::size_t maxPuntos) {
+    const std::size_t internosPorNivel = maxPuntos / (kCapacidadHoja + 1);
+    const std::size_t total = 1 + 4 * static_cast<std::size_t>(kProfundidadMax) * internosPorNivel;
+    while (nodos_.size() < total) nodos_.push_back(NodoQT{raiz_, -1, 0, {}});
+    for (auto& n : nodos_) n.puntos.reserve(std::max<std::size_t>(maxPuntos, kCapacidadHoja));
+}
+
+std::int32_t Quadtree::nuevoNodo(Rect limites, std::int32_t nivel) {
+    if (usados_ == nodos_.size()) nodos_.push_back(NodoQT{limites, -1, nivel, {}});
+    NodoQT& n = nodos_[usados_];
+    n.limites = limites;
+    n.primerHijo = -1;
+    n.nivel = nivel;
+    n.puntos.clear();
+    return static_cast<std::int32_t>(usados_++);
 }
 
 bool Quadtree::insertar(std::uint32_t id, Vec2 p) {
@@ -32,18 +53,22 @@ void Quadtree::dividir(std::int32_t indice) {
     const std::int32_t nivel = nodos_[static_cast<std::size_t>(indice)].nivel + 1;
     const float w = r.ancho / 2.0f;
     const float h = r.alto / 2.0f;
-    const auto primero = static_cast<std::int32_t>(nodos_.size());
-    nodos_.push_back(NodoQT{{r.x, r.y, w, h}, -1, nivel, {}});
-    nodos_.push_back(NodoQT{{r.x + w, r.y, w, h}, -1, nivel, {}});
-    nodos_.push_back(NodoQT{{r.x, r.y + h, w, h}, -1, nivel, {}});
-    nodos_.push_back(NodoQT{{r.x + w, r.y + h, w, h}, -1, nivel, {}});
+    const std::int32_t primero = nuevoNodo({r.x, r.y, w, h}, nivel);
+    nuevoNodo({r.x + w, r.y, w, h}, nivel);
+    nuevoNodo({r.x, r.y + h, w, h}, nivel);
+    nuevoNodo({r.x + w, r.y + h, w, h}, nivel);
     profundidadMaxima_ = std::max(profundidadMaxima_, static_cast<int>(nivel));
-    // Ojo: push_back puede reubicar nodos_, por eso se vuelve a indexar aquí.
+    // Ojo: nuevoNodo puede reubicar nodos_, por eso se vuelve a indexar aquí. El padre tenía
+    // exactamente kCapacidadHoja puntos, así que cada hijo recibe a lo sumo esa cantidad y el
+    // reparto no necesita recursión.
     auto& padre = nodos_[static_cast<std::size_t>(indice)];
     padre.primerHijo = primero;
-    std::vector<Punto> pendientes;
-    pendientes.swap(padre.puntos);
-    for (const Punto& pt : pendientes) insertarRec(indice, pt);
+    for (const Punto& pt : padre.puntos) {
+        const bool derecha = pt.p.x >= r.x + w;
+        const bool abajo = pt.p.y >= r.y + h;
+        nodos_[static_cast<std::size_t>(primero + (derecha ? 1 : 0) + (abajo ? 2 : 0))].puntos.push_back(pt);
+    }
+    padre.puntos.clear();  // conserva la capacidad
 }
 
 // Recursión: caso base = hoja con espacio o en el nivel máximo; progreso = nivel + 1 en cada
