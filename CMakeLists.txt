@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.15.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.16.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -99,6 +99,12 @@ target_link_libraries(refugio_cli PUBLIC refugio_dominio)
 target_compile_definitions(refugio_cli PRIVATE REFUGIO_COMMIT="${REFUGIO_COMMIT}" REFUGIO_OPCIONES="${REFUGIO_OPCIONES}")
 refugio_configurar_objetivo(refugio_cli)
 
+# Lectura visual del mapa para el arte pixel (edificios, aceras, rayos de luz): sin raylib para
+# poder probarla en CI.
+add_library(refugio_vista STATIC src/adaptadores/vista/Escenario.cpp)
+target_link_libraries(refugio_vista PUBLIC refugio_dominio)
+refugio_configurar_objetivo(refugio_vista)
+
 # Menú de pausa (HU-19): lógica sin raylib para poder probarla.
 add_library(refugio_menu STATIC src/app/MenuPausa.cpp)
 target_link_libraries(refugio_menu PUBLIC refugio_dominio)
@@ -114,8 +120,9 @@ refugio_configurar_objetivo(refugio_bench)
 if(REFUGIO_BUILD_GAME)
     add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp
                                            src/adaptadores/raylib/VistaPartida.cpp
-                                           src/adaptadores/raylib/Sonidos.cpp)
-    target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo raylib)
+                                           src/adaptadores/raylib/Sonidos.cpp
+                                           src/adaptadores/raylib/ArteMundo.cpp)
+    target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo refugio_vista raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 
     add_executable(refugio src/app/main_juego.cpp)

@@ -32,25 +32,10 @@ Vector2 aPantalla(navegacion::Vec2 p, const EstiloVista& e) {
 
 Vector2 centroCelda(mundo::Celda c, const EstiloVista& e) { return aPantalla(agentes::centroDe(c), e); }
 
-void dibujarObjeto(juego::TipoObjeto t, Vector2 c, float lado) {
-    const Rectangle r{c.x - lado / 2, c.y - lado / 2, lado, lado};
-    switch (t) {
-        case juego::TipoObjeto::Medicamento:  // botiquín: blanco con cruz roja
-            DrawRectangleRounded(r, 0.25f, 4, RAYWHITE);
-            DrawRectangle(static_cast<int>(c.x - lado * 0.1f), static_cast<int>(c.y - lado * 0.35f),
-                          static_cast<int>(lado * 0.2f), static_cast<int>(lado * 0.7f), RED);
-            DrawRectangle(static_cast<int>(c.x - lado * 0.35f), static_cast<int>(c.y - lado * 0.1f),
-                          static_cast<int>(lado * 0.7f), static_cast<int>(lado * 0.2f), RED);
-            break;
-        case juego::TipoObjeto::Combustible:  // bidón amarillo
-            DrawRectangleRounded({r.x + lado * 0.15f, r.y, lado * 0.7f, lado}, 0.3f, 4, {240, 190, 20, 255});
-            DrawRectangleLinesEx({r.x + lado * 0.15f, r.y, lado * 0.7f, lado}, 2.0f, {120, 80, 0, 255});
-            break;
-        case juego::TipoObjeto::Bateria:  // batería verde con borne
-            DrawRectangleRec({r.x, r.y + lado * 0.2f, lado, lado * 0.6f}, {40, 180, 90, 255});
-            DrawRectangleRec({r.x + lado * 0.35f, r.y + lado * 0.05f, lado * 0.3f, lado * 0.15f}, DARKGRAY);
-            break;
-    }
+/// Texto con sombra de 1 px para que se lea sobre el arte, con luz o sin ella.
+void textoConSombra(const char* t, int x, int y, int tam, Color c) {
+    DrawText(t, x + 1, y + 1, tam, {0, 0, 0, 200});
+    DrawText(t, x, y, tam, c);
 }
 
 const char* nombreObjeto(juego::TipoObjeto t) {
@@ -94,7 +79,8 @@ void dibujarAyuda(int x, int alto, const config::Controles& k) {
     char l[9][96];
     std::snprintf(l[0], sizeof(l[0]), "%s%s%s%s/flechas: mover", t(Accion::Arriba).c_str(), t(Accion::Izquierda).c_str(),
                   t(Accion::Abajo).c_str(), t(Accion::Derecha).c_str());
-    std::snprintf(l[1], sizeof(l[1]), "%s: correr  %s: sigilo", t(Accion::Correr).c_str(), t(Accion::Sigilo).c_str());
+    std::snprintf(l[1], sizeof(l[1]), "%s: correr  %s: sigilo  %s: cámara", t(Accion::Correr).c_str(), t(Accion::Sigilo).c_str(),
+                  t(Accion::Camara).c_str());
     std::snprintf(l[2], sizeof(l[2]), "%s: recoger / activar radio", t(Accion::Interactuar).c_str());
     std::snprintf(l[3], sizeof(l[3]), "%s: señuelo al cursor  %s: barricada", t(Accion::Senuelo).c_str(),
                   t(Accion::Barricada).c_str());
@@ -357,11 +343,30 @@ void dibujarConsolaIa(const juego::Partida& p, ModoConsola modo, int x, int y, i
     }
 }
 
-void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuracion, bool nodosExpandidos) {
-    dibujarGrafo(p.mapa(), e);
+void dibujarPartida(const juego::Partida& p, const ArteMundo& arte, const EstiloVista& e, bool depuracion,
+                    bool nodosExpandidos) {
     const float tc = static_cast<float>(e.tamCelda);
+    const auto& cfgP = p.config();
 
-    // RF-071: nodos cerrados por la última búsqueda del agente seleccionado, más oscuros cuanto
+    // 1. Mundo con arte pixel: suelo y edificios, anillos de estado (solo en depuración, debajo de
+    //    los sprites), actores, oscuridad y lo que brilla en ella.
+    arte.dibujarFondo(e);
+    // Zona de extracción pintada en el suelo: un círculo de señalización.
+    const Vector2 cx = centroCelda(p.extraccion(), e);
+    const float rx = cfgP.radioExtraccion * tc;
+    DrawRing(cx, rx - 3.0f, rx, 0.0f, 360.0f, 48, Fade({230, 190, 60, 255}, 0.45f));
+    for (int k = 0; k < 8; ++k) {  // franjas de aviso
+        const float a = static_cast<float>(k) * 45.0f;
+        DrawRing(cx, rx - 9.0f, rx - 5.0f, a, a + 20.0f, 6, Fade({230, 190, 60, 255}, 0.35f));
+    }
+    if (depuracion)
+        for (const auto& z : p.infectados()) DrawCircleV(aPantalla(z.pos, e), tc * 0.48f, Fade(colorEstado(z.estado), 0.55f));
+    arte.dibujarActores(p, e);
+    arte.dibujarLuz(e);
+    arte.dibujarEmisivos(p, e);
+
+    // 2. Capas de información encima del arte (siempre legibles, con o sin oscuridad).
+    // RF-071: nodos cerrados por la última búsqueda del agente seleccionado, más intensos cuanto
     // antes se expandieron. Hay exactamente tantos como «expandidos» en el panel (CP-071).
     if (nodosExpandidos && p.seleccionado() >= 0) {
         const auto& exp = p.expansionSeleccionado();
@@ -376,70 +381,50 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         }
     }
 
-    // Radio: se ilumina cuando Mara ya tiene los tres objetos.
+    // Radio: halo cuando Mara ya tiene los tres objetos; RF-063: aro rojo si golpean la puerta.
     const Vector2 cr = centroCelda(p.radio(), e);
-    const bool lista = p.tieneTodosLosObjetos();
-    if (lista) DrawCircleV(cr, tc * (0.7f + 0.1f * std::sin(static_cast<float>(p.tick()) * 0.1f)), Fade(SKYBLUE, 0.35f));
-    DrawRectangleRec({cr.x - tc * 0.35f, cr.y - tc * 0.2f, tc * 0.7f, tc * 0.5f}, {60, 70, 90, 255});
-    DrawRectangleLinesEx({cr.x - tc * 0.35f, cr.y - tc * 0.2f, tc * 0.7f, tc * 0.5f}, 2.0f, SKYBLUE);
-    DrawLineEx({cr.x + tc * 0.2f, cr.y - tc * 0.2f}, {cr.x + tc * 0.3f, cr.y - tc * 0.45f}, 2.0f, SKYBLUE);
-    // RF-063: la radio está en el refugio; si golpean su puerta parpadea en rojo.
-    if (p.golpeandoPuerta() > 0 && (p.tick() / 6) % 2 == 0) DrawCircleLinesV(cr, tc * 0.6f, RED);
+    if (p.tieneTodosLosObjetos())
+        DrawCircleLinesV(cr, tc * (0.7f + 0.1f * std::sin(static_cast<float>(p.tick()) * 0.1f)), Fade(SKYBLUE, 0.8f));
+    if (p.golpeandoPuerta() > 0 && (p.tick() / 6) % 2 == 0) {
+        DrawCircleLinesV(cr, tc * 0.6f, RED);
+        DrawCircleLinesV(cr, tc * 0.6f + 1.0f, RED);
+    }
 
     // RF-009: zona de extracción, verde mientras está abierta, con su temporizador.
-    const Vector2 cx = centroCelda(p.extraccion(), e);
-    const float rx = p.config().radioExtraccion * tc;
     if (p.zonaAbierta()) {
-        DrawCircleV(cx, rx, Fade(GREEN, 0.25f + 0.1f * std::sin(static_cast<float>(p.tick()) * 0.15f)));
-        DrawCircleLinesV(cx, rx, {40, 160, 60, 255});
+        DrawCircleV(cx, rx, Fade(GREEN, 0.18f + 0.08f * std::sin(static_cast<float>(p.tick()) * 0.15f)));
+        DrawRing(cx, rx - 2.0f, rx, 0.0f, 360.0f, 48, {80, 220, 100, 255});
         char t[16];
         std::snprintf(t, sizeof(t), "%.0f s", static_cast<double>(p.restanteExtraccion()));
-        DrawText(t, static_cast<int>(cx.x) - MeasureText(t, 16) / 2, static_cast<int>(cx.y - rx) - 18, 16, {20, 110, 40, 255});
-    } else {
-        DrawCircleLinesV(cx, rx, Fade(DARKGRAY, 0.7f));
+        textoConSombra(t, static_cast<int>(cx.x) - MeasureText(t, 16) / 2, static_cast<int>(cx.y - rx) - 18, 16,
+                       {120, 255, 140, 255});
     }
-    DrawText("EXT", static_cast<int>(cx.x) - MeasureText("EXT", 10) / 2, static_cast<int>(cx.y) - 5, 10,
-             p.zonaAbierta() ? Color{20, 90, 30, 255} : GRAY);
+    textoConSombra("EXT", static_cast<int>(cx.x) - MeasureText("EXT", 10) / 2, static_cast<int>(cx.y) - 5, 10,
+                   p.zonaAbierta() ? Color{120, 255, 140, 255} : Color{230, 190, 60, 255});
 
-    for (const auto& o : p.objetos())
-        if (!o.recogido) dibujarObjeto(o.tipo, centroCelda(o.celda, e), tc * 0.55f);
-
-    // HU-13: almacén de tablas.
+    // HU-13: rótulo del almacén de tablas.
     if (p.almacen().x >= 0) {
         const Vector2 ca = centroCelda(p.almacen(), e);
-        const Rectangle r{ca.x - tc * 0.4f, ca.y - tc * 0.3f, tc * 0.8f, tc * 0.6f};
-        DrawRectangleRec(r, {165, 120, 70, 255});
-        for (int k = 1; k < 3; ++k)
-            DrawLineEx({r.x, r.y + r.height * static_cast<float>(k) / 3.0f}, {r.x + r.width, r.y + r.height * static_cast<float>(k) / 3.0f},
-                       1.5f, {100, 65, 30, 255});
-        DrawRectangleLinesEx(r, 1.5f, {100, 65, 30, 255});
-        DrawText("ALM", static_cast<int>(ca.x) - MeasureText("ALM", 10) / 2, static_cast<int>(r.y) - 11, 10, {100, 65, 30, 255});
+        textoConSombra("ALM", static_cast<int>(ca.x) - MeasureText("ALM", 10) / 2, static_cast<int>(ca.y - tc * 0.5f) - 10, 10,
+                       {220, 170, 110, 255});
     }
 
-    // RF-014: barricada de tablas con su durabilidad.
-    const auto& cfgP = p.config();
+    // RF-014: durabilidad de cada barricada.
     for (const auto& b : p.barricadas()) {
         if (!b.activa) continue;
         const Vector2 c = centroCelda(b.celda, e);
         const Rectangle r{c.x - tc * 0.45f, c.y - tc * 0.45f, tc * 0.9f, tc * 0.9f};
-        DrawRectangleRec(r, {120, 80, 45, 255});
-        DrawLineEx({r.x, r.y}, {r.x + r.width, r.y + r.height}, 3.0f, {80, 50, 25, 255});
-        DrawLineEx({r.x + r.width, r.y}, {r.x, r.y + r.height}, 3.0f, {80, 50, 25, 255});
-        DrawRectangleLinesEx(r, 2.0f, {80, 50, 25, 255});
         const float f = b.durabilidad / cfgP.durabilidadBarricada;
         DrawRectangleRec({r.x, r.y - 5.0f, r.width, 3.0f}, {50, 52, 58, 255});
         DrawRectangleRec({r.x, r.y - 5.0f, r.width * f, 3.0f}, f > 0.3f ? Color{230, 170, 60, 255} : RED);
     }
-    // RF-013: señuelo con la onda de su último ruido.
+    // RF-013: onda del último ruido de cada señuelo.
     for (const auto& sn : p.senuelos()) {
         if (!sn.activo) continue;
-        const Vector2 c = centroCelda(sn.celda, e);
         const float fase = sn.desdeRuido / cfgP.senueloPeriodo;
         if (fase < 1.0f)
-            DrawCircleLinesV(c, cfgP.senueloRadio * tc * std::fmin(1.0f, fase * 1.5f), Fade(GOLD, 0.6f * (1.0f - fase)));
-        DrawCircleV(c, tc * 0.22f, {250, 210, 60, 255});
-        DrawCircleLinesV(c, tc * 0.22f, {90, 70, 10, 255});
-        DrawCircleLinesV(c, tc * 0.32f, Fade(GOLD, 0.8f));
+            DrawCircleLinesV(centroCelda(sn.celda, e), cfgP.senueloRadio * tc * std::fmin(1.0f, fase * 1.5f),
+                             Fade(GOLD, 0.6f * (1.0f - fase)));
     }
 
     if (depuracion && p.campoActivo()) {  // RF-028: flecha de cada celda hacia su siguiente paso
@@ -448,8 +433,8 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
             if (!g.transitable(n) || !p.campo().alcanzable(n) || p.campo().siguiente(n) == n) continue;
             const Vector2 a = centroCelda(g.celda(n), e);
             const Vector2 b = centroCelda(g.celda(p.campo().siguiente(n)), e);
-            DrawLineEx(a, {a.x + (b.x - a.x) * 0.4f, a.y + (b.y - a.y) * 0.4f}, 2.0f, Fade(DARKBLUE, 0.35f));
-            DrawCircleV(a, 1.5f, Fade(DARKBLUE, 0.35f));
+            DrawLineEx(a, {a.x + (b.x - a.x) * 0.4f, a.y + (b.y - a.y) * 0.4f}, 2.0f, Fade(SKYBLUE, 0.45f));
+            DrawCircleV(a, 1.5f, Fade(SKYBLUE, 0.45f));
         }
     }
 
@@ -492,11 +477,22 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
             DrawCircleLinesV(aPantalla(p.origenUltimoRuido(), e), p.radioUltimoRuido() * tc, Fade(YELLOW, 0.8f));
     }
 
+    // Aviso sobre cada infectado alerta: «?» si oyó algo o la busca, «!» si la ve o ataca.
     for (const auto& z : p.infectados()) {
+        const char* marca = nullptr;
+        switch (z.estado) {
+            case EstadoInfectado::Investigar:
+            case EstadoInfectado::Buscar: marca = "?"; break;
+            case EstadoInfectado::Perseguir:
+            case EstadoInfectado::Atacar:
+            case EstadoInfectado::Interceptar:
+            case EstadoInfectado::AtacarBarricada: marca = "!"; break;
+            case EstadoInfectado::Explorar: break;
+        }
+        if (marca == nullptr) continue;
         const Vector2 c = aPantalla(z.pos, e);
-        DrawCircleV(c, tc * 0.32f, colorEstado(z.estado));
-        DrawCircleLinesV(c, tc * 0.32f, {30, 30, 30, 255});
-        DrawLineEx(c, {c.x + z.orientacion.x * tc * 0.42f, c.y + z.orientacion.y * tc * 0.42f}, 3.0f, {30, 30, 30, 255});
+        textoConSombra(marca, static_cast<int>(c.x) - MeasureText(marca, 18) / 2, static_cast<int>(c.y - tc * 0.95f), 18,
+                       colorEstado(z.estado));
     }
 
     // RF-070: agente seleccionado. Su ruta se ve siempre (no solo con F1), con su objetivo y un aro.
@@ -520,7 +516,7 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         std::snprintf(id, sizeof(id), "Z%d", p.seleccionado());
         const float anchoMapa = static_cast<float>(e.origenX) + static_cast<float>(p.mapa().ancho()) * tc;
         const float xId = c.x + tc * 0.45f + 24.0f > anchoMapa ? c.x - tc * 0.45f - 22.0f : c.x + tc * 0.45f;
-        DrawText(id, static_cast<int>(xId), static_cast<int>(c.y - tc * 0.8f), 14, kColorSeleccion);
+        textoConSombra(id, static_cast<int>(xId), static_cast<int>(c.y - tc * 0.8f), 14, kColorSeleccion);
     }
 
     // HU-13: superviviente de la radio (ruta en depuración, chispas al reparar, aro al ayudar).
@@ -534,18 +530,15 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         if (s.actividad == juego::Actividad::Reparar && (p.tick() / 8) % 2 == 0)
             DrawCircleV({cs.x + s.orientacion.x * tc * 0.5f, cs.y + s.orientacion.y * tc * 0.5f}, tc * 0.12f, GOLD);
         if (s.ayudando) DrawCircleLinesV(cs, tc * 0.45f, SKYBLUE);
-        DrawCircleV(cs, tc * 0.28f, kColorSuperviviente);
-        DrawCircleLinesV(cs, tc * 0.28f, RAYWHITE);
-        DrawLineEx(cs, {cs.x + s.orientacion.x * tc * 0.38f, cs.y + s.orientacion.y * tc * 0.38f}, 2.5f, RAYWHITE);
-        if (s.tablas > 0.0f) DrawRectangleRec({cs.x - tc * 0.3f, cs.y + tc * 0.3f, tc * 0.6f, tc * 0.12f}, {165, 120, 70, 255});
+        if (s.tablas > 0.0f) DrawRectangleRec({cs.x - tc * 0.3f, cs.y + tc * 0.35f, tc * 0.6f, tc * 0.12f}, {165, 120, 70, 255});
     }
 
     const auto& m = p.mara();
-    const Vector2 cm = aPantalla(m.pos, e);
-    DrawCircleV(cm, tc * 0.3f, {60, 140, 255, 255});
-    DrawCircleLinesV(cm, tc * 0.3f, RAYWHITE);
-    DrawLineEx(cm, {cm.x + m.orientacion.x * tc * 0.4f, cm.y + m.orientacion.y * tc * 0.4f}, 3.0f, RAYWHITE);
-    if (m.recibioDanio) DrawCircleLinesV(cm, tc * 0.45f, RED);
+    if (m.recibioDanio) {
+        const Vector2 cm = aPantalla(m.pos, e);
+        DrawCircleLinesV(cm, tc * 0.5f, RED);
+        DrawCircleLinesV(cm, tc * 0.5f + 1.0f, RED);
+    }
 }
 
 void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fps, const config::Controles& controles) {

@@ -15,7 +15,32 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.15.0)
+## Estado actual (0.16.0)
+
+**Arte pixel con linterna y sombras** (ADR-0017). El mundo deja de ser una rejilla de cuadros y
+círculos.
+
+- **Ciudad de noche**: calles de asfalto, aceras junto a los edificios, azoteas con pretil, aires
+  acondicionados y claraboyas, fachadas de ladrillo con ventanas (algunas encendidas), escombros de
+  piedras y tablas donde el terreno es lento, alcantarillas, grietas y manchas.
+- **Sprites originales** de 16 × 16 px dibujados al doble: infectados en 4 variantes con 2 fotogramas
+  de paso y ojos rojos que se ven en la oscuridad, Mara con su linterna, el superviviente, botiquín,
+  bidón, batería, radio, almacén, barricada y bengala. Todo se genera por código: no hay archivos de
+  imagen ni arte de terceros.
+- **Luz con sombras**: la linterna de Mara es un cono que los muros cortan (más corto en sigilo);
+  la radio, la extracción abierta, las bengalas, el superviviente y las ventanas también iluminan.
+  Cuando hieren a Mara queda sangre en el suelo.
+- **Cámara** (Z): sigue a Mara con zoom 2× o enseña el mapa completo. El clic del monitor y el
+  señuelo apuntan bien en los dos modos.
+- **La IA sigue a la vista**: F1 quita la oscuridad y marca el estado de cada infectado con un
+  anillo de color; los nodos expandidos, rutas, alertas y el monitor se dibujan encima del arte.
+  Sin F1, «?» indica que un infectado oyó algo o la busca y «!» que la ve o ataca.
+- **Capturas**: `refugio --captura archivo.png [--frames N] [--mapa] [--depuracion]` juega N frames
+  y guarda la pantalla.
+- La simulación no cambia: la decoración usa un hash propio y no el generador de la partida, así
+  que las partidas guardadas y los resultados de los experimentos son los mismos.
+
+### Versión 0.15.0
 
 **Rutas para la horda sin congelar el juego** (HU-23, RF-026, RF-027, ADR-0007).
 
@@ -445,7 +470,7 @@ pueden cambiar en Esc > Opciones > Controles:
 | Esc | Menú de pausa: guardar, cargar, opciones (volumen, tutorial, controles) y salir |
 | F5 / F9 | Guardado rápido / carga rápida en la ranura 1 |
 | T | Saltar el tutorial |
-| F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
+| F1 | Depuración (sin oscuridad): estado de cada infectado, conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
 | Clic izquierdo | Seleccionar el infectado bajo el cursor y ver su monitor; clic en otro sitio lo suelta |
 | N | Mostrar u ocultar los nodos expandidos del agente seleccionado |
 | L | Consola del registro de IA: estados y planes → mensajes → todo → oculta |
@@ -455,6 +480,7 @@ pueden cambiar en Esc > Opciones > Controles:
 | P | Pausar o reanudar la simulación (el mapa, el monitor, F3 y la consola siguen funcionando) |
 | F6 | En pausa: avanzar exactamente un tick de simulación (1/60 s) |
 | F7 / F8 | Simulación más lenta / más rápida: 0,25×, 0,5×, 1×, 2× y 4× |
+| Z | Cámara: seguir a Mara con zoom o ver el mapa completo |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 
@@ -518,7 +544,7 @@ mejor individuo del GA baja entre generaciones (RF-085).
 src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agentes (FSM, percepción),
                    juego (partida, tutorial), coordinación, superviviente (Utility, GOAP, árbol),
                    experimentos, config (JSON de opciones, controles e IA), persistencia (partidas), puertos
-src/adaptadores/   raylib (vistas y sonidos) y archivo (registro de IA en logs/, partidas en saves/,
+src/adaptadores/   raylib (arte pixel y luz, vistas y sonidos), vista (lectura visual del mapa, sin raylib) y archivo (registro de IA en logs/, partidas en saves/,
                    configuración en config/); luego Tiled y raygui
 src/app/           main del juego, menú de pausa, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)

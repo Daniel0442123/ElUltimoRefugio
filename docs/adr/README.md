@@ -20,6 +20,7 @@
 | [ADR-0014](ADR-0014-estrategia-calidad.md) | Catch2, sanitizadores, Tracy y CI | Aceptada | RNF-015, RNF-016, RNF-024, RNF-025, RNF-009, RNF-028 |
 | [ADR-0015](ADR-0015-optimizacion-ga-sa.md) | Optimización offline con algoritmo genético y recocido simulado | Aceptada | RF-085, RF-086, StR-17 |
 | [ADR-0016](ADR-0016-guardado-por-repeticion.md) | Guardar la partida como inicio + entradas y repetirla al cargar | Aceptada | RF-090, RF-091, RF-093, RNF-007, RNF-017, RNF-021 |
+| [ADR-0017](ADR-0017-arte-pixel-iluminacion.md) | Arte pixel generado por código con luz 2D y sombras | Aceptada | RF-016, RF-071, RNF-006, RNF-012 |
 
 ## Plantilla para un ADR nuevo
 

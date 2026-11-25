@@ -7,6 +7,7 @@
 
 #include <raylib.h>
 
+#include "adaptadores/raylib/ArteMundo.hpp"
 #include "adaptadores/raylib/VistaDepuracion.hpp"
 #include "dominio/config/Configuracion.hpp"
 #include "dominio/juego/Partida.hpp"
@@ -14,10 +15,13 @@
 
 namespace refugio::adaptadores {
 
-/// Dibuja el mundo. Con @p depuracion: conos de visión, rutas de A* y el último ruido (RF-071).
+/// Dibuja el mundo con el arte pixel de @p arte (preparado antes con ArteMundo::preparar) y,
+/// encima, la información de la IA. Con @p depuracion: anillo con el color del estado de cada
+/// infectado, conos de visión, rutas de A*, flow field y el último ruido (RF-071), sin oscuridad.
 /// Si hay un agente seleccionado se resaltan su ruta y su objetivo y, con @p nodosExpandidos,
 /// los nodos que cerró su última búsqueda (RF-071, CP-071).
-void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuracion, bool nodosExpandidos = true);
+void dibujarPartida(const juego::Partida& p, const ArteMundo& arte, const EstiloVista& e, bool depuracion,
+                    bool nodosExpandidos = true);
 
 /// Qué muestra la consola del registro de IA (RF-072, RF-073).
 enum class ModoConsola : unsigned char { Oculta, Planes, Mensajes, Todo };
