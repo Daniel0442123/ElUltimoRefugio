@@ -144,8 +144,8 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         }
         // RF-049 / RF-051: destino de cada tarea adjudicada y celda de llegada alrededor de Mara.
         for (const auto& z : p.infectados()) {
-            if (z.estado == EstadoInfectado::Interceptar && z.tieneTarea) {
-                const Vector2 d = centroCelda(z.destinoTarea, e);
+            if (z.estado == EstadoInfectado::Interceptar) {  // tarea de Contract Net o táctica propia
+                const Vector2 d = centroCelda(z.tieneTarea ? z.destinoTarea : z.objetivo, e);
                 DrawLineEx(aPantalla(z.pos, e), d, 1.5f, Fade(colorEstado(z.estado), 0.6f));
                 DrawRectangleLinesEx({d.x - tc * 0.35f, d.y - tc * 0.35f, tc * 0.7f, tc * 0.7f}, 2.0f,
                                      colorEstado(z.estado));
@@ -248,11 +248,17 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     std::snprintf(buf, sizeof(buf), "Contract Net: %llu subastas, %llu tareas",
                   static_cast<unsigned long long>(p.subastas()), static_cast<unsigned long long>(p.adjudicaciones()));
     DrawText(buf, x, y, 12, cfg.coordinado && cfg.contractNet ? Color{60, 200, 210, 255} : LIGHTGRAY);
+    y += 15;
+    // RF-054: cuántos infectados prefieren cada táctica ahora mismo.
+    std::array<int, agentes::kNumTacticas> tacticas{};
+    for (const auto& z : p.infectados()) ++tacticas[static_cast<std::size_t>(z.tactica)];
+    std::snprintf(buf, sizeof(buf), "Tacticas P / I / E: %d / %d / %d", tacticas[0], tacticas[1], tacticas[2]);
+    DrawText(buf, x, y, 12, cfg.tacticas ? LIGHTGRAY : GRAY);
     y += 20;
 
     DrawText("Transiciones FSM", x, y, 16, GOLD);
     y += 20;
-    const std::size_t n = p.numTransiciones() < 4 ? p.numTransiciones() : 4;
+    const std::size_t n = p.numTransiciones() < 3 ? p.numTransiciones() : 3;
     for (std::size_t i = 0; i < n; ++i) {
         const auto& t = p.ultimaTransicion(i);
         const auto a = agentes::nombreEstado(t.desde);
@@ -269,13 +275,13 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     // RF-072: cambios de objetivo con sus utilidades (o costos de ruta, si es por una barricada).
     DrawText("Cambios de plan", x, y, 16, GOLD);
     y += 20;
-    const std::size_t np = p.numCambiosPlan() < 3 ? p.numCambiosPlan() : 3;
+    const std::size_t np = p.numCambiosPlan() < 2 ? p.numCambiosPlan() : 2;
     for (std::size_t i = 0; i < np; ++i) {
         const auto& c = p.ultimoCambioPlan(i);
         const auto mo = juego::nombreMotivoPlan(c.motivo);
-        std::snprintf(buf, sizeof(buf), "%5.1fs Z%u (%d,%d)>(%d,%d) %.*s %.2f>%.2f",
+        std::snprintf(buf, sizeof(buf), "%5.1fs Z%u %.*s >(%d,%d) %.2f>%.2f",
                       static_cast<double>(c.tick) * static_cast<double>(p.dt()), static_cast<unsigned>(c.agente),
-                      c.anterior.x, c.anterior.y, c.nuevo.x, c.nuevo.y, static_cast<int>(mo.size()), mo.data(),
+                      static_cast<int>(mo.size()), mo.data(), c.nuevo.x, c.nuevo.y,
                       static_cast<double>(c.valorAnterior), static_cast<double>(c.valorNuevo));
         DrawText(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
         y += 14;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.5.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.6.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +35,7 @@ add_library(refugio_dominio STATIC
     src/dominio/agentes/Percepcion.cpp
     src/dominio/agentes/MaquinaEstados.cpp
     src/dominio/agentes/Memoria.cpp
+    src/dominio/agentes/Tactica.cpp
     src/dominio/juego/Partida.cpp
 )
 target_include_directories(refugio_dominio PUBLIC src)
