@@ -78,6 +78,7 @@ const char* abreviada(superviviente::Accion a) {
 }
 constexpr Color kColorSuperviviente{40, 200, 170, 255};
 constexpr Color kColorExpandido{220, 60, 220, 255};  // el mismo magenta que A* en el laboratorio
+constexpr Color kColorDijkstra{0, 200, 220, 255};    // el mismo cian que Dijkstra en el laboratorio
 constexpr Color kColorSeleccion{255, 255, 255, 255};
 
 void barra(int x, int y, int ancho, int alto, float fraccion, Color relleno) {
@@ -100,7 +101,7 @@ void dibujarAyuda(int x, int alto) {
     yc += 16;
     DrawText("Clic: monitor  N: nodos  L: registro", x, yc, 13, LIGHTGRAY);
     yc += 16;
-    DrawText("Tab: laboratorio Dijkstra/A*", x, yc, 13, LIGHTGRAY);
+    DrawText("F2: algoritmo  F3: comparar  Tab: lab", x, yc, 13, LIGHTGRAY);
 }
 
 /// Copia @p t en @p buf cambiando cada tabulador por dos espacios (raylib no dibuja tabuladores).
@@ -124,6 +125,40 @@ struct EntradaHistorial {
     bool esPlan{false};
     std::size_t indice{};
 };
+
+/// HU-16 / RF-074: tabla Dijkstra frente a A* para la última consulta del agente (F3).
+int dibujarTablaComparacion(const juego::Partida& p, int x, int y) {
+    char buf[128];
+    const auto& c = p.comparacion();
+    const int c1 = x + 78;
+    const int c2 = x + 156;
+    DrawText("F3", x, y, 12, GOLD);
+    DrawText("Dijkstra", c1, y, 12, kColorDijkstra);
+    DrawText("A*", c2, y, 12, kColorExpandido);
+    y += 14;
+    const auto fila = [&](const char* nombre, const char* fmt, double a, double b) {
+        DrawText(nombre, x, y, 12, LIGHTGRAY);
+        std::snprintf(buf, sizeof(buf), fmt, a);
+        DrawText(buf, c1, y, 12, RAYWHITE);
+        std::snprintf(buf, sizeof(buf), fmt, b);
+        DrawText(buf, c2, y, 12, RAYWHITE);
+        y += 14;
+    };
+    const auto& d = c.dijkstra;
+    const auto& a = c.aEstrella;
+    fila("Costo", "%.3f", d.encontrada ? d.costo : -1.0, a.encontrada ? a.costo : -1.0);
+    fila("Expandidos", "%.0f", d.expandidos, a.expandidos);
+    fila("Generados", "%.0f", d.generados, a.generados);
+    fila("Tiempo us", "%.1f", d.tiempoUs, a.tiempoUs);
+    fila("Memoria KB", "%.1f", static_cast<double>(d.memoriaBytes) / 1024.0, static_cast<double>(a.memoriaBytes) / 1024.0);
+    std::snprintf(buf, sizeof(buf), "Mismo costo: %s (dif %.1e)", c.mismoCosto() ? "si" : "NO", c.diferenciaCosto());
+    DrawText(buf, x, y, 12, c.mismoCosto() ? Color{120, 220, 130, 255} : RED);
+    y += 14;
+    std::snprintf(buf, sizeof(buf), "A* expande %.0f%% menos", 100.0 * c.ahorroExpandidos());
+    DrawText(buf, x, y, 12, c.aEstrellaNoExpandeMas() ? Color{120, 220, 130, 255} : RED);
+    y += 14;
+    return y + 4;
+}
 
 /// RF-070 + RF-072: monitor del agente seleccionado en el panel lateral, hasta @p limite en y.
 void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
@@ -177,9 +212,21 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
         DrawText(buf, x, y, 12, SKYBLUE);
         y += 15;
     }
+    const bool comparando = p.comparacion().valida && p.agenteComparado() == static_cast<int>(id);
     if (!m.valida) {
         DrawText("Aun no ha planificado", x, y, 12, LIGHTGRAY);
         y += 15;
+    } else if (comparando) {
+        // HU-16: con F3 la tabla Dijkstra / A* sustituye a las métricas sueltas y al historial.
+        const auto co = p.mapa().celda(p.comparacion().origen);
+        const auto cd = p.mapa().celda(p.comparacion().destino);
+        const auto alg = navegacion::nombreAlgoritmo(p.algoritmo());
+        std::snprintf(buf, sizeof(buf), "(%d,%d) > (%d,%d)  activo F2: %.*s", co.x, co.y, cd.x, cd.y,
+                      static_cast<int>(alg.size()), alg.data());
+        DrawText(buf, x, y, 12, LIGHTGRAY);
+        y += 16;
+        dibujarTablaComparacion(p, x, y);
+        return;
     } else {
         const auto alg = navegacion::nombreAlgoritmo(m.algoritmo);
         std::snprintf(buf, sizeof(buf), "%.*s  heuristica: %s", static_cast<int>(alg.size()), alg.data(),
@@ -308,10 +355,13 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
     if (nodosExpandidos && p.seleccionado() >= 0) {
         const auto& exp = p.expansionSeleccionado();
         const float total = static_cast<float>(exp.size() > 0 ? exp.size() : 1);
+        // Mismos colores que el laboratorio: cian si la búsqueda fue de Dijkstra, magenta si de A*.
+        const auto alg = p.infectados()[static_cast<std::size_t>(p.seleccionado())].busqueda.algoritmo;
+        const Color color = alg == navegacion::Algoritmo::Dijkstra ? kColorDijkstra : kColorExpandido;
         for (std::size_t k = 0; k < exp.size(); ++k) {
             const Vector2 c = centroCelda(p.mapa().celda(exp[k]), e);
             const float f = 0.25f + 0.35f * (1.0f - static_cast<float>(k) / total);
-            DrawRectangleRec({c.x - tc * 0.5f + 1, c.y - tc * 0.5f + 1, tc - 2, tc - 2}, Fade(kColorExpandido, f));
+            DrawRectangleRec({c.x - tc * 0.5f + 1, c.y - tc * 0.5f + 1, tc - 2, tc - 2}, Fade(color, f));
         }
     }
 
@@ -583,10 +633,14 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         y += 15;
     }
     y += 4;
-    std::snprintf(buf, sizeof(buf), "A* tick IA: %u rutas, %u nodos", p.busquedasUltimoTickIa(), p.nodosUltimoTickIa());
-    DrawText(buf, x, y, 12, LIGHTGRAY);
+    // RF-074: algoritmo activo de todos los agentes (F2).
+    const auto alg = navegacion::nombreAlgoritmo(p.algoritmo());
+    const int na = static_cast<int>(alg.size());
+    std::snprintf(buf, sizeof(buf), "%.*s (F2) tick IA: %u rutas, %u nodos", na, alg.data(), p.busquedasUltimoTickIa(),
+                  p.nodosUltimoTickIa());
+    DrawText(buf, x, y, 12, p.algoritmo() == navegacion::Algoritmo::AEstrella ? kColorExpandido : kColorDijkstra);
     y += 15;
-    std::snprintf(buf, sizeof(buf), "tiempo A*: %.1f us   FPS: %d", p.tiempoBusquedaUltimoTickIaUs(), fps);
+    std::snprintf(buf, sizeof(buf), "tiempo busqueda: %.1f us   FPS: %d", p.tiempoBusquedaUltimoTickIaUs(), fps);
     DrawText(buf, x, y, 12, LIGHTGRAY);
     y += 15;
     if (p.campoActivo())

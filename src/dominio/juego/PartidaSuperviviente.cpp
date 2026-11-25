@@ -279,7 +279,7 @@ EstadoNodo Partida::avanzarSuperviviente(Celda destino) {
     auto& s = sup_;
     if (!s.hayRuta || !(s.destino == destino) || s.cambiosMapaRuta != cambiosMapa_) {
         const Celda c = celdaDe(s.pos);
-        buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(destino.x, destino.y), resultado_);
+        buscadorActivo().buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(destino.x, destino.y), resultado_);
         ++busquedasTotales_;
         s.destino = destino;
         s.cambiosMapaRuta = cambiosMapa_;

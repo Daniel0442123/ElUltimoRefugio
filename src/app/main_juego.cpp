@@ -7,7 +7,9 @@
 ///   Q = señuelo hacia el cursor, B = barricada en la celda de al lado hacia el cursor,
 ///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), C = modo coordinado,
 ///   clic izquierdo sobre un infectado = monitor del agente (HU-14), N = nodos expandidos,
-///   L = consola del registro de IA (HU-15), R = nueva partida, Tab = laboratorio.
+///   L = consola del registro de IA (HU-15), F2 = alternar Dijkstra / A* para todos los agentes,
+///   F3 = comparar la última consulta del agente seleccionado con ambos (HU-16),
+///   R = nueva partida, Tab = laboratorio.
 ///   El registro de IA se escribe también en logs/ia_<semilla>.log.
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
@@ -18,6 +20,7 @@
 
 #include <raylib.h>
 
+#include <cmath>
 #include <cstdio>
 #include <memory>
 
@@ -28,6 +31,7 @@
 #include "app/Cli.hpp"
 #include "dominio/experimentos/GeneradorMapas.hpp"
 #include "dominio/juego/Partida.hpp"
+#include "dominio/navegacion/Comparacion.hpp"
 
 using namespace refugio;
 
@@ -53,6 +57,9 @@ public:
         juego::ConfigPartida cfg;
         cfg.flowfieldUmbral = kUmbralCampoPrototipo;
         cfg.coordinado = coordinado_;
+        if (partida_) cfg.algoritmo = partida_->algoritmo();  // F2 se mantiene al reiniciar
+        agenteComparado_ = -1;
+        consultaComparada_ = kSinConsulta;
         partida_.reset();  // deja de escribir en el registro anterior antes de cerrarlo
         registro_ = std::make_unique<adaptadores::RegistroArchivo>("logs", semilla);  // RF-072, RF-073
         partida_ = std::make_unique<juego::Partida>(
@@ -67,6 +74,12 @@ public:
         if (IsKeyPressed(KEY_C)) {  // RF-084: comparar horda aislada y coordinada
             coordinado_ = !coordinado_;
             partida_->fijarCoordinado(coordinado_);
+        }
+        if (IsKeyPressed(KEY_F2)) partida_->alternarAlgoritmo();  // RF-074: todos los agentes
+        if (IsKeyPressed(KEY_F3)) {                               // RF-074: tabla Dijkstra / A*
+            comparar_ = !comparar_;
+            if (!comparar_) partida_->descartarComparacion();
+            consultaComparada_ = kSinConsulta;
         }
         if (IsKeyPressed(KEY_N)) nodos_ = !nodos_;                                  // RF-071
         if (IsKeyPressed(KEY_L)) consola_ = adaptadores::siguienteModo(consola_);  // RF-072, RF-073
@@ -104,6 +117,18 @@ public:
             partida_->paso(e);
             acumulado_ -= partida_->dt();
         }
+        // En vivo: la tabla se rehace cuando el agente seleccionado planifica una ruta nueva.
+        if (comparar_) {
+            const int sel = partida_->seleccionado();
+            const auto consulta = sel >= 0 ? partida_->infectados()[static_cast<std::size_t>(sel)].busqueda.tick
+                                           : kSinConsulta;
+            if (sel != agenteComparado_ || consulta != consultaComparada_) {
+                if (sel >= 0) partida_->compararSeleccionado();
+                else partida_->descartarComparacion();
+                agenteComparado_ = sel;
+                consultaComparada_ = consulta;
+            }
+        }
     }
 
     void dibujar() const {
@@ -129,6 +154,11 @@ private:
     bool coordinado_{true};
     bool senueloPendiente_{false};
     bool barricadaPendiente_{false};
+    // HU-16: comparación en vivo con F3.
+    static constexpr std::uint64_t kSinConsulta = ~std::uint64_t{0};
+    bool comparar_{false};
+    int agenteComparado_{-1};
+    std::uint64_t consultaComparada_{kSinConsulta};
 };
 
 // --------------------------------------------------------------------------- Laboratorio
@@ -228,6 +258,21 @@ public:
             DrawText("Comparacion (F3)", px, py, 18, GOLD);
             py += 24;
             textoMetricas(resOtro_, px, py);
+            // RF-082 y HU-16: mismo costo con tolerancia 1e-6 y nodos que ahorra la heurística.
+            const auto& d = usarAEstrella_ ? resOtro_ : resActivo_;
+            const auto& a = usarAEstrella_ ? resActivo_ : resOtro_;
+            const double dif = d.encontrada && a.encontrada ? std::fabs(d.costo - a.costo) : 0.0;
+            const bool mismo = d.encontrada == a.encontrada && dif <= navegacion::kToleranciaCosto;
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "mismo costo: %s (dif %.1e)", mismo ? "si" : "NO", dif);
+            DrawText(buf, px, py, 16, mismo ? Color{120, 220, 130, 255} : RED);
+            py += 20;
+            const double ahorro = d.expandidos > 0 && a.expandidos < d.expandidos
+                                      ? 100.0 * (1.0 - static_cast<double>(a.expandidos) / static_cast<double>(d.expandidos))
+                                      : 0.0;
+            std::snprintf(buf, sizeof(buf), "A* expande %.0f%% menos", ahorro);
+            DrawText(buf, px, py, 16, a.expandidos <= d.expandidos ? Color{120, 220, 130, 255} : RED);
+            py += 20;
         }
         // Leyenda de colores del mapa y de la expansión.
         int ly = kAltoVentana - 210;

@@ -151,6 +151,7 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     resultado_.ordenExpansion.reserve(mapa_.numCeldas());  // RF-071: expansión del agente seleccionado
     expansionSel_.reserve(mapa_.numCeldas());
     buscador_.reservar(mapa_.numCeldas());
+    dijkstra_.reservar(mapa_.numCeldas());
     quadtree_.reservar(infectados_.size());
     propagador_.reservar(infectados_.size(), propagacion_);
     posiciones_.reserve(infectados_.size());
@@ -291,8 +292,33 @@ void Partida::seleccionar(int agente) {
     if (!z.busqueda.valida) return;
     const Celda o = z.busqueda.origen;
     const Celda d = z.busqueda.destino;
-    buscador_.buscarEn(mapa_, mapa_.nodo(o.x, o.y), mapa_.nodo(d.x, d.y), resultado_, true);
+    buscadorActivo().buscarEn(mapa_, mapa_.nodo(o.x, o.y), mapa_.nodo(d.x, d.y), resultado_, true);
     anotarMetricas(static_cast<std::size_t>(seleccionado_), o, d);
+}
+
+navegacion::Algoritmo Partida::alternarAlgoritmo() noexcept {
+    cfg_.algoritmo = cfg_.algoritmo == navegacion::Algoritmo::AEstrella ? navegacion::Algoritmo::Dijkstra
+                                                                       : navegacion::Algoritmo::AEstrella;
+    return cfg_.algoritmo;
+}
+
+bool Partida::compararSeleccionado() {
+    if (seleccionado_ < 0 || !infectados_[static_cast<std::size_t>(seleccionado_)].busqueda.valida) {
+        descartarComparacion();
+        return false;
+    }
+    const auto& m = infectados_[static_cast<std::size_t>(seleccionado_)].busqueda;
+    navegacion::compararAlgoritmos(mapa_, mapa_.nodo(m.origen.x, m.origen.y), mapa_.nodo(m.destino.x, m.destino.y),
+                                   compDijkstra_, compAEstrella_, comparacion_);
+    agenteComparado_ = seleccionado_;
+    tickComparacion_ = tick_;
+    const auto& d = comparacion_.dijkstra;
+    const auto& a = comparacion_.aEstrella;
+    registroIa_.anotar(tick_, TipoEventoIa::Plan, static_cast<std::uint16_t>(seleccionado_),
+                       "Z%u	comparar=(%d,%d)>(%d,%d)	dijkstra=%.3f/%u	aestrella=%.3f/%u	mismo_costo=%s",
+                       static_cast<unsigned>(seleccionado_), m.origen.x, m.origen.y, m.destino.x, m.destino.y, d.costo,
+                       d.expandidos, a.costo, a.expandidos, comparacion_.mismoCosto() ? "si" : "no");
+    return true;
 }
 
 void Partida::anotarMetricas(std::size_t i, Celda origen, Celda destino) noexcept {
@@ -918,8 +944,8 @@ void Partida::planificarRutas() {
         }
         const Celda c = celdaDe(z.pos);
         const bool registrarExpansion = static_cast<int>(i) == seleccionado_;  // RF-071
-        buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_,
-                           registrarExpansion);
+        buscadorActivo().buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_,
+                                  registrarExpansion);
         anotarMetricas(i, c, z.objetivo);
         ++busquedasTickIa_;
         ++busquedasTotales_;
