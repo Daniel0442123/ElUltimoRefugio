@@ -75,5 +75,6 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
 
 TEST_CASE("CP-044 Cada estado y motivo tiene nombre para el registro", "[RF-044][RF-072]") {
     for (int e = 0; e < kNumEstadosInfectado; ++e) CHECK(nombreEstado(static_cast<E>(e)) != "?");
-    for (int m = 0; m <= static_cast<int>(M::BarricadaDestruida); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
+    for (int m = 0; m <= static_cast<int>(M::EvidenciaDebil); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
+    for (int t = 0; t < kNumTacticas; ++t) CHECK(nombreTactica(static_cast<Tactica>(t)) != "?");
 }

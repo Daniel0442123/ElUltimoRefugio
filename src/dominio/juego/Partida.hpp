@@ -16,6 +16,7 @@
 
 #include "dominio/agentes/MaquinaEstados.hpp"
 #include "dominio/agentes/Memoria.hpp"
+#include "dominio/agentes/Tactica.hpp"
 #include "dominio/coordinacion/AsignadorAccesos.hpp"
 #include "dominio/coordinacion/ContractNet.hpp"
 #include "dominio/coordinacion/PropagadorAlertas.hpp"
@@ -87,6 +88,10 @@ struct ConfigPartida {
     float factorDesvioBarricada{2.0f};  ///< FACTOR_DESVIO_BARRICADA
     float confianzaRuido{0.8f};    ///< Confianza de un ruido oído (no se sabe si es Mara o un señuelo).
     float semividaMemoria{agentes::kMemoriaSemivida};  ///< MEMORIA_SEMIVIDA, s.
+    // Selección de táctica (RF-053, RF-054)
+    bool tacticas{true};
+    agentes::ParametrosTactica tactica{};
+    float histeresisTactica{1.1f};  ///< Para cambiar de táctica la nueva debe puntuar 10 % más.
 };
 
 struct Superviviente {
@@ -125,11 +130,12 @@ struct EventoRuido {
 };
 
 /// Motivo de un cambio de plan (RF-072).
-enum class MotivoPlan : std::uint8_t { Ruido, Senuelo, Alerta, Rodeo, AtacarBarricada };
+enum class MotivoPlan : std::uint8_t { Ruido, Senuelo, Alerta, Rodeo, AtacarBarricada, TacticaInterceptar, TacticaExplorar };
 [[nodiscard]] std::string_view nombreMotivoPlan(MotivoPlan m) noexcept;
 
 /// RF-072: cambio de objetivo o de plan. Para Ruido, Senuelo y Alerta los valores son utilidades
-/// (RF-050); para Rodeo y AtacarBarricada son costos de ruta (sin la barricada y con el rodeo).
+/// (RF-050); para Rodeo y AtacarBarricada son costos de ruta (sin la barricada y con el rodeo);
+/// para las tácticas (RF-054) son la puntuación de Perseguir y la de la táctica elegida.
 struct RegistroPlan {
     std::uint64_t tick{};
     std::uint16_t agente{};
@@ -201,6 +207,11 @@ struct Infectado {
     mundo::Celda objetivoPrevio{};  ///< Objetivo al que vuelve cuando la rompe.
     bool rutaBloqueada{false};
     bool barricadaDestruida{false};
+    // Táctica (RF-054) con sus puntuaciones y punto de corte (RF-053)
+    agentes::Tactica tactica{agentes::Tactica::Perseguir};
+    std::array<float, agentes::kNumTacticas> puntuaciones{};
+    bool hayCorte{false};
+    mundo::Celda puntoCorte{};
 };
 
 struct RegistroTransicion {
@@ -327,6 +338,7 @@ private:
     void atacarBarricada(Infectado& z);
     void destruirBarricada(std::size_t b);
     [[nodiscard]] int barricadaEn(mundo::Celda c) const noexcept;
+    void evaluarTactica(Infectado& z);
     void registrarPlan(std::size_t i, mundo::Celda anterior, mundo::Celda nuevo, float vAnt, float vNuevo, MotivoPlan m);
     void contratar(std::size_t gestor);
     void repartirLlegadas();

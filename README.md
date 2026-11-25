@@ -15,7 +15,26 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.5.0)
+## Estado actual (0.6.0)
+
+**Infectados que eligen táctica según sus pistas** (HU-12). Sobre los señuelos y barricadas de 0.5.0:
+
+- **Selección de táctica** (RF-054): en cada ciclo de IA, cada infectado toma la mejor evidencia de su
+  memoria y puntúa tres tácticas. *Perseguir* vale c / (1 + d/10), y si la evidencia es un
+  avistamiento, a d se le suma lo que Mara pudo moverse desde entonces. *Interceptar* vale
+  0,8 · c / (1 + d_corte/10), pero solo cuando conoce su rumbo y hay un punto de corte.
+  *Explorar* vale 0,15 fijo. Gana la de mayor puntuación, con un 10 % de histéresis para no
+  parpadear.
+- **Punto de corte** (RF-053): con sus dos últimos avistamientos estima la velocidad y el rumbo de
+  Mara. Prolonga su ruta en línea recta hasta la primera pared y elige la celda más cercana entre las
+  que estén 2 a 6 s por delante de Mara y a las que él llegue antes que ella.
+- Así, quien la ve cerca la persigue y quien está junto al cruce siguiente le corta el paso
+  (estado Interceptar, ahora también sin Contract Net). Si la pista es vieja o débil, deja de
+  investigar y vuelve a explorar.
+- El cambio de táctica queda en «Cambios de plan» con las dos puntuaciones. El panel cuenta cuántos
+  infectados prefieren cada táctica, y con F1 se ve el punto de corte.
+
+### Versión 0.5.0
 
 **Señuelos, barricadas y una horda que reconsidera** (HU-06, HU-07, HU-11). Sobre la horda de 0.4.0:
 

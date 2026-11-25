@@ -165,6 +165,8 @@ std::string_view nombreMotivoPlan(MotivoPlan m) noexcept {
         case MotivoPlan::Alerta: return "alerta";
         case MotivoPlan::Rodeo: return "rodeo";
         case MotivoPlan::AtacarBarricada: return "atacar barricada";
+        case MotivoPlan::TacticaInterceptar: return "tactica interceptar";
+        case MotivoPlan::TacticaExplorar: return "tactica explorar";
     }
     return "?";
 }
@@ -397,6 +399,12 @@ void Partida::percibirYDecidir(std::size_t i) {
         z.ultimaPosMara = celdaAlerta;
     }
 
+    // RF-054: táctica según la mejor evidencia de su memoria.
+    if (cfg_.tacticas) {
+        evaluarTactica(z);
+        p.tactica = z.tactica;
+    }
+
     // Decisión (RF-044).
     agentes::ContextoFsm c;
     c.tiempoEnEstado = z.tiempoEnEstado;
@@ -427,7 +435,12 @@ void Partida::percibirYDecidir(std::size_t i) {
     using E = EstadoInfectado;
     switch (z.estado) {
         case E::Explorar:
-            if (entra || c.llegoAlObjetivo || sinRuta) elegirObjetivo(i);
+            if (entra || c.llegoAlObjetivo || sinRuta) {
+                const Celda antes = z.objetivo;
+                elegirObjetivo(i);
+                if (entra && t.motivo == MotivoTransicion::EvidenciaDebil)
+                    registrarPlan(i, antes, z.objetivo, z.puntuaciones[0], z.puntuaciones[2], MotivoPlan::TacticaExplorar);
+            }
             break;
         case E::Investigar: {
             if (entra && t.motivo == MotivoTransicion::BarricadaDestruida) {  // vuelve a lo que hacía
@@ -481,6 +494,14 @@ void Partida::percibirYDecidir(std::size_t i) {
                 z.tieneTarea = true;
                 z.tarea = tipoTarea;
                 fijarObjetivo(z, destinoTarea);
+            } else if (entra && t.motivo == MotivoTransicion::EligeTactica && z.hayCorte) {
+                // RF-053 / RF-054: él mismo eligió cortarle el paso.
+                z.tieneTarea = false;
+                registrarPlan(i, z.objetivo, z.puntoCorte, z.puntuaciones[0], z.puntuaciones[1], MotivoPlan::TacticaInterceptar);
+                fijarObjetivo(z, z.puntoCorte);
+            } else if (!z.tieneTarea && z.hayCorte && z.tactica == agentes::Tactica::Interceptar &&
+                       !(z.puntoCorte == z.objetivo) && z.desdeUltimaRuta >= cfg_.periodoReplan) {
+                fijarObjetivo(z, z.puntoCorte);  // Mara cambió de rumbo o de ritmo
             }
             break;
         case E::AtacarBarricada:
@@ -490,6 +511,55 @@ void Partida::percibirYDecidir(std::size_t i) {
             }
             break;
     }
+}
+
+// RF-053 / RF-054: resume la mejor evidencia de la memoria (por utilidad), estima el rumbo de
+// Mara con los dos últimos avistamientos propios y puntúa las tres tácticas. Para cambiar de
+// táctica la nueva tiene que superar a la actual en histeresisTactica (evita el parpadeo).
+void Partida::evaluarTactica(Infectado& z) {
+    const double ahora = tiempo();
+    const float semivida = cfg_.semividaMemoria;
+    agentes::EntradaTactica et;
+    float uMejor = -1.0f;
+    for (std::size_t k = 0; k < z.memoria.tamano(); ++k) {
+        const auto& ev = z.memoria[k];
+        const float d = distancia(z.pos, centroDe(ev.celda));
+        const float u = agentes::utilidad(ev, ahora, d, semivida);
+        if (u <= uMejor) continue;
+        uMejor = u;
+        et.hayEvidencia = true;
+        et.tipo = ev.tipo;
+        et.confianza = agentes::confianzaActual(ev, ahora, semivida);
+        et.edad = static_cast<float>(ahora - ev.tiempo);
+        et.distancia = d;
+    }
+    z.hayCorte = false;
+    if (et.hayEvidencia && et.tipo == agentes::TipoEvidencia::Avistamiento && z.avistamientos >= 2 &&
+        z.tickVista > z.tickVistaPrevia) {
+        const float entre = static_cast<float>(z.tickVista - z.tickVistaPrevia) * dt_;
+        const float edadVista = static_cast<float>(tick_ - z.tickVista) * dt_;
+        if (entre <= 1.5f && edadVista <= 3.0f) {
+            const Vec2 v{(z.vista.x - z.vistaPrevia.x) / entre, (z.vista.y - z.vistaPrevia.y) / entre};
+            const float rapidez = longitud(v);
+            if (rapidez >= cfg_.tactica.velocidadMinimaRumbo) {
+                et.tieneRumbo = true;
+                et.velocidadMara = rapidez;
+                const Vec2 estimada{z.vista.x + v.x * edadVista, z.vista.y + v.y * edadVista};
+                if (const auto corte = agentes::puntoDeCorte(mapa_, estimada, v, z.pos, cfg_.velPerseguir, cfg_.tactica)) {
+                    et.hayCorte = true;
+                    et.distanciaCorte = corte->distancia;
+                    z.hayCorte = true;
+                    z.puntoCorte = corte->celda;
+                }
+            }
+        }
+    }
+    const auto r = agentes::elegirTactica(et, cfg_.tactica);
+    z.puntuaciones = r.puntuacion;
+    const auto actual = static_cast<std::size_t>(z.tactica);
+    const auto nueva = static_cast<std::size_t>(r.tactica);
+    if (r.tactica != z.tactica && (r.puntuacion[actual] <= 0.0f || r.puntuacion[nueva] >= cfg_.histeresisTactica * r.puntuacion[actual]))
+        z.tactica = r.tactica;
 }
 
 // ------------------------------------------------------------------- Señuelos y barricadas

@@ -20,6 +20,12 @@ namespace refugio::agentes {
 enum class EstadoInfectado : std::uint8_t { Explorar, Investigar, Perseguir, Buscar, Atacar, Interceptar, AtacarBarricada };
 inline constexpr int kNumEstadosInfectado = 7;
 
+/// Táctica elegida por utilidad (RF-054). Perseguir es el valor neutro: con ella la FSM se comporta
+/// como antes de existir la selección de táctica.
+enum class Tactica : std::uint8_t { Perseguir, Interceptar, Explorar };
+inline constexpr int kNumTacticas = 3;
+[[nodiscard]] std::string_view nombreTactica(Tactica t) noexcept;
+
 enum class MotivoTransicion : std::uint8_t {
     Ninguno,
     VeAMara,          ///< Explorar / Investigar / Buscar -> Perseguir
@@ -34,6 +40,8 @@ enum class MotivoTransicion : std::uint8_t {
     AsignaTarea,      ///< Contract Net adjudica Interceptar o Flanquear -> Interceptar (RF-049)
     RutaBloqueada,    ///< Barricada sin rodeo razonable -> AtacarBarricada (RF-052)
     BarricadaDestruida,  ///< AtacarBarricada -> Investigar (o Perseguir si ve a Mara)
+    EligeTactica,     ///< RF-054: la táctica Interceptar puntúa más que Perseguir -> Interceptar
+    EvidenciaDebil,   ///< RF-054: Explorar puntúa más que seguir la pista -> Explorar
 };
 
 [[nodiscard]] std::string_view nombreEstado(EstadoInfectado e) noexcept;
@@ -46,6 +54,7 @@ struct PercepcionInfectado {
     bool oyeRuido{false};
     bool recibeAlerta{false};  ///< Llegó una alerta de otro infectado (modo coordinado, RF-047).
     bool tareaInterceptar{false};  ///< Le adjudicaron Interceptar o Flanquear (RF-049).
+    Tactica tactica{Tactica::Perseguir};  ///< Mejor táctica según sus evidencias (RF-054).
 };
 
 /// Estado interno del agente que la FSM necesita además de la percepción.
