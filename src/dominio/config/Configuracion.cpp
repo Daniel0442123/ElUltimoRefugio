@@ -124,6 +124,7 @@ constexpr std::array<DatosAccion, kNumAcciones> kAcciones{{
     {"paso_simulacion", "Avanzar un tick (en pausa)", tecla::kF1 + 5},
     {"mas_lento", "Simulación más lenta", tecla::kF1 + 6},
     {"mas_rapido", "Simulación más rápida", tecla::kF1 + 7},
+    {"camara", "Cámara: seguir a Mara / mapa completo", 'Z'},
 }};
 
 /// Teclas que reciben las acciones nuevas cuya tecla por defecto ya está ocupada (leerControles).

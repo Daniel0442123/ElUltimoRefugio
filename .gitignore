@@ -1,5 +1,6 @@
 # Compilación
 build/
+build-*/
 out/
 cmake-build-*/
 compile_commands.json

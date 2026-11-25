@@ -69,8 +69,9 @@ enum class Accion : std::uint8_t {
     PasoSimulacion,
     MasLento,
     MasRapido,
+    Camara,  ///< Cámara que sigue a Mara con zoom o mapa completo
 };
-inline constexpr std::size_t kNumAcciones = 24;
+inline constexpr std::size_t kNumAcciones = 25;
 
 /// Clave en controles.json («arriba», «guardado_rapido», …).
 [[nodiscard]] std::string_view claveAccion(Accion a) noexcept;

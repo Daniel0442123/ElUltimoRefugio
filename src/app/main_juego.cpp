@@ -13,7 +13,7 @@
 ///   de IA (HU-15), F2 = alternar Dijkstra / A*, F3 = comparar (HU-16), R = nueva partida,
 ///   Tab = laboratorio, F5 / F9 = guardado y carga rápidos (ranura 1), T = saltar tutorial,
 ///   P = pausar la simulación, F6 = avanzar un tick en pausa, F7 / F8 = más lenta / más rápida
-///   (0,25× a 4×, HU-22), Esc = menú de pausa (guardar y cargar en 3 ranuras, volumen,
+///   (0,25× a 4×, HU-22), Z = cámara que sigue a Mara con zoom o mapa completo, Esc = menú de pausa (guardar y cargar en 3 ranuras, volumen,
 ///   tutorial, controles, salir).
 ///   El registro de IA se escribe también en logs/ia_<semilla>.log y las partidas en
 ///   saves/slotN.sav. Al iniciar se leen config/juego.json, config/controles.json y config/ia.json
@@ -22,15 +22,20 @@
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
 /// Con --bench, --estres-recursion, --coord-exp u --optimize se ejecuta sin ventana.
 ///
+/// Arte: adaptadores::ArteMundo dibuja calles, edificios, sprites y la luz de la linterna; F1
+/// quita la oscuridad para ver la información de la IA. La cámara solo cambia el dibujo.
+///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
 /// real del frame; el dibujo va aparte y no cambia el resultado de la simulación. La pausa, el
 /// paso a paso y la velocidad (juego::ControlSimulacion, RF-075) solo cambian ese acumulador.
 
 #include <raylib.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <string>
 
@@ -69,6 +74,7 @@ constexpr int kCelda = 32;
 constexpr int kColumnas = (kAnchoVentana - kAnchoPanel) / kCelda;  // 32
 constexpr int kFilas = kAltoVentana / kCelda;                       // 22
 constexpr int kInfectados = 10;
+constexpr float kZoomCamara = 2.0f;
 // config/ia.json fija flowfield_umbral = 8 para la horda completa; con 10 infectados en el
 // prototipo se baja a 5 para que el campo de flujo se vea en una partida normal.
 constexpr int kUmbralCampoPrototipo = 5;
@@ -96,6 +102,12 @@ public:
     }
 
     [[nodiscard]] bool salir() const noexcept { return salir_; }
+    /// --captura: vista fija para las capturas de la documentación.
+    void prepararCaptura(bool zoom, bool depuracion) {
+        zoom_ = zoom;
+        depuracion_ = depuracion;
+        saltarTutorial();
+    }
     [[nodiscard]] bool menuAbierto() const noexcept { return menu_.abierto(); }
     [[nodiscard]] int tecla(Accion a) const noexcept { return config_.controles.tecla(a); }
 
@@ -138,6 +150,7 @@ public:
         if (pulsada(Accion::SaltarTutorial)) saltarTutorial();
         if (pulsada(Accion::NuevaPartida)) reiniciar(semilla_ + 1);
         if (pulsada(Accion::Depuracion)) depuracion_ = !depuracion_;
+        if (pulsada(Accion::Camara)) zoom_ = !zoom_;
         if (pulsada(Accion::ModoHorda)) {  // RF-056: horda aislada o coordinada (HU-18)
             coordinado_ = !coordinado_;
             partida_->fijarCoordinado(coordinado_);
@@ -158,11 +171,12 @@ public:
         // RF-070: clic izquierdo en el mapa selecciona el infectado bajo el cursor (o suelta). El
         // clic sobre «Saltar tutorial» solo salta el tutorial.
         const Vector2 r = GetMousePosition();
+        const Vector2 w = ratonEnMundo();
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && tutorial_.activo() && CheckCollisionPointRec(r, botonTutorial_))
             saltarTutorial();
         else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && r.x < static_cast<float>(kColumnas * kCelda))
             partida_->seleccionar(
-                partida_->agenteEn({r.x / static_cast<float>(kCelda), r.y / static_cast<float>(kCelda)}, 0.7f));
+                partida_->agenteEn({w.x / static_cast<float>(kCelda), w.y / static_cast<float>(kCelda)}, 0.7f));
         if (++frames_ % 60 == 0 && registro_) registro_->vaciar();  // el archivo se puede abrir con el juego en marcha
 
         juego::EntradaJugador e;
@@ -179,8 +193,7 @@ public:
         // hasta el siguiente paso de simulación y se usan una sola vez.
         if (pulsada(Accion::Senuelo)) senueloPendiente_ = true;
         if (pulsada(Accion::Barricada)) barricadaPendiente_ = true;
-        const Vector2 raton = GetMousePosition();
-        e.apuntar = {raton.x / static_cast<float>(kCelda), raton.y / static_cast<float>(kCelda)};
+        e.apuntar = {w.x / static_cast<float>(kCelda), w.y / static_cast<float>(kCelda)};
 
         // Paso fijo: el control recorta el frame a 0,25 s, aplica la velocidad y, en pausa, da
         // solo los pasos pedidos con F6 (RF-075).
@@ -207,7 +220,16 @@ public:
 
     void dibujar() {
         const adaptadores::EstiloVista estilo{kCelda, 0, 0};
-        adaptadores::dibujarPartida(*partida_, estilo, depuracion_, nodos_);
+        constexpr int anchoMapa = kColumnas * kCelda;
+        constexpr int altoMapa = kFilas * kCelda;
+        moverCamara();
+        arte_.preparar(*partida_, !depuracion_);  // F1 quita la oscuridad
+        BeginScissorMode(0, 0, anchoMapa, altoMapa);
+        if (zoom_) BeginMode2D(camara_);
+        adaptadores::dibujarPartida(*partida_, arte_, estilo, depuracion_, nodos_);
+        if (zoom_) EndMode2D();
+        if (!depuracion_) vineta(anchoMapa, altoMapa);
+        EndScissorMode();
         adaptadores::dibujarConsolaIa(*partida_, consola_, 0, kFilas * kCelda - 12 * 13 - 8, kColumnas * kCelda, 11);
         adaptadores::dibujarFinPartida(*partida_, kColumnas * kCelda, kFilas * kCelda);
         adaptadores::dibujarPanelPartida(*partida_, kColumnas * kCelda + 12, 12, kAltoVentana, GetFPS(), config_.controles);
@@ -226,6 +248,38 @@ public:
 
 private:
     [[nodiscard]] bool pulsada(Accion a) const { return IsKeyPressed(config_.controles.tecla(a)); }
+
+    /// Posición del ratón en píxeles del mapa (sin zoom coincide con la de la pantalla).
+    [[nodiscard]] Vector2 ratonEnMundo() const {
+        return zoom_ ? GetScreenToWorld2D(GetMousePosition(), camara_) : GetMousePosition();
+    }
+
+    /// La cámara sigue a Mara con suavidad y no enseña nada fuera del mapa. Solo afecta al dibujo.
+    void moverCamara() {
+        constexpr float anchoMapa = static_cast<float>(kColumnas * kCelda);
+        constexpr float altoMapa = static_cast<float>(kFilas * kCelda);
+        camara_.zoom = kZoomCamara;
+        camara_.offset = {anchoMapa / 2.0f, altoMapa / 2.0f};
+        const float mx = anchoMapa / (2.0f * kZoomCamara);
+        const float my = altoMapa / (2.0f * kZoomCamara);
+        const Vector2 mara{partida_->mara().pos.x * static_cast<float>(kCelda), partida_->mara().pos.y * static_cast<float>(kCelda)};
+        const Vector2 meta{std::clamp(mara.x, mx, anchoMapa - mx), std::clamp(mara.y, my, altoMapa - my)};
+        const float salto = std::hypot(meta.x - camara_.target.x, meta.y - camara_.target.y);
+        const float k = salto > static_cast<float>(4 * kCelda) ? 1.0f : std::fmin(1.0f, GetFrameTime() * 6.0f);
+        camara_.target = {camara_.target.x + (meta.x - camara_.target.x) * k, camara_.target.y + (meta.y - camara_.target.y) * k};
+    }
+
+    /// Bordes oscurecidos del mapa: centran la vista en la zona iluminada.
+    static void vineta(int ancho, int alto) {
+        constexpr Color borde{0, 0, 0, 110};
+        constexpr Color nada{0, 0, 0, 0};
+        const int bx = ancho / 6;
+        const int by = alto / 6;
+        DrawRectangleGradientH(0, 0, bx, alto, borde, nada);
+        DrawRectangleGradientH(ancho - bx, 0, bx, alto, nada, borde);
+        DrawRectangleGradientV(0, 0, ancho, by, borde, nada);
+        DrawRectangleGradientV(0, alto - by, ancho, by, nada, borde);
+    }
     [[nodiscard]] bool mantenida(Accion a) const { return IsKeyDown(config_.controles.tecla(a)); }
 
     void instalar(std::unique_ptr<juego::Partida> p, persistencia::GrabadorPartida g) {
@@ -474,6 +528,9 @@ private:
     adaptadores::ModoConsola consola_{adaptadores::ModoConsola::Oculta};
     juego::ControlSimulacion control_;  ///< HU-22: pausa, paso a paso y velocidad
     bool depuracion_{false};
+    bool zoom_{true};  ///< Z: cámara que sigue a Mara (por defecto) o el mapa completo
+    Camera2D camara_{};
+    adaptadores::ArteMundo arte_;
     bool coordinado_{true};
     bool senueloPendiente_{false};
     bool barricadaPendiente_{false};
@@ -646,6 +703,20 @@ int main(int argc, char** argv) {
     int codigo = 0;
     if (app::ejecutarModoSinVentana(argc, argv, codigo)) return codigo;
 
+    // --captura <archivo.png> [--frames N] [--mapa] [--depuracion]: juega N frames sin entrada,
+    // guarda la pantalla y sale. Sirve para las capturas de docs/ y para revisar el arte en CI.
+    std::string captura;
+    int framesCaptura = 300;
+    bool capturaMapa = false;
+    bool capturaDepuracion = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string a = argv[i];
+        if (a == "--captura" && i + 1 < argc) captura = argv[++i];
+        else if (a == "--frames" && i + 1 < argc) framesCaptura = std::max(1, std::atoi(argv[++i]));
+        else if (a == "--mapa") capturaMapa = true;
+        else if (a == "--depuracion") capturaDepuracion = true;
+    }
+
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(kAnchoVentana, kAltoVentana, "El ultimo refugio - prototipo");
     SetTargetFPS(60);
@@ -657,6 +728,8 @@ int main(int argc, char** argv) {
         EscenaPartida partida(42, adaptadores::leerConfigLocal(kCarpetaConfig), sonidos);  // RF-092
         EscenaLaboratorio laboratorio;
         bool enLaboratorio = false;
+        if (!captura.empty()) partida.prepararCaptura(!capturaMapa, capturaDepuracion);
+        int frame = 0;
 
         while (!WindowShouldClose() && !partida.salir()) {
             if (!partida.menuAbierto() && IsKeyPressed(partida.tecla(Accion::Laboratorio))) enLaboratorio = !enLaboratorio;
@@ -672,9 +745,17 @@ int main(int argc, char** argv) {
             else
                 partida.dibujar();
             EndDrawing();
+            if (!captura.empty() && ++frame >= framesCaptura) {
+                Image pantalla = LoadImageFromScreen();
+                const bool ok = ExportImage(pantalla, captura.c_str());
+                UnloadImage(pantalla);
+                std::fprintf(stderr, ok ? "captura: %s\n" : "captura: no se pudo escribir %s\n", captura.c_str());
+                codigo = ok ? 0 : 1;
+                break;
+            }
         }
     }
     if (IsAudioDeviceReady()) CloseAudioDevice();
     CloseWindow();
-    return 0;
+    return codigo;
 }
