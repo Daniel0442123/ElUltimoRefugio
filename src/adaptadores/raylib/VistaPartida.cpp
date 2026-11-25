@@ -60,6 +60,22 @@ const char* nombreObjeto(juego::TipoObjeto t) {
     return "?";
 }
 
+/// Nombre corto de cada acción del superviviente para que el plan quepa en una línea del panel.
+const char* abreviada(superviviente::Accion a) {
+    switch (a) {
+        case superviviente::Accion::IrAlmacen: return "Alm";
+        case superviviente::Accion::RecogerTablas: return "Tablas";
+        case superviviente::Accion::ArrancarTablas: return "Arrancar";
+        case superviviente::Accion::IrPuerta: return "Puerta";
+        case superviviente::Accion::RepararPuerta: return "Reparar";
+        case superviviente::Accion::AyudarInstalacion: return "Ayudar";
+        case superviviente::Accion::Vigilar: return "Vigilar";
+        case superviviente::Accion::Huir: return "Huir";
+    }
+    return "?";
+}
+constexpr Color kColorSuperviviente{40, 200, 170, 255};
+
 void barra(int x, int y, int ancho, int alto, float fraccion, Color relleno) {
     DrawRectangle(x, y, ancho, alto, {50, 52, 58, 255});
     DrawRectangle(x, y, static_cast<int>(static_cast<float>(ancho) * std::fmax(0.0f, std::fmin(1.0f, fraccion))), alto,
@@ -99,6 +115,18 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
 
     for (const auto& o : p.objetos())
         if (!o.recogido) dibujarObjeto(o.tipo, centroCelda(o.celda, e), tc * 0.55f);
+
+    // HU-13: almacén de tablas.
+    if (p.almacen().x >= 0) {
+        const Vector2 ca = centroCelda(p.almacen(), e);
+        const Rectangle r{ca.x - tc * 0.4f, ca.y - tc * 0.3f, tc * 0.8f, tc * 0.6f};
+        DrawRectangleRec(r, {165, 120, 70, 255});
+        for (int k = 1; k < 3; ++k)
+            DrawLineEx({r.x, r.y + r.height * static_cast<float>(k) / 3.0f}, {r.x + r.width, r.y + r.height * static_cast<float>(k) / 3.0f},
+                       1.5f, {100, 65, 30, 255});
+        DrawRectangleLinesEx(r, 1.5f, {100, 65, 30, 255});
+        DrawText("ALM", static_cast<int>(ca.x) - MeasureText("ALM", 10) / 2, static_cast<int>(r.y) - 11, 10, {100, 65, 30, 255});
+    }
 
     // RF-014: barricada de tablas con su durabilidad.
     const auto& cfgP = p.config();
@@ -183,6 +211,23 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         DrawLineEx(c, {c.x + z.orientacion.x * tc * 0.42f, c.y + z.orientacion.y * tc * 0.42f}, 3.0f, {30, 30, 30, 255});
     }
 
+    // HU-13: superviviente de la radio (ruta en depuración, chispas al reparar, aro al ayudar).
+    if (const auto& s = p.superviviente(); s.activo) {
+        const Vector2 cs = aPantalla(s.pos, e);
+        if (depuracion && s.actividad == juego::Actividad::Mover)
+            for (std::size_t k = s.indiceRuta; k < s.ruta.size(); ++k) {
+                const Vector2 a = k == s.indiceRuta ? cs : centroCelda(p.mapa().celda(s.ruta[k - 1]), e);
+                DrawLineEx(a, centroCelda(p.mapa().celda(s.ruta[k]), e), 2.0f, Fade(kColorSuperviviente, 0.8f));
+            }
+        if (s.actividad == juego::Actividad::Reparar && (p.tick() / 8) % 2 == 0)
+            DrawCircleV({cs.x + s.orientacion.x * tc * 0.5f, cs.y + s.orientacion.y * tc * 0.5f}, tc * 0.12f, GOLD);
+        if (s.ayudando) DrawCircleLinesV(cs, tc * 0.45f, SKYBLUE);
+        DrawCircleV(cs, tc * 0.28f, kColorSuperviviente);
+        DrawCircleLinesV(cs, tc * 0.28f, RAYWHITE);
+        DrawLineEx(cs, {cs.x + s.orientacion.x * tc * 0.38f, cs.y + s.orientacion.y * tc * 0.38f}, 2.5f, RAYWHITE);
+        if (s.tablas > 0.0f) DrawRectangleRec({cs.x - tc * 0.3f, cs.y + tc * 0.3f, tc * 0.6f, tc * 0.12f}, {165, 120, 70, 255});
+    }
+
     const auto& m = p.mara();
     const Vector2 cm = aPantalla(m.pos, e);
     DrawCircleV(cm, tc * 0.3f, {60, 140, 255, 255});
@@ -241,7 +286,31 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         barra(x, y, 220, 10, m.progresoInstalacion / cfg.tInstalacion, SKYBLUE);
         y += 14;
     }
-    y += 10;
+    // HU-13: meta (RF-060), plan GOAP con la acción en curso (RF-061) y último motivo de replan (RF-064).
+    if (const auto& s = p.superviviente(); s.activo) {
+        const auto meta = superviviente::nombreMeta(s.meta);
+        const auto act = juego::nombreActividad(s.actividad);
+        std::snprintf(buf, sizeof(buf), "Superviviente: %.*s (%.*s)", static_cast<int>(meta.size()), meta.data(),
+                      static_cast<int>(act.size()), act.data());
+        DrawText(buf, x, y, 12, kColorSuperviviente);
+        y += 14;
+        int n = std::snprintf(buf, sizeof(buf), "Plan:");
+        for (std::size_t i = 0; i < s.plan.longitud && n > 0 && static_cast<std::size_t>(n) < sizeof(buf); ++i) {
+            const char* a = abreviada(static_cast<superviviente::Accion>(s.plan.acciones[i]));
+            n += std::snprintf(buf + n, sizeof(buf) - static_cast<std::size_t>(n), i == s.paso ? "%s[%s]" : "%s%s",
+                               i == 0 ? " " : " > ", a);
+        }
+        DrawText(buf, x, y, 11, LIGHTGRAY);
+        y += 13;
+        const auto& u = s.utilidades;
+        const auto mo = p.numRegistrosSuperviviente() > 0 ? juego::nombreMotivoReplan(p.ultimoRegistroSuperviviente(0).motivo)
+                                                          : std::string_view{"-"};
+        std::snprintf(buf, sizeof(buf), "U R%.2f A%.2f S%.2f V%.2f  %.*s", static_cast<double>(u[0]), static_cast<double>(u[1]),
+                      static_cast<double>(u[2]), static_cast<double>(u[3]), static_cast<int>(mo.size()), mo.data());
+        DrawText(buf, x, y, 11, GRAY);
+        y += 13;
+    }
+    y += 6;
 
     DrawText("Infectados", x, y, 18, GOLD);
     y += 22;
@@ -254,9 +323,9 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         std::snprintf(buf, sizeof(buf), "%.*s: %d", static_cast<int>(nombre.size()), nombre.data(),
                       cuenta[static_cast<std::size_t>(s)]);
         DrawText(buf, x + 16, y, 14, RAYWHITE);
-        y += 17;
+        y += 15;
     }
-    y += 6;
+    y += 4;
     std::snprintf(buf, sizeof(buf), "A* tick IA: %u rutas, %u nodos", p.busquedasUltimoTickIa(), p.nodosUltimoTickIa());
     DrawText(buf, x, y, 12, LIGHTGRAY);
     y += 15;
@@ -283,11 +352,11 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     for (const auto& z : p.infectados()) ++tacticas[static_cast<std::size_t>(z.tactica)];
     std::snprintf(buf, sizeof(buf), "Tacticas P / I / E: %d / %d / %d", tacticas[0], tacticas[1], tacticas[2]);
     DrawText(buf, x, y, 12, cfg.tacticas ? LIGHTGRAY : GRAY);
-    y += 20;
+    y += 16;
 
     DrawText("Transiciones FSM", x, y, 16, GOLD);
-    y += 20;
-    const std::size_t n = p.numTransiciones() < 3 ? p.numTransiciones() : 3;
+    y += 18;
+    const std::size_t n = p.numTransiciones() < 2 ? p.numTransiciones() : 2;
     for (std::size_t i = 0; i < n; ++i) {
         const auto& t = p.ultimaTransicion(i);
         const auto a = agentes::nombreEstado(t.desde);
@@ -303,7 +372,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     y += 4;
     // RF-072: cambios de objetivo con sus utilidades (o costos de ruta, si es por una barricada).
     DrawText("Cambios de plan", x, y, 16, GOLD);
-    y += 20;
+    y += 18;
     const std::size_t np = p.numCambiosPlan() < 2 ? p.numCambiosPlan() : 2;
     for (std::size_t i = 0; i < np; ++i) {
         const auto& c = p.ultimoCambioPlan(i);

@@ -15,7 +15,34 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.7.0)
+## Estado actual (0.8.0)
+
+**Superviviente de la radio autónomo** (HU-13). En el refugio vive un aliado que decide solo qué
+hacer, con tres técnicas encadenadas (ADR-0008):
+
+- **Meta por utilidad** (RF-060): en cada tick de IA puntúa cuatro metas en [0, 1]. El peligro
+  sigue una logística de la distancia al infectado más cercano que ve, p = 1 / (1 + e^(2(d − 3))).
+  *PonerseASalvo* vale p. *RefugioSeguro* vale (1 − integridad) · (1 − p).
+  *AyudarInstalacion* vale 0,8 · (1 − p) mientras Mara instala. *Vigilar* vale 0,2.
+  Cambia de meta solo si la nueva supera a la actual en 0,1.
+- **Plan GOAP** (RF-061): A\* regresivo sobre hechos (EnAlmacen, EnPuerta, TieneTablas, …), con
+  como mucho 6 acciones. Con el refugio dañado y sin tablas, el plan es IrAlmacen, RecogerTablas,
+  IrPuerta y RepararPuerta. Si el almacén está lejos o bloqueado, arranca tablas de los muebles
+  (15 s).
+- **Árbol de comportamiento** (RF-062): cada acción se ejecuta con un subárbol de secuencias,
+  selectores, un inversor y hojas que devuelven Exito, Fallo o EnCurso.
+- **Reparar** (RF-063): suma 8 puntos de integridad por segundo, hasta 40 por carga de tablas y sin
+  pasar de 100. **Ayudar**: si está junto a la radio mientras Mara la instala, la instalación va
+  un 50 % más rápida.
+- **Replanificar** (RF-064): si una acción falla (por ejemplo, una barricada cierra el almacén) o
+  deja de cumplirse una precondición, descarta el plan. En el siguiente tick de IA genera uno nuevo
+  y registra el motivo.
+- En el mapa aparecen el almacén («ALM») y el superviviente (círculo turquesa, con tablas si las
+  lleva). Con F1 se ve también su ruta. El panel muestra su meta, el plan con la acción en curso
+  entre corchetes, las cuatro utilidades y el motivo del último plan.
+- Por ahora los infectados no atacan al superviviente: solo él los evita.
+
+### Versión 0.7.0
 
 **Extracción y derrotas** (HU-04, HU-05). La partida ya tiene su desenlace completo:
 
@@ -241,7 +268,7 @@ supera 64 KB (RNF-027).
 
 ```text
 src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agentes (FSM, percepción),
-                   juego (partida), coordinación, experimentos, puertos
+                   juego (partida), coordinación, superviviente (Utility, GOAP, árbol), experimentos, puertos
 src/adaptadores/   Implementaciones con raylib (y luego archivos, Tiled, raygui)
 src/app/           main del juego, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
