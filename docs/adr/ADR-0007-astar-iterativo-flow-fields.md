@@ -30,6 +30,13 @@ Las búsquedas son **reanudables**: `EstadoBusqueda` guarda abierta, g, padre y 
 
 **Negativas**: Algunos agentes esperan 1–10 ticks su ruta (se mueven por steering hacia el objetivo mientras tanto).
 
+## Implementación (0.15.0)
+
+- `BuscadorMejorPrimero::iniciar()` y `avanzar(maxExpansiones)` reparten una búsqueda en trozos; el presupuesto se comprueba antes de extraer de la abierta, así ningún nodo queda a medias, y el resultado (ruta, costo, orden de expansión) es idéntico al de la búsqueda de una vez.
+- `navegacion::PlanificadorRutas` atiende la cola: perseguir, interceptar y atacar una barricada tienen prioridad 2, investigar y buscar 1 y explorar 0; cada 5 ticks de IA de espera (0,5 s) una solicitud sube un nivel, así ninguna espera para siempre. Solo hay una búsqueda a medias a la vez (memoria O(V)).
+- Un `CambioDeMapa` (RF-025) o F2 reinician la búsqueda a medias; si el objetivo del agente cambió mientras se buscaba, recibe la ruta para ir avanzando y se encola otra.
+- Medido (CP-026): 100 solicitudes en una ciudad de 128 × 128 se resuelven en 5 ticks sin pasar de 4000 nodos por tick, con unos 0,6 ms por tick (Xeon 2,3 GHz, Release). En una partida de 100 infectados en 128 × 128 la mayor espera fue de 4 ticks de IA.
+
 ## Verificación
 
 La decisión se considera válida mientras se cumplan los requisitos relacionados (RF-026, RF-028, RF-029, RNF-002, RNF-003, RNF-030) según sus casos de prueba en [05_casos_prueba.md](../05_casos_prueba.md).

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 
 namespace refugio::navegacion {
 
@@ -77,8 +78,7 @@ void BuscadorMejorPrimero::reservar(std::uint32_t numNodos) {
 }
 
 template <bool UsarH>
-void BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& r,
-                                    bool registrar) {
+EstadoBusqueda BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, ResultadoBusqueda& r, std::uint32_t limite) {
     const int ancho = grafo.ancho();
     const int alto = grafo.alto();
     const std::uint8_t* costo = grafo.datosCosto();
@@ -86,7 +86,9 @@ void BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, Nodo origen, Nodo
     const std::uint32_t abierto = 2u * generacion_;
     const std::uint32_t cerrado = abierto + 1u;
     EstadoNodo* nodos = nodos_.data();
+    const Nodo destino = destino_;
     const mundo::Celda cd = grafo.celda(destino);
+    const bool registrar = registrar_;
 
     // Distancia octil a destino sin divisiones: las coordenadas del vecino se derivan de las de u.
     auto h = [&](int x, int y) noexcept -> double {
@@ -101,14 +103,9 @@ void BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, Nodo origen, Nodo
         }
     };
 
-    const mundo::Celda co = grafo.celda(origen);
-    nodos[origen] = {0.0, origen, abierto};
-    const double h0 = h(co.x, co.y);
-    abierta_.insertar({h0, static_cast<float>(h0), origen});
-    r.generados = 1;
-    r.maxAbierta = 1;
-
     while (!abierta_.vacio()) {
+        // RF-026: el presupuesto se comprueba antes de extraer, así ningún nodo queda a medias.
+        if (r.expandidos >= limite) return EstadoBusqueda::EnCurso;
         const auto actual = abierta_.extraer();
         const Nodo u = actual.nodo;
         EstadoNodo& eu = nodos[u];
@@ -116,10 +113,7 @@ void BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, Nodo origen, Nodo
         eu.estado = cerrado;
         ++r.expandidos;
         if (registrar) r.ordenExpansion.push_back(u);
-        if (u == destino) {
-            r.encontrada = true;
-            break;
-        }
+        if (u == destino) return EstadoBusqueda::Encontrada;
         const double gu = eu.g;
         const int x = static_cast<int>(u % w);
         const int y = static_cast<int>(u / w);
@@ -161,13 +155,11 @@ void BuscadorMejorPrimero::expandir(const GrafoRejilla& grafo, Nodo origen, Nodo
         const auto tam = static_cast<std::uint32_t>(abierta_.tamano());
         if (tam > r.maxAbierta) r.maxAbierta = tam;
     }
+    return EstadoBusqueda::SinRuta;  // RF-027: abierta agotada sin cerrar el destino
 }
 
-void BuscadorMejorPrimero::buscarEn(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& r,
-                                    bool registrarExpansion) {
-    using Reloj = std::chrono::steady_clock;
-    const auto inicio = Reloj::now();
-
+EstadoBusqueda BuscadorMejorPrimero::iniciar(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& r,
+                                             bool registrarExpansion) {
     // Se vacían los vectores sin liberar su memoria (RNF-006).
     r.algoritmo = algoritmo_;
     r.encontrada = false;
@@ -176,28 +168,70 @@ void BuscadorMejorPrimero::buscarEn(const GrafoRejilla& grafo, Nodo origen, Nodo
     r.expandidos = 0;
     r.generados = 0;
     r.maxAbierta = 0;
+    r.tiempoUs = 0.0;
     r.ordenExpansion.clear();
     prepararEspacio(grafo.numCeldas());
+    origen_ = origen;
+    destino_ = destino;
+    registrar_ = registrarExpansion;
 
-    if (origen < grafo.numCeldas() && destino < grafo.numCeldas() && grafo.transitable(origen) &&
-        grafo.transitable(destino)) {
-        if (algoritmo_ == Algoritmo::AEstrella)
-            expandir<true>(grafo, origen, destino, r, registrarExpansion);
-        else
-            expandir<false>(grafo, origen, destino, r, registrarExpansion);
+    if (origen >= grafo.numCeldas() || destino >= grafo.numCeldas() || !grafo.transitable(origen) ||
+        !grafo.transitable(destino)) {
+        estado_ = EstadoBusqueda::SinRuta;
+        terminar(r);
+        return estado_;
     }
+    const mundo::Celda co = grafo.celda(origen);
+    const mundo::Celda cd = grafo.celda(destino);
+    double h0 = 0.0;
+    if (algoritmo_ == Algoritmo::AEstrella) {
+        const double dx = static_cast<double>(co.x > cd.x ? co.x - cd.x : cd.x - co.x);
+        const double dy = static_cast<double>(co.y > cd.y ? co.y - cd.y : cd.y - co.y);
+        h0 = (dx + dy) + (mundo::kRaiz2 - 2.0) * (dx < dy ? dx : dy);
+    }
+    nodos_[origen] = {0.0, origen, 2u * generacion_};
+    abierta_.insertar({h0, static_cast<float>(h0), origen});
+    r.generados = 1;
+    r.maxAbierta = 1;
+    estado_ = EstadoBusqueda::EnCurso;
+    return estado_;
+}
 
+EstadoBusqueda BuscadorMejorPrimero::avanzar(const GrafoRejilla& grafo, ResultadoBusqueda& r,
+                                             std::uint32_t maxExpansiones) {
+    if (estado_ != EstadoBusqueda::EnCurso) return estado_;
+    using Reloj = std::chrono::steady_clock;
+    const auto inicio = Reloj::now();
+    // Límite absoluto de expandidos, saturado para no desbordar con maxExpansiones = máximo.
+    const std::uint32_t limite =
+        maxExpansiones > UINT32_MAX - r.expandidos ? UINT32_MAX : r.expandidos + maxExpansiones;
+    estado_ = algoritmo_ == Algoritmo::AEstrella ? expandir<true>(grafo, r, limite) : expandir<false>(grafo, r, limite);
+    if (estado_ != EstadoBusqueda::EnCurso) terminar(r);
+    r.tiempoUs += std::chrono::duration<double, std::micro>(Reloj::now() - inicio).count();
+    return estado_;
+}
+
+void BuscadorMejorPrimero::terminar(ResultadoBusqueda& r) {
+    r.encontrada = estado_ == EstadoBusqueda::Encontrada;
     if (r.encontrada) {
-        r.costo = nodos_[destino].g;
-        for (Nodo n = destino;; n = nodos_[n].padre) {
+        r.costo = nodos_[destino_].g;
+        for (Nodo n = destino_;; n = nodos_[n].padre) {
             r.ruta.push_back(n);
-            if (n == origen) break;
+            if (n == origen_) break;
         }
         std::reverse(r.ruta.begin(), r.ruta.end());
     }
-
     r.memoriaBytes = nodos_.capacity() * sizeof(EstadoNodo) +
                      static_cast<std::size_t>(r.maxAbierta) * sizeof(MonticuloBinario::Entrada);
+}
+
+void BuscadorMejorPrimero::buscarEn(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& r,
+                                    bool registrarExpansion) {
+    using Reloj = std::chrono::steady_clock;
+    const auto inicio = Reloj::now();
+    if (iniciar(grafo, origen, destino, r, registrarExpansion) == EstadoBusqueda::EnCurso)
+        avanzar(grafo, r, UINT32_MAX);
+    estado_ = EstadoBusqueda::Inactiva;  // buscarEn no deja nada a medias
     r.tiempoUs = std::chrono::duration<double, std::micro>(Reloj::now() - inicio).count();
 }
 

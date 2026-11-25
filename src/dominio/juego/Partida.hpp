@@ -26,6 +26,7 @@
 #include "dominio/navegacion/BuscadorRuta.hpp"
 #include "dominio/navegacion/Comparacion.hpp"
 #include "dominio/navegacion/CampoFlujo.hpp"
+#include "dominio/navegacion/PlanificadorRutas.hpp"
 #include "dominio/navegacion/Quadtree.hpp"
 #include "dominio/navegacion/Steering.hpp"
 #include "dominio/nucleo/Pcg32.hpp"
@@ -234,8 +235,10 @@ struct Infectado {
     // Planificación
     mundo::Celda objetivo{};
     bool tieneObjetivo{false};
-    bool rutaPendiente{false};
+    bool rutaPendiente{false};  ///< Necesita una ruta: está (o entra) en la cola del planificador (RF-026).
     bool sinRuta{false};
+    mundo::Celda origenBusqueda{};   ///< Origen y destino de la búsqueda en curso o de la última
+    mundo::Celda destinoBusqueda{};  ///< (la cola los fija al empezarla, no al pedirla).
     float desdeUltimaRuta{1e9f};
     std::vector<mundo::Nodo> ruta;  ///< Capacidad reservada al crear la partida.
     std::size_t indiceRuta{0};
@@ -425,6 +428,12 @@ public:
     [[nodiscard]] float radioUltimoRuido() const noexcept { return radioRuido_; }
     [[nodiscard]] Vec2 origenUltimoRuido() const noexcept { return origenRuido_; }
     [[nodiscard]] std::uint64_t busquedasTotales() const noexcept { return busquedasTotales_; }
+    /// HU-23: cola de rutas con presupuesto (RF-026): pendientes, búsqueda a medias y espera.
+    [[nodiscard]] const navegacion::PlanificadorRutas& planificador() const noexcept { return planificador_; }
+    /// Mayor espera (en ticks de IA, desde la solicitud) de una ruta en toda la partida.
+    [[nodiscard]] std::uint32_t esperaMaximaRuta() const noexcept { return esperaMaximaRuta_; }
+    /// Mayor número de nodos expandidos en un tick de IA en toda la partida.
+    [[nodiscard]] std::uint32_t maxNodosTickIa() const noexcept { return maxNodosTickIa_; }
 
     /// Coordinación (RF-047, RF-073).
     void fijarCoordinado(bool activo) noexcept { cfg_.coordinado = activo; }
@@ -550,7 +559,9 @@ private:
     void registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado hacia, MotivoTransicion m);
     void registrarMensaje(std::size_t emisor, std::size_t receptor, TipoMensaje t, int salto, float confianza,
                           float costo = -1.0f);
-    void anotarMetricas(std::size_t i, mundo::Celda origen, mundo::Celda destino) noexcept;
+    void anotarMetricas(std::size_t i, mundo::Celda origen, mundo::Celda destino,
+                        const navegacion::ResultadoBusqueda& r) noexcept;
+    void entregarRuta(std::size_t i, const navegacion::ResultadoBusqueda& r);
     [[nodiscard]] navegacion::BuscadorMejorPrimero& buscadorActivo() noexcept {
         return cfg_.algoritmo == navegacion::Algoritmo::Dijkstra ? dijkstra_ : buscador_;
     }
@@ -602,7 +613,10 @@ private:
     navegacion::BuscadorMejorPrimero buscador_{navegacion::Algoritmo::AEstrella};
     navegacion::BuscadorMejorPrimero dijkstra_{navegacion::Algoritmo::Dijkstra};  ///< RF-024, RF-074
     navegacion::ResultadoBusqueda resultado_;
-    std::size_t inicioCola_{0};  ///< Turno rotativo: los agentes que esperan más se atienden antes.
+    /// HU-23: búsquedas reanudables de los infectados, por prioridad y antigüedad (RF-026).
+    navegacion::PlanificadorRutas planificador_;
+    std::uint32_t esperaMaximaRuta_{0};
+    std::uint32_t maxNodosTickIa_{0};
     std::uint32_t busquedasTickIa_{0};
     std::uint32_t nodosTickIa_{0};
     double tiempoTickIaUs_{0.0};
