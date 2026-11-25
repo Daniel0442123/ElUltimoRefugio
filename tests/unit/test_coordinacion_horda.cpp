@@ -105,7 +105,9 @@ TEST_CASE("CP-028 Horda con el mismo destino: un campo de flujo y ningun A* indi
 }
 
 TEST_CASE("CP-047 Quien ve a Mara alerta en cadena a los que estan tras el muro", "[RF-047][RF-046][HU-09]") {
-    Partida p(escenarioMuro(), configPrueba(), 1);
+    auto cfg = configPrueba();
+    cfg.contractNet = false;  // solo la alerta; el reparto de tareas se prueba en CP-049
+    Partida p(escenarioMuro(), cfg, 1);
     for (int i = 0; i < 12; ++i) p.paso({});  // dos ciclos de IA
     REQUIRE(p.alertasEmitidas() >= 1);
     const auto& prop = p.ultimaPropagacion();

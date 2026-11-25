@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <stdexcept>
 
 #include "dominio/experimentos/GeneradorMapas.hpp"
@@ -15,8 +16,12 @@ using mundo::Celda;
 namespace {
 constexpr std::size_t kBloqueVisitasU = 4;
 constexpr int kBloqueVisitas = 4;        // RF-045: mapa de visitas en bloques de 4 x 4 celdas
-constexpr float kRadioSeparacion = 0.7f;  // Distancia mínima entre infectados (celdas)
-constexpr float kLlegadaWaypoint = 0.08f;
+constexpr float kAvanceWaypoint = 0.35f;  // Con steering se pasa al siguiente punto de ruta a esta distancia
+constexpr float kLlegadaFinal = 0.15f;    // y el último se da por alcanzado a esta otra
+constexpr float kDistanciaAtaque = 0.6f;  // Sin celda de llegada, se detiene a esta distancia de Mara
+constexpr float kRadioLlegada = 0.75f;    // RF-051: distancia a Mara del punto de llegada de cada acceso
+constexpr float kFrenado = 0.5f;          // Radio de frenado suave al llegar
+constexpr std::size_t kMaxTareas = 4;     // Interceptar + 2 x Flanquear + Perseguir
 constexpr float kConfianzaAvistamiento = 1.0f;  // ver a Mara directamente es evidencia segura
 
 float longitud(Vec2 v) noexcept { return std::sqrt(v.x * v.x + v.y * v.y); }
@@ -113,6 +118,14 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     propagador_.reservar(infectados_.size(), propagacion_);
     posiciones_.reserve(infectados_.size());
     campo_.reservar(mapa_.numCeldas());
+    tareas_.reserve(kMaxTareas);
+    postores_.reserve(infectados_.size());
+    contrato_.adjudicaciones.reserve(kMaxTareas);
+    asignador_.reservar(infectados_.size());
+    idsLlegada_.reserve(infectados_.size());
+    celdasLlegada_.reserve(infectados_.size());
+    asignaciones_.reserve(infectados_.size());
+    moviles_.resize(infectados_.size());
     desdeUltimoRuido_ = cfg_.periodoRuido;
 }
 
@@ -135,7 +148,7 @@ void Partida::paso(const EntradaJugador& entrada) {
     moverMara(entrada);
     if (tick_ % static_cast<std::uint64_t>(pasosPorTickIa_) == 0) tickIa();
     for (std::size_t i = 0; i < infectados_.size(); ++i) ejecutarInfectado(i);
-    separarInfectados();
+    moverHorda();
     interactuar(entrada);
     if (mara_.salud <= 0.0f) {
         mara_.salud = 0.0f;
@@ -226,6 +239,7 @@ void Partida::tickIa() {
     ruidoUltimoTickIa_ = ruidoPendiente_;
     ruidoPendiente_ = false;
     for (std::size_t i = 0; i < infectados_.size(); ++i) percibirYDecidir(i);
+    repartirLlegadas();
     actualizarCampo();
     planificarRutas();
     // Mapa de visitas propio (RF-045): cada agente marca el bloque en el que está.
@@ -297,11 +311,23 @@ void Partida::percibirYDecidir(std::size_t i) {
     p.recibeAlerta = cfg_.coordinado && z.alertaPendiente;
     const Celda celdaAlerta = z.celdaAlerta;
     z.alertaPendiente = false;
+    // RF-049: tarea de interceptar o flanquear adjudicada por Contract Net.
+    p.tareaInterceptar = cfg_.coordinado && z.tareaPendiente;
+    const coordinacion::TipoTarea tipoTarea = z.tipoTareaPendiente;
+    const Celda destinoTarea = z.destinoTarea;
+    z.tareaPendiente = false;
 
     // Memoria (primer corte de RF-043): última posición vista de Mara.
     if (p.veAMara) {
         z.recuerdaMara = true;
         z.ultimaPosMara = celdaMara;
+        if (z.avistamientos == 0 || z.tickVista != tick_) {  // RF-053: dos avistamientos para el rumbo
+            z.vistaPrevia = z.vista;
+            z.tickVistaPrevia = z.tickVista;
+            z.vista = mara_.pos;
+            z.tickVista = tick_;
+            ++z.avistamientos;
+        }
     } else if (p.recibeAlerta) {
         z.recuerdaMara = true;  // evidencia indirecta: la posición que avisó otro infectado
         z.ultimaPosMara = celdaAlerta;
@@ -319,6 +345,7 @@ void Partida::percibirYDecidir(std::size_t i) {
         z.estado = t.hacia;
         z.tiempoEnEstado = 0.0f;
         z.usaCampo = false;  // actualizarCampo() decide de nuevo en este tick
+        if (t.hacia != EstadoInfectado::Interceptar) z.tieneTarea = false;
     }
     // RF-047: quien ve a Mara (evidencia directa, confianza 1) avisa a los cercanos, con pausa.
     if (p.veAMara && cfg_.coordinado && z.desdeUltimaAlerta >= cfg_.periodoAlerta &&
@@ -356,6 +383,13 @@ void Partida::percibirYDecidir(std::size_t i) {
             z.ruta.clear();
             z.indiceRuta = 0;
             z.rutaPendiente = false;
+            break;
+        case E::Interceptar:
+            if (p.tareaInterceptar) {
+                z.tieneTarea = true;
+                z.tarea = tipoTarea;
+                fijarObjetivo(z, destinoTarea);
+            }
             break;
     }
 }
@@ -395,6 +429,27 @@ void Partida::planificarRutas() {
 }
 
 // --------------------------------------------------------------------------------- Ejecución
+// Cada paso: el agente calcula su velocidad deseada (ruta, campo o punto de llegada) y ataca
+// si está en alcance. El movimiento lo integra moverHorda() con steering (RF-029).
+void Partida::velocidadHacia(Infectado& z, Vec2 meta, float velocidad, float frenado) {
+    const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
+    const float l = longitud(d);
+    if (l <= 1e-4f) {
+        z.velDeseada = {};
+        return;
+    }
+    const float v = frenado > 0.0f ? velocidad * std::min(1.0f, l / frenado) : velocidad;
+    z.velDeseada = {d.x / l * v, d.y / l * v};
+}
+
+Vec2 Partida::puntoDeLlegada(const Infectado& z) const noexcept {
+    const Celda cm = celdaDe(mara_.pos);
+    const Vec2 dir = normalizar({static_cast<float>(z.llegada.x - cm.x), static_cast<float>(z.llegada.y - cm.y)});
+    // Los dos que comparten acceso se colocan a un lado y otro de la dirección del acceso.
+    const float lado = z.puesto == 0 ? -0.2f : 0.2f;
+    return {mara_.pos.x + dir.x * kRadioLlegada - dir.y * lado, mara_.pos.y + dir.y * kRadioLlegada + dir.x * lado};
+}
+
 void Partida::ejecutarInfectado(std::size_t i) {
     auto& z = infectados_[i];
     z.tiempoEnEstado += dt_;
@@ -402,67 +457,93 @@ void Partida::ejecutarInfectado(std::size_t i) {
     z.desdeUltimaAlerta += dt_;
     using E = EstadoInfectado;
     const float factor = factorTerreno(z.pos);
+    const float dMara = distancia(z.pos, mara_.pos);
+    const bool cerca = z.tieneLlegada && dMara <= cfg_.radioAproximacion;
 
     if (z.estado == E::Atacar) {
-        const Vec2 haciaMara{mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y};
-        const float d = longitud(haciaMara);
-        z.orientacion = normalizar(haciaMara);
-        if (d > 0.6f) {
-            const float paso = std::min(cfg_.velPerseguir * factor * dt_, d - 0.6f);
-            z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
-        }
-        if (d <= cfg_.fsm.alcanceAtaque) {
+        if (z.tieneLlegada)
+            velocidadHacia(z, puntoDeLlegada(z), cfg_.velPerseguir * factor, kFrenado);
+        else if (dMara > kDistanciaAtaque)
+            velocidadHacia(z, mara_.pos, cfg_.velPerseguir * factor, kFrenado);
+        else
+            z.velDeseada = {};
+        z.orientacion = normalizar({mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y});
+        if (dMara <= cfg_.fsm.alcanceAtaque) {
             mara_.salud -= cfg_.danioPorSegundo * dt_;
             mara_.recibioDanio = true;
         }
         return;
     }
 
-    const float vel = z.estado == E::Perseguir    ? cfg_.velPerseguir
+    const float vel = (z.estado == E::Perseguir || z.estado == E::Interceptar) ? cfg_.velPerseguir
                       : z.estado == E::Investigar ? 0.5f * (cfg_.velExplorar + cfg_.velPerseguir)
                                                   : cfg_.velExplorar;
-    float restante = vel * factor * dt_;
+    const float velMax = vel * factor;
+    // RF-051: cerca de Mara cada perseguidor va a su celda de llegada en vez de a su celda.
+    if (z.estado == E::Perseguir && cerca) {
+        velocidadHacia(z, puntoDeLlegada(z), velMax, kFrenado);
+        return;
+    }
     // RF-028: con el campo activo, el siguiente paso sale de la celda actual en O(1).
     if (z.estado == E::Perseguir && z.usaCampo && campoActivo_) {
         const Celda c = celdaDe(z.pos);
         const mundo::Nodo n = mapa_.nodo(c.x, c.y);
         const mundo::Nodo sig = campo_.siguiente(n);
-        if (sig != n) moverHacia(z, centroDe(mapa_.celda(sig)), restante);
+        if (sig != n)
+            velocidadHacia(z, centroDe(mapa_.celda(sig)), velMax, 0.0f);
+        else if (dMara > kDistanciaAtaque)
+            velocidadHacia(z, mara_.pos, velMax, kFrenado);
+        else
+            z.velDeseada = {};
+        return;
     }
-    while (restante > 0.0f && !z.usaCampo && z.indiceRuta < z.ruta.size()) {
+    // Seguir la ruta A*: se avanza de punto al acercarse, para que el steering no tenga que clavarlos.
+    while (z.indiceRuta < z.ruta.size()) {
+        const bool ultimo = z.indiceRuta + 1 == z.ruta.size();
         const Vec2 meta = centroDe(mapa_.celda(z.ruta[z.indiceRuta]));
-        const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
-        const float l = longitud(d);
-        if (l <= kLlegadaWaypoint) {
-            ++z.indiceRuta;
-            continue;
-        }
-        const float paso = std::min(restante, l);
-        z.orientacion = {d.x / l, d.y / l};
-        z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
-        restante -= paso;
-        if (paso >= l) ++z.indiceRuta;
+        if (distancia(z.pos, meta) > (ultimo ? kLlegadaFinal : kAvanceWaypoint)) break;
+        ++z.indiceRuta;
     }
-    // Al final de la ruta (o en la celda destino del campo) y con Mara a la vista, el último tramo es directo.
-    if (z.estado == E::Perseguir && (z.usaCampo || z.indiceRuta >= z.ruta.size()) && restante > 0.0f) {
-        const Vec2 haciaMara{mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y};
-        const float d = longitud(haciaMara);
-        if (d > 0.6f) {
-            z.orientacion = normalizar(haciaMara);
-            const float paso = std::min(restante, d - 0.6f);
-            z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
-        }
+    if (z.indiceRuta < z.ruta.size()) {
+        const bool ultimo = z.indiceRuta + 1 == z.ruta.size();
+        velocidadHacia(z, centroDe(mapa_.celda(z.ruta[z.indiceRuta])), velMax, ultimo ? kFrenado : 0.0f);
+        return;
     }
+    // Al final de la ruta y con Mara a la vista, el último tramo es directo.
+    if (z.estado == E::Perseguir && dMara > kDistanciaAtaque) {
+        velocidadHacia(z, mara_.pos, velMax, kFrenado);
+        return;
+    }
+    z.velDeseada = {};
 }
 
-void Partida::moverHacia(Infectado& z, Vec2 meta, float& restante) {
-    const Vec2 d{meta.x - z.pos.x, meta.y - z.pos.y};
-    const float l = longitud(d);
-    if (l <= 1e-5f) return;
-    const float paso = std::min(restante, l);
-    z.orientacion = {d.x / l, d.y / l};
-    z.pos = moverConColision(z.pos, {z.orientacion.x * paso, z.orientacion.y * paso});
-    restante -= paso;
+// RF-029: seguir + separación + alineación + cohesión + evitación de paredes, con vecinos del
+// quadtree (RF-030). Las fuerzas se calculan con las posiciones de este paso y luego se integran.
+void Partida::moverHorda() {
+    const std::size_t n = infectados_.size();
+    if (n == 0) return;
+    quadtree_.limpiar();
+    for (std::size_t i = 0; i < n; ++i) {
+        quadtree_.insertar(static_cast<std::uint32_t>(i), infectados_[i].pos);
+        moviles_[i] = {infectados_[i].pos, infectados_[i].vel};
+    }
+    const auto& sp = cfg_.steering;
+    const float radio = std::max(sp.radioVecindad, sp.radioSeparacion);
+    for (std::size_t i = 0; i < n; ++i) {
+        auto& z = infectados_[i];
+        vecinos_.clear();
+        quadtree_.consultarRadio(z.pos, radio, vecinos_);
+        const Vec2 f = navegacion::fuerzaSteering(static_cast<std::uint32_t>(i), moviles_.data(), vecinos_, z.velDeseada,
+                                                  mapa_, cfg_.radioCuerpo, sp);
+        const float velMax = longitud(z.velDeseada) > 1e-4f ? longitud(z.velDeseada) : cfg_.velPerseguir * factorTerreno(z.pos);
+        z.vel = navegacion::integrarVelocidad(z.vel, f, std::max(velMax, 0.5f), dt_);
+        const Vec2 antes = z.pos;
+        z.pos = moverConColision(z.pos, {z.vel.x * dt_, z.vel.y * dt_});
+        // Contra una pared se anula la componente bloqueada para no acumular velocidad.
+        if (z.pos.x == antes.x) z.vel.x = 0.0f;
+        if (z.pos.y == antes.y) z.vel.y = 0.0f;
+        if (z.estado != EstadoInfectado::Atacar && longitud(z.vel) > 0.05f) z.orientacion = normalizar(z.vel);
+    }
 }
 
 // RF-047: alerta recursiva acotada por el grafo de comunicación (vecinos a radioComunicacion
@@ -487,6 +568,114 @@ void Partida::emitirAlerta(std::size_t i) {
     ++alertasEmitidas_;
     mensajesAlerta_ += propagacion_.mensajes.size();
     tickUltimaAlerta_ = tick_;
+    if (cfg_.contractNet) contratar(i);
+}
+
+Celda Partida::celdaLibreCercana(Celda c, int radioMax) const noexcept {
+    c.x = std::clamp(c.x, 0, mapa_.ancho() - 1);
+    c.y = std::clamp(c.y, 0, mapa_.alto() - 1);
+    if (mapa_.transitable(c.x, c.y)) return c;
+    for (int r = 1; r <= radioMax; ++r)
+        for (int dy = -r; dy <= r; ++dy)
+            for (int dx = -r; dx <= r; ++dx) {
+                if (std::max(std::abs(dx), std::abs(dy)) != r) continue;  // solo el anillo r
+                if (mapa_.transitable(c.x + dx, c.y + dy)) return {c.x + dx, c.y + dy};
+            }
+    return {-1, -1};
+}
+
+// RF-049: el que ve a Mara actúa de gestor. Anuncia Interceptar (punto previsto a partir de sus
+// dos últimos avistamientos, RF-053), hasta dos Flanquear (accesos del lado opuesto al suyo) y
+// Perseguir; los alertados que no persiguen ya pujan con su costo octil y gana la puja más baja.
+void Partida::contratar(std::size_t gestor) {
+    const auto& g = infectados_[gestor];
+    postores_.clear();
+    for (const auto& m : propagacion_.mensajes) {
+        const auto& r = infectados_[m.receptor];
+        if (r.estado == EstadoInfectado::Perseguir || r.estado == EstadoInfectado::Atacar) continue;
+        postores_.push_back({m.receptor, celdaDe(r.pos)});
+    }
+    if (postores_.empty()) return;
+
+    const Celda cm = celdaDe(mara_.pos);
+    tareas_.clear();
+    // Interceptar: dónde estará Mara dentro de horizonteIntercepcion segundos si sigue igual.
+    if (g.avistamientos >= 2 && g.tickVista > g.tickVistaPrevia) {
+        const float t = static_cast<float>(g.tickVista - g.tickVistaPrevia) * dt_;
+        const Vec2 v{(g.vista.x - g.vistaPrevia.x) / t, (g.vista.y - g.vistaPrevia.y) / t};
+        const float h = cfg_.horizonteIntercepcion;
+        const Celda prevista = celdaLibreCercana(celdaDe({mara_.pos.x + v.x * h, mara_.pos.y + v.y * h}), 3);
+        if (prevista.x >= 0 && !(prevista == cm)) tareas_.push_back({coordinacion::TipoTarea::Interceptar, prevista});
+    }
+    // Flanquear: celdas del anillo radioFlanqueo más opuestas al gestor y separadas entre sí.
+    const Vec2 haciaGestor = normalizar({g.pos.x - mara_.pos.x, g.pos.y - mara_.pos.y});
+    const int r = std::max(1, cfg_.radioFlanqueo);
+    for (int k = 0; k < 2; ++k) {
+        float mejor = 0.2f;  // como mínimo algo por detrás de Mara respecto al gestor
+        Celda elegida{-1, -1};
+        for (int dy = -r; dy <= r; ++dy)
+            for (int dx = -r; dx <= r; ++dx) {
+                if (std::max(std::abs(dx), std::abs(dy)) != r) continue;
+                const Celda c{cm.x + dx, cm.y + dy};
+                if (!mapa_.transitable(c.x, c.y)) continue;
+                if (k == 1 && tareas_.back().tipo == coordinacion::TipoTarea::Flanquear &&
+                    std::max(std::abs(c.x - tareas_.back().destino.x), std::abs(c.y - tareas_.back().destino.y)) < r)
+                    continue;
+                const Vec2 u = normalizar({static_cast<float>(dx), static_cast<float>(dy)});
+                const float puntos = -(u.x * haciaGestor.x + u.y * haciaGestor.y);
+                if (puntos > mejor) {
+                    mejor = puntos;
+                    elegida = c;
+                }
+            }
+        if (elegida.x < 0) break;
+        tareas_.push_back({coordinacion::TipoTarea::Flanquear, elegida});
+    }
+    tareas_.push_back({coordinacion::TipoTarea::Perseguir, cm});
+
+    coordinacion::ejecutarContractNet(tareas_, postores_, contrato_);
+    for (const auto& a : contrato_.adjudicaciones) {
+        auto& z = infectados_[a.agente];
+        const auto& t = tareas_[a.tarea];
+        if (t.tipo == coordinacion::TipoTarea::Perseguir) {
+            z.alertaPendiente = true;  // va a la celda de Mara como con una alerta
+            z.celdaAlerta = t.destino;
+            continue;
+        }
+        z.tareaPendiente = true;
+        z.tipoTareaPendiente = t.tipo;
+        z.destinoTarea = t.destino;
+    }
+    ++subastas_;
+    adjudicaciones_ += contrato_.adjudicaciones.size();
+    // Anuncios, pujas y un aviso de adjudicación por tarea adjudicada.
+    mensajesContractNet_ += contrato_.anuncios + contrato_.pujas + contrato_.adjudicaciones.size();
+}
+
+// RF-051: con dos o más perseguidores se reparten los accesos alrededor de Mara (2 por celda
+// como máximo) minimizando la suma de distancias; cada uno se acerca por el suyo.
+void Partida::repartirLlegadas() {
+    idsLlegada_.clear();
+    celdasLlegada_.clear();
+    for (std::size_t i = 0; i < infectados_.size(); ++i) {
+        auto& z = infectados_[i];
+        z.tieneLlegada = false;
+        if (z.estado != EstadoInfectado::Perseguir && z.estado != EstadoInfectado::Atacar) continue;
+        idsLlegada_.push_back(static_cast<std::uint32_t>(i));
+        celdasLlegada_.push_back(celdaDe(z.pos));
+    }
+    if (idsLlegada_.size() < 2) return;
+    asignador_.asignar(mapa_, celdaDe(mara_.pos), idsLlegada_, celdasLlegada_, cfg_.maxAgentesPorCelda, asignaciones_);
+    for (std::size_t k = 0; k < asignaciones_.size(); ++k) {
+        const auto& a = asignaciones_[k];
+        if (!a.asignado) continue;
+        auto& z = infectados_[a.agente];
+        z.tieneLlegada = true;
+        z.llegada = a.acceso;
+        z.puesto = 0;
+        for (std::size_t j = 0; j < k; ++j)  // el segundo en la misma celda ocupa el otro puesto
+            if (asignaciones_[j].asignado && asignaciones_[j].acceso == a.acceso) z.puesto = 1;
+    }
 }
 
 // RF-028: si FLOWFIELD_UMBRAL o más infectados persiguen a Mara (mismo destino: su celda), se
@@ -525,31 +714,6 @@ void Partida::actualizarCampo() {
             z.indiceRuta = 0;
             ++agentesEnCampo_;
         }
-    }
-}
-
-// Separación simple (anticipo de RF-029) con vecinos del quadtree (RF-030).
-void Partida::separarInfectados() {
-    quadtree_.limpiar();
-    for (std::size_t i = 0; i < infectados_.size(); ++i)
-        quadtree_.insertar(static_cast<std::uint32_t>(i), infectados_[i].pos);
-    for (std::size_t i = 0; i < infectados_.size(); ++i) {
-        auto& z = infectados_[i];
-        vecinos_.clear();
-        quadtree_.consultarRadio(z.pos, kRadioSeparacion, vecinos_);
-        Vec2 empuje{};
-        for (const auto j : vecinos_) {
-            if (j == i) continue;
-            const Vec2 d{z.pos.x - infectados_[j].pos.x, z.pos.y - infectados_[j].pos.y};
-            const float l = longitud(d);
-            const float solape = kRadioSeparacion - l;
-            if (solape <= 0.0f) continue;
-            // Si coinciden exactamente se separan en una dirección fija según el índice.
-            const Vec2 u = l > 1e-4f ? Vec2{d.x / l, d.y / l} : Vec2{i < j ? 1.0f : -1.0f, 0.0f};
-            empuje.x += u.x * solape * 0.25f;
-            empuje.y += u.y * solape * 0.25f;
-        }
-        if (empuje.x != 0.0f || empuje.y != 0.0f) z.pos = moverConColision(z.pos, empuje);
     }
 }
 

@@ -26,6 +26,7 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
     const ContextoFsm sinNovedad{};
     const PercepcionInfectado alerta{false, 0.0f, false, true};
     const PercepcionInfectado alertaYRuido{false, 0.0f, true, true};
+    const PercepcionInfectado tarea{false, 0.0f, false, true, true};
 
     const Fila tabla[] = {
         {"Explorar + ve a Mara -> Perseguir", E::Explorar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
@@ -36,6 +37,13 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
         {"Buscar + alerta -> Investigar", E::Buscar, alerta, sinNovedad, E::Investigar, M::RecibeAlerta},
         {"Investigar + alerta sigue (se reorienta)", E::Investigar, alerta, {0, true, false}, E::Investigar, M::Ninguno},
         {"Perseguir ignora alertas: ya la ve", E::Perseguir, {true, 4.0f, false, true}, sinNovedad, E::Perseguir, M::Ninguno},
+        {"Explorar + tarea Interceptar -> Interceptar (RF-049)", E::Explorar, tarea, sinNovedad, E::Interceptar, M::AsignaTarea},
+        {"Investigar + tarea -> Interceptar", E::Investigar, tarea, sinNovedad, E::Interceptar, M::AsignaTarea},
+        {"Buscar + tarea -> Interceptar", E::Buscar, tarea, sinNovedad, E::Interceptar, M::AsignaTarea},
+        {"Interceptar + ve a Mara -> Perseguir", E::Interceptar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
+        {"Interceptar llega sin verla -> Buscar", E::Interceptar, nada, {0, true, false}, E::Buscar, M::LlegaAlOrigen},
+        {"Interceptar sin ruta -> Explorar", E::Interceptar, nada, {0, false, true}, E::Explorar, M::SinRuta},
+        {"Interceptar en camino sigue", E::Interceptar, nada, sinNovedad, E::Interceptar, M::Ninguno},
         {"Investigar + ve a Mara -> Perseguir", E::Investigar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
         {"Investigar llega sin evidencia -> Buscar", E::Investigar, nada, {0, true, false}, E::Buscar, M::LlegaAlOrigen},
         {"Investigar sin ruta -> Explorar (RF-027)", E::Investigar, nada, {0, false, true}, E::Explorar, M::SinRuta},
@@ -61,6 +69,6 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
 }
 
 TEST_CASE("CP-044 Cada estado y motivo tiene nombre para el registro", "[RF-044][RF-072]") {
-    for (int e = 0; e <= static_cast<int>(E::Atacar); ++e) CHECK(nombreEstado(static_cast<E>(e)) != "?");
-    for (int m = 0; m <= static_cast<int>(M::RecibeAlerta); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
+    for (int e = 0; e < kNumEstadosInfectado; ++e) CHECK(nombreEstado(static_cast<E>(e)) != "?");
+    for (int m = 0; m <= static_cast<int>(M::AsignaTarea); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
 }

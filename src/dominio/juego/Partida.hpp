@@ -14,12 +14,15 @@
 #include <vector>
 
 #include "dominio/agentes/MaquinaEstados.hpp"
+#include "dominio/coordinacion/AsignadorAccesos.hpp"
+#include "dominio/coordinacion/ContractNet.hpp"
 #include "dominio/coordinacion/PropagadorAlertas.hpp"
 #include "dominio/agentes/Percepcion.hpp"
 #include "dominio/mundo/Grafo.hpp"
 #include "dominio/navegacion/BuscadorRuta.hpp"
 #include "dominio/navegacion/CampoFlujo.hpp"
 #include "dominio/navegacion/Quadtree.hpp"
+#include "dominio/navegacion/Steering.hpp"
 #include "dominio/nucleo/Pcg32.hpp"
 
 namespace refugio::juego {
@@ -63,6 +66,13 @@ struct ConfigPartida {
     float periodoAlerta{2.0f};          ///< Segundos entre dos alertas del mismo infectado.
     // Horda (RF-028, config/ia.json «flowfield_umbral»)
     int flowfieldUmbral{8};  ///< Con este número de perseguidores o más se usa un campo de flujo.
+    // Horda coordinada (HU-10)
+    bool contractNet{true};       ///< RF-049: el que ve a Mara reparte tareas entre los alertados.
+    float horizonteIntercepcion{2.0f};  ///< RF-053: segundos hacia delante para predecir a Mara.
+    int radioFlanqueo{3};         ///< Celdas (Chebyshev) de los accesos para flanquear.
+    int maxAgentesPorCelda{2};    ///< RF-051, MAX_AGENTES_POR_CELDA.
+    float radioAproximacion{2.5f};  ///< A esta distancia de Mara cada uno va a su celda de llegada.
+    navegacion::ParametrosSteering steering{};  ///< RF-029
 };
 
 struct Superviviente {
@@ -104,6 +114,25 @@ struct Infectado {
     float confianzaAlerta{0.0f};
     float desdeUltimaAlerta{1e9f};
     bool usaCampo{false};  ///< Persigue siguiendo el campo de flujo compartido en vez de su ruta A*.
+    // Contract Net (RF-049): tarea adjudicada pendiente y tarea en curso.
+    bool tareaPendiente{false};
+    coordinacion::TipoTarea tipoTareaPendiente{};
+    mundo::Celda destinoTarea{};
+    bool tieneTarea{false};
+    coordinacion::TipoTarea tarea{};
+    // Últimos dos avistamientos propios de Mara para predecir su rumbo (RF-053).
+    Vec2 vista{};
+    Vec2 vistaPrevia{};
+    std::uint64_t tickVista{0};
+    std::uint64_t tickVistaPrevia{0};
+    int avistamientos{0};
+    // Celda de llegada alrededor de Mara (RF-051) y posición dentro de ella (0 o 1).
+    bool tieneLlegada{false};
+    mundo::Celda llegada{};
+    int puesto{0};
+    // Movimiento con steering (RF-029)
+    Vec2 vel{};
+    Vec2 velDeseada{};
 };
 
 struct RegistroTransicion {
@@ -183,6 +212,13 @@ public:
     [[nodiscard]] std::uint64_t camposCalculados() const noexcept { return camposCalculados_; }
     [[nodiscard]] std::uint32_t agentesEnCampo() const noexcept { return agentesEnCampo_; }
 
+    /// Contract Net (RF-049) y reparto de llegadas (RF-051).
+    [[nodiscard]] std::uint64_t subastas() const noexcept { return subastas_; }
+    [[nodiscard]] std::uint64_t adjudicaciones() const noexcept { return adjudicaciones_; }
+    [[nodiscard]] std::uint64_t mensajesContractNet() const noexcept { return mensajesContractNet_; }
+    [[nodiscard]] const std::vector<coordinacion::Tarea>& ultimasTareas() const noexcept { return tareas_; }
+    [[nodiscard]] const coordinacion::ResultadoContractNet& ultimoContractNet() const noexcept { return contrato_; }
+
 private:
     void moverMara(const EntradaJugador& e);
     void interactuar(const EntradaJugador& e);
@@ -191,10 +227,14 @@ private:
     void elegirObjetivo(std::size_t i);
     void planificarRutas();
     void ejecutarInfectado(std::size_t i);
-    void separarInfectados();
+    void moverHorda();
+    void contratar(std::size_t gestor);
+    void repartirLlegadas();
+    [[nodiscard]] Vec2 puntoDeLlegada(const Infectado& z) const noexcept;
+    [[nodiscard]] mundo::Celda celdaLibreCercana(mundo::Celda c, int radioMax) const noexcept;
     void emitirAlerta(std::size_t i);
     void actualizarCampo();
-    void moverHacia(Infectado& z, Vec2 meta, float& restante);
+    void velocidadHacia(Infectado& z, Vec2 meta, float velocidad, float frenado);
     void registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado hacia, MotivoTransicion m);
     void fijarObjetivo(Infectado& z, mundo::Celda c);
     [[nodiscard]] Vec2 moverConColision(Vec2 pos, Vec2 delta) const noexcept;
@@ -245,7 +285,22 @@ private:
     std::uint64_t camposCalculados_{0};
     std::uint32_t agentesEnCampo_{0};
 
-    // Consulta espacial para la separación y las alertas (RF-030).
+    // Contract Net y reparto de llegadas (RF-049, RF-051).
+    std::vector<coordinacion::Tarea> tareas_;
+    std::vector<coordinacion::Postor> postores_;
+    coordinacion::ResultadoContractNet contrato_;
+    coordinacion::AsignadorAccesos asignador_;
+    std::vector<std::uint32_t> idsLlegada_;
+    std::vector<mundo::Celda> celdasLlegada_;
+    std::vector<coordinacion::Asignacion> asignaciones_;
+    std::uint64_t subastas_{0};
+    std::uint64_t adjudicaciones_{0};
+    std::uint64_t mensajesContractNet_{0};
+
+    // Steering (RF-029)
+    std::vector<navegacion::Movil> moviles_;
+
+    // Consulta espacial para el steering y las alertas (RF-030).
     navegacion::Quadtree quadtree_;
     std::vector<std::uint32_t> vecinos_;
 
