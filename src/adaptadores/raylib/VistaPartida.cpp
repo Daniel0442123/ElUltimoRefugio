@@ -79,6 +79,23 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
     DrawRectangleRec({cr.x - tc * 0.35f, cr.y - tc * 0.2f, tc * 0.7f, tc * 0.5f}, {60, 70, 90, 255});
     DrawRectangleLinesEx({cr.x - tc * 0.35f, cr.y - tc * 0.2f, tc * 0.7f, tc * 0.5f}, 2.0f, SKYBLUE);
     DrawLineEx({cr.x + tc * 0.2f, cr.y - tc * 0.2f}, {cr.x + tc * 0.3f, cr.y - tc * 0.45f}, 2.0f, SKYBLUE);
+    // RF-063: la radio está en el refugio; si golpean su puerta parpadea en rojo.
+    if (p.golpeandoPuerta() > 0 && (p.tick() / 6) % 2 == 0) DrawCircleLinesV(cr, tc * 0.6f, RED);
+
+    // RF-009: zona de extracción, verde mientras está abierta, con su temporizador.
+    const Vector2 cx = centroCelda(p.extraccion(), e);
+    const float rx = p.config().radioExtraccion * tc;
+    if (p.zonaAbierta()) {
+        DrawCircleV(cx, rx, Fade(GREEN, 0.25f + 0.1f * std::sin(static_cast<float>(p.tick()) * 0.15f)));
+        DrawCircleLinesV(cx, rx, {40, 160, 60, 255});
+        char t[16];
+        std::snprintf(t, sizeof(t), "%.0f s", static_cast<double>(p.restanteExtraccion()));
+        DrawText(t, static_cast<int>(cx.x) - MeasureText(t, 16) / 2, static_cast<int>(cx.y - rx) - 18, 16, {20, 110, 40, 255});
+    } else {
+        DrawCircleLinesV(cx, rx, Fade(DARKGRAY, 0.7f));
+    }
+    DrawText("EXT", static_cast<int>(cx.x) - MeasureText("EXT", 10) / 2, static_cast<int>(cx.y) - 5, 10,
+             p.zonaAbierta() ? Color{20, 90, 30, 255} : GRAY);
 
     for (const auto& o : p.objetos())
         if (!o.recogido) dibujarObjeto(o.tipo, centroCelda(o.celda, e), tc * 0.55f);
@@ -205,8 +222,20 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         DrawText(buf, x, y, 14, tiene ? Color{120, 220, 130, 255} : LIGHTGRAY);
         y += 18;
     }
-    DrawText(p.tieneTodosLosObjetos() ? "Ve a la radio y manten E" : "Despues: activar la radio", x, y, 14,
-             p.tieneTodosLosObjetos() ? SKYBLUE : GRAY);
+    if (p.zonaAbierta()) {
+        std::snprintf(buf, sizeof(buf), "Extraccion abierta: %.0f s", static_cast<double>(p.restanteExtraccion()));
+        DrawText(buf, x, y, 14, GREEN);
+    } else if (p.activacionesRadio() > 0 && p.tieneTodosLosObjetos()) {
+        DrawText("Extraccion cerrada: activa otra vez", x, y, 14, ORANGE);
+    } else {
+        DrawText(p.tieneTodosLosObjetos() ? "Ve a la radio y manten E" : "Despues: activar la radio", x, y, 14,
+                 p.tieneTodosLosObjetos() ? SKYBLUE : GRAY);
+    }
+    y += 18;
+    std::snprintf(buf, sizeof(buf), "Refugio %.0f", static_cast<double>(p.integridad()));
+    DrawText(buf, x, y, 14, p.golpeandoPuerta() > 0 ? RED : LIGHTGRAY);
+    barra(x + 90, y + 2, 130, 10, p.integridad() / cfg.integridadMax,
+          p.integridad() > 30.0f ? Color{200, 160, 70, 255} : RED);
     y += 18;
     if (m.progresoInstalacion > 0.0f) {
         barra(x, y, 220, 10, m.progresoInstalacion / cfg.tInstalacion, SKYBLUE);
@@ -305,7 +334,9 @@ void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa) {
     if (p.estado() == juego::EstadoPartida::EnCurso) return;
     DrawRectangle(0, 0, anchoMapa, altoMapa, Fade(BLACK, 0.55f));
     const bool gano = p.estado() == juego::EstadoPartida::Victoria;
-    const char* titulo = gano ? "La radio funciona: llega la extraccion" : "Mara ha caido";
+    const char* titulo = gano                                               ? "Mara llega a la extraccion: victoria"
+                         : p.motivoFin() == juego::MotivoFin::Refugio ? "Derrota: refugio inutilizado"
+                                                                      : "Derrota: Mara ha caido";
     const int w = MeasureText(titulo, 32);
     DrawText(titulo, (anchoMapa - w) / 2, altoMapa / 2 - 30, 32, gano ? SKYBLUE : RED);
     const char* sub = "R: jugar otra vez (nuevo mapa)";

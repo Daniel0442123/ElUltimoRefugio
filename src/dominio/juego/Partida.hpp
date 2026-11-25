@@ -36,6 +36,8 @@ using navegacion::Vec2;
 
 enum class ModoMovimiento : std::uint8_t { Sigilo, Caminar, Correr };
 enum class EstadoPartida : std::uint8_t { EnCurso, Victoria, Derrota };
+/// Por qué terminó (RF-010, RF-011, RF-012).
+enum class MotivoFin : std::uint8_t { Ninguno, Extraccion, Salud, Refugio };
 enum class TipoObjeto : std::uint8_t { Medicamento, Combustible, Bateria };
 inline constexpr int kNumTiposObjeto = 3;
 
@@ -51,6 +53,14 @@ struct ConfigPartida {
     float radioCuerpo{0.3f};   ///< Celdas.
     float alcanceInteraccion{1.0f};
     float tInstalacion{8.0f};  ///< Segundos manteniendo interactuar en la radio (RF-007).
+    // Extracción y refugio (RF-009, RF-010, RF-012, RF-063)
+    float tExtraccion{60.0f};     ///< T_EXTRACCION: segundos que la zona sigue abierta.
+    float radioExtraccion{1.5f};  ///< Celdas alrededor del centro de la zona.
+    float ruidoInstalacion{4.0f};  ///< Instalar hace ruido (STB Escena 4: la horda se acerca al refugio).
+    float integridadMax{100.0f};  ///< INTEGRIDAD_REFUGIO_MAX
+    float integridadInicial{100.0f};
+    float danioPuerta{5.0f};      ///< Puntos por segundo de cada infectado que golpea la puerta.
+    float alcancePuerta{1.2f};    ///< Distancia al centro de la puerta para golpearla.
     // Infectados (prototipo «perseguidor» de config/ia.json, algo más lento para ser jugable)
     float visionRadio{6.0f};
     float visionAngulo{110.0f};
@@ -207,6 +217,7 @@ struct Infectado {
     mundo::Celda objetivoPrevio{};  ///< Objetivo al que vuelve cuando la rompe.
     bool rutaBloqueada{false};
     bool barricadaDestruida{false};
+    bool golpeaPuerta{false};  ///< En este paso golpea la puerta del refugio (RF-063).
     // Táctica (RF-054) con sus puntuaciones y punto de corte (RF-053)
     agentes::Tactica tactica{agentes::Tactica::Perseguir};
     std::array<float, agentes::kNumTacticas> puntuaciones{};
@@ -238,7 +249,8 @@ struct Escenario {
     Vec2 inicioMara{};
     std::vector<Vec2> infectados;
     std::vector<ObjetoMision> objetos;
-    mundo::Celda radio{};
+    mundo::Celda radio{};  ///< La radio está en el refugio; su celda es también la puerta (RF-063).
+    mundo::Celda extraccion{-1, -1};  ///< Zona de extracción; sin definir, el punto de partida de Mara.
 };
 
 /// Ciudad de generarMapa con Mara en una esquina, los objetos y la radio lejos de ella y
@@ -262,6 +274,18 @@ public:
     [[nodiscard]] const std::vector<ObjetoMision>& objetos() const noexcept { return objetos_; }
     [[nodiscard]] mundo::Celda radio() const noexcept { return radio_; }
     [[nodiscard]] EstadoPartida estado() const noexcept { return estado_; }
+    [[nodiscard]] MotivoFin motivoFin() const noexcept { return motivoFin_; }
+    /// «Victoria», «Derrota: Mara ha caído» o «Derrota: refugio inutilizado» (o «En curso»).
+    [[nodiscard]] std::string_view textoResultado() const noexcept;
+
+    /// Extracción (RF-009): se abre T_EXTRACCION segundos cada vez que se activa la radio.
+    [[nodiscard]] mundo::Celda extraccion() const noexcept { return extraccion_; }
+    [[nodiscard]] bool zonaAbierta() const noexcept { return restanteExtraccion_ > 0.0f; }
+    [[nodiscard]] float restanteExtraccion() const noexcept { return restanteExtraccion_; }
+    [[nodiscard]] int activacionesRadio() const noexcept { return activacionesRadio_; }
+    /// Refugio (RF-063): integridad de la puerta y cuántos la golpean en este paso.
+    [[nodiscard]] float integridad() const noexcept { return integridad_; }
+    [[nodiscard]] int golpeandoPuerta() const noexcept { return golpeandoPuerta_; }
     [[nodiscard]] std::uint64_t tick() const noexcept { return tick_; }
     [[nodiscard]] const ConfigPartida& config() const noexcept { return cfg_; }
     [[nodiscard]] float dt() const noexcept { return dt_; }
@@ -332,6 +356,7 @@ private:
     void ejecutarInfectado(std::size_t i);
     void moverHorda();
     void accionesMara(const EntradaJugador& e);
+    void terminar(EstadoPartida e, MotivoFin m) noexcept;
     void actualizarSenuelos();
     [[nodiscard]] mundo::Celda destinoSenuelo(Vec2 apuntar) const noexcept;
     void revisarBarricadas();
@@ -363,6 +388,13 @@ private:
     std::vector<ObjetoMision> objetos_;
     mundo::Celda radio_;
     EstadoPartida estado_{EstadoPartida::EnCurso};
+    MotivoFin motivoFin_{MotivoFin::Ninguno};
+    mundo::Celda extraccion_{};
+    float restanteExtraccion_{0.0f};
+    int activacionesRadio_{0};
+    float desdeRuidoInstalacion_{0.0f};
+    float integridad_{100.0f};
+    int golpeandoPuerta_{0};
     std::uint64_t tick_{0};
     nucleo::Pcg32 rng_;
 

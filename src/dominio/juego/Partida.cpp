@@ -81,6 +81,17 @@ Escenario crearEscenarioAleatorio(int ancho, int alto, int numInfectados, std::u
         for (int t = 0; t < kNumTiposObjeto; ++t) e.objetos.push_back({static_cast<TipoObjeto>(t), elegir(diag * 0.35f), false});
         e.radio = elegir(diag * 0.5f);
         for (int z = 0; z < numInfectados; ++z) e.infectados.push_back(centroDe(elegir(12.0f)));
+        // RF-009: zona de extracción lejos de la radio, para que haya que cruzar la ciudad.
+        e.extraccion = e.mapa.celda(inicio);
+        float mejor = -1.0f;
+        for (int k = 0; k < 64; ++k) {
+            const Celda c = e.mapa.celda(region[rng.enteroMenorQue(static_cast<std::uint32_t>(region.size()))]);
+            const float d = distancia(centroDe(c), centroDe(e.radio));
+            if (d > mejor && distancia(centroDe(c), e.inicioMara) >= diag * 0.25f) {
+                mejor = d;
+                e.extraccion = c;
+            }
+        }
         return e;
     }
     throw std::runtime_error("crearEscenarioAleatorio: no se encontró un mapa jugable");
@@ -100,6 +111,8 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     mara_.pos = esc.inicioMara;
     mara_.salud = cfg_.saludMax;
     mara_.senuelos = cfg_.senuelosIniciales;
+    extraccion_ = esc.extraccion.x >= 0 ? esc.extraccion : celdaDe(esc.inicioMara);
+    integridad_ = std::min(cfg_.integridadInicial, cfg_.integridadMax);
     mara_.barricadas = cfg_.barricadasIniciales;
     const auto ancho = static_cast<std::size_t>(mapa_.ancho());
     const auto alto = static_cast<std::size_t>(mapa_.alto());
@@ -134,6 +147,22 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     ruidosPendientes_.reserve(kMaxRuidosTick);
     ruidosTick_.reserve(kMaxRuidosTick);
     desdeUltimoRuido_ = cfg_.periodoRuido;
+}
+
+void Partida::terminar(EstadoPartida e, MotivoFin m) noexcept {
+    if (estado_ != EstadoPartida::EnCurso) return;  // el primero que ocurre decide
+    estado_ = e;
+    motivoFin_ = m;
+}
+
+std::string_view Partida::textoResultado() const noexcept {
+    switch (motivoFin_) {
+        case MotivoFin::Extraccion: return "Victoria";
+        case MotivoFin::Salud: return "Derrota: Mara ha caído";
+        case MotivoFin::Refugio: return "Derrota: refugio inutilizado";
+        case MotivoFin::Ninguno: break;
+    }
+    return "En curso";
 }
 
 bool Partida::tieneTodosLosObjetos() const noexcept {
@@ -184,12 +213,23 @@ void Partida::paso(const EntradaJugador& entrada) {
     accionesMara(entrada);
     actualizarSenuelos();
     if (tick_ % static_cast<std::uint64_t>(pasosPorTickIa_) == 0) tickIa();
+    golpeandoPuerta_ = 0;
     for (std::size_t i = 0; i < infectados_.size(); ++i) ejecutarInfectado(i);
     moverHorda();
     interactuar(entrada);
+    // RF-009 / RF-010: con la zona abierta, entrar en ella es la victoria; si no, se va cerrando.
+    if (zonaAbierta()) {
+        if (distancia(mara_.pos, centroDe(extraccion_)) <= cfg_.radioExtraccion)
+            terminar(EstadoPartida::Victoria, MotivoFin::Extraccion);
+        restanteExtraccion_ = std::max(0.0f, restanteExtraccion_ - dt_);
+    }
     if (mara_.salud <= 0.0f) {
         mara_.salud = 0.0f;
-        estado_ = EstadoPartida::Derrota;  // RF-011
+        terminar(EstadoPartida::Derrota, MotivoFin::Salud);  // RF-011
+    }
+    if (integridad_ <= 0.0f) {
+        integridad_ = 0.0f;
+        terminar(EstadoPartida::Derrota, MotivoFin::Refugio);  // RF-012
     }
     ++tick_;
 }
@@ -261,13 +301,25 @@ void Partida::interactuar(const EntradaJugador& e) {
         return;  // un objeto por pulsación
     }
     // RF-007 / RF-008: instalar la radio manteniendo interactuar; el daño reinicia el progreso.
+    // Con la zona ya abierta no hace falta: se puede volver a activar cuando se cierre.
     const bool enRadio = distancia(mara_.pos, centroDe(radio_)) <= cfg_.alcanceInteraccion;
-    if (!enRadio || !tieneTodosLosObjetos() || mara_.recibioDanio) {
+    if (!enRadio || !tieneTodosLosObjetos() || mara_.recibioDanio || zonaAbierta()) {
         mara_.progresoInstalacion = 0.0f;
         return;
     }
+    // Instalar hace ruido cada segundo: la horda se acerca al refugio (STB Escena 4).
+    if (mara_.progresoInstalacion == 0.0f) desdeRuidoInstalacion_ = 1.0f;
+    desdeRuidoInstalacion_ += dt_;
+    if (desdeRuidoInstalacion_ >= 1.0f && cfg_.ruidoInstalacion > 0.0f) {
+        if (ruidosPendientes_.size() < kMaxRuidosTick) ruidosPendientes_.push_back({centroDe(radio_), cfg_.ruidoInstalacion, false});
+        desdeRuidoInstalacion_ = 0.0f;
+    }
     mara_.progresoInstalacion += dt_;
-    if (mara_.progresoInstalacion >= cfg_.tInstalacion) estado_ = EstadoPartida::Victoria;  // RF-010
+    if (mara_.progresoInstalacion >= cfg_.tInstalacion) {  // RF-007: RadioActivada -> RF-009
+        mara_.progresoInstalacion = 0.0f;
+        restanteExtraccion_ = cfg_.tExtraccion;
+        ++activacionesRadio_;
+    }
 }
 
 // -------------------------------------------------------------------------------- Ciclo de IA
@@ -409,6 +461,8 @@ void Partida::percibirYDecidir(std::size_t i) {
     agentes::ContextoFsm c;
     c.tiempoEnEstado = z.tiempoEnEstado;
     c.llegoAlObjetivo = !z.tieneObjetivo || (aqui == z.objetivo && z.indiceRuta >= z.ruta.size());
+    // Golpeando la puerta del refugio da por alcanzado un objetivo que esté junto a ella.
+    if (z.golpeaPuerta && distancia(centroDe(z.objetivo), centroDe(radio_)) <= 1.5f) c.llegoAlObjetivo = true;
     c.sinRuta = z.sinRuta;
     c.rutaBloqueada = z.rutaBloqueada;
     c.barricadaDestruida = z.barricadaDestruida;
@@ -810,6 +864,17 @@ void Partida::ejecutarInfectado(std::size_t i) {
     using E = EstadoInfectado;
     const float factor = factorTerreno(z.pos);
     const float dMara = distancia(z.pos, mara_.pos);
+    // RF-063: quien investiga o busca junto a la puerta del refugio la golpea y se queda ahí.
+    z.golpeaPuerta = (z.estado == E::Investigar || z.estado == E::Buscar) &&
+                     distancia(z.pos, centroDe(radio_)) <= cfg_.alcancePuerta;
+    if (z.golpeaPuerta) {
+        integridad_ -= cfg_.danioPuerta * dt_;
+        ++golpeandoPuerta_;
+        const Vec2 puerta = centroDe(radio_);
+        z.orientacion = normalizar({puerta.x - z.pos.x, puerta.y - z.pos.y});
+        z.velDeseada = {};
+        return;
+    }
     const bool cerca = z.tieneLlegada && dMara <= cfg_.radioAproximacion;
 
     if (z.estado == E::Atacar) {

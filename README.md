@@ -15,7 +15,25 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.6.0)
+## Estado actual (0.7.0)
+
+**Extracción y derrotas** (HU-04, HU-05). La partida ya tiene su desenlace completo:
+
+- **Extracción** (RF-009, RF-010): activar la radio ya no gana al instante. Abre durante 60 s una
+  zona de extracción (círculo verde con temporizador) en el otro extremo de la ciudad, y entrar en
+  ella mientras está abierta es la victoria. Si se cierra, la partida sigue y la radio se puede
+  volver a activar.
+- **Refugio** (RF-012, RF-063): la radio está en el refugio. Cada infectado que investiga o busca
+  junto a su puerta la golpea y le quita 5 puntos de integridad por segundo. Con integridad 0 la
+  partida se pierde con «Derrota: refugio inutilizado». Instalar la radio hace ruido (radio 4, una
+  vez por segundo), así que la horda se acerca al refugio. La reparación llega con el superviviente
+  de la radio (HU-13).
+- **Derrota por salud** (RF-011, RF-055): cada infectado en Atacar quita 10 de salud por segundo.
+  Con salud 0, «Derrota: Mara ha caído».
+- El panel muestra el tiempo de extracción que queda y la integridad del refugio, que parpadea en
+  rojo mientras la golpean.
+
+### Versión 0.6.0
 
 **Infectados que eligen táctica según sus pistas** (HU-12). Sobre los señuelos y barricadas de 0.5.0:
 
@@ -171,7 +189,7 @@ Partida (escena inicial):
 |---|---|
 | WASD / flechas | Mover a Mara |
 | Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
-| E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) |
+| E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) y abrir la extracción 60 s |
 | Q | Lanzar un señuelo hacia el cursor (8 celdas como máximo) |
 | B | Poner una barricada en la celda de al lado, hacia el cursor |
 | F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |

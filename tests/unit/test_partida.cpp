@@ -89,6 +89,7 @@ TEST_CASE("CP-005 Recoger un objeto solo a distancia 1", "[RF-005][HU-02]") {
 TEST_CASE("CP-007 Activar la radio con los tres objetos manteniendo interactuar", "[RF-007][RF-010][HU-03]") {
     auto e = abierto(12, 5, {2.5f, 2.5f});
     e.radio = {3, 2};
+    e.extraccion = {10, 2};
     e.objetos = {{juego::TipoObjeto::Medicamento, {2, 1}, false},
                  {juego::TipoObjeto::Combustible, {2, 3}, false},
                  {juego::TipoObjeto::Bateria, {1, 2}, false}};
@@ -99,7 +100,13 @@ TEST_CASE("CP-007 Activar la radio con los tres objetos manteniendo interactuar"
     p.paso({0.0f, 0.0f, ModoMovimiento::Caminar, false});  // soltar reinicia (CP-008)
     CHECK(p.mara().progresoInstalacion == 0.0f);
     for (int i = 0; i < 8 * 60 + 1; ++i) p.paso({0.0f, 0.0f, ModoMovimiento::Caminar, true});
-    CHECK(p.estado() == EstadoPartida::Victoria);
+    // RF-009: activar la radio abre la extracción; ganar exige llegar a ella (CP-010).
+    CHECK(p.activacionesRadio() == 1);
+    CHECK(p.zonaAbierta());
+    CHECK(p.estado() == EstadoPartida::EnCurso);
+    for (int i = 0; i < 4 * 60 && p.estado() == EstadoPartida::EnCurso; ++i) p.paso({1.0f, 0.0f, ModoMovimiento::Caminar, false});
+    CHECK(p.estado() == EstadoPartida::Victoria);  // CP-010
+    CHECK(p.textoResultado() == "Victoria");
 }
 
 TEST_CASE("CP-044 Un infectado ve a Mara, la persigue con A* y la ataca", "[RF-044][RF-040][HU-08]") {
@@ -130,6 +137,8 @@ TEST_CASE("CP-011 Derrota cuando la salud de Mara llega a 0", "[RF-011][HU-08]")
     Partida p(std::move(e));
     for (int i = 0; i < 15 * 60; ++i) p.paso({});
     CHECK(p.estado() == EstadoPartida::Derrota);
+    CHECK(p.motivoFin() == juego::MotivoFin::Salud);
+    CHECK(p.textoResultado() == "Derrota: Mara ha caído");
     CHECK(p.mara().salud == 0.0f);
     const auto t = p.tick();
     p.paso({});
