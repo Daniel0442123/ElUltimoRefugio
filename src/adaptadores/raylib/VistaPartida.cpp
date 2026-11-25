@@ -653,12 +653,15 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     // RF-074: algoritmo activo de todos los agentes (F2).
     const auto alg = navegacion::nombreAlgoritmo(p.algoritmo());
     const int na = static_cast<int>(alg.size());
-    std::snprintf(buf, sizeof(buf), "%.*s (F2) tick IA: %u rutas, %u nodos", na, alg.data(), p.busquedasUltimoTickIa(),
-                  p.nodosUltimoTickIa());
+    std::snprintf(buf, sizeof(buf), "%.*s (F2): %u rutas, %u/%d nodos", na, alg.data(), p.busquedasUltimoTickIa(),
+                  p.nodosUltimoTickIa(), cfg.presupuestoNodosTick);
     DrawText(buf, x, y, 12, p.algoritmo() == navegacion::Algoritmo::AEstrella ? kColorExpandido : kColorDijkstra);
     y += 15;
-    std::snprintf(buf, sizeof(buf), "tiempo busqueda: %.1f us   FPS: %d", p.tiempoBusquedaUltimoTickIaUs(), fps);
-    DrawText(buf, x, y, 12, LIGHTGRAY);
+    // HU-23 (RF-026): solicitudes en espera, si una búsqueda sigue a medias y la mayor espera.
+    const auto& plan = p.planificador();
+    std::snprintf(buf, sizeof(buf), "cola %zu%s  %.0f us  espera max %u  FPS %d", plan.pendientes(),
+                  plan.metricas().enCurso ? "+1" : "", p.tiempoBusquedaUltimoTickIaUs(), p.esperaMaximaRuta(), fps);
+    DrawText(buf, x, y, 12, plan.metricas().enCurso || plan.pendientes() > 0 ? ORANGE : LIGHTGRAY);
     y += 15;
     if (p.campoActivo())
         std::snprintf(buf, sizeof(buf), "Flow field: %u agentes, %.0f us", p.agentesEnCampo(), p.campo().tiempoUs());

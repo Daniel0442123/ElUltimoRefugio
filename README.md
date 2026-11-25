@@ -15,7 +15,33 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.14.0)
+## Estado actual (0.15.0)
+
+**Rutas para la horda sin congelar el juego** (HU-23, RF-026, RF-027, ADR-0007).
+
+- **A\* iterativo**: una búsqueda ya no tiene que terminar en el tick en que empieza. El buscador
+  guarda la abierta, g, padre y cerrado y sigue en el tick siguiente donde se quedó, con exactamente
+  la misma ruta, el mismo costo y el mismo orden de expansión que si la hubiera hecho de una vez.
+- **Presupuesto por tick de IA**: entre todos los infectados no se expanden más de
+  `presupuesto_nodos_tick` nodos (4000 en `config/ia.json`). Antes se comprobaba solo al empezar cada
+  búsqueda y un tick con muchas búsquedas largas podía pasarse; ahora el límite es exacto.
+- **Cola por prioridad y antigüedad**: perseguir, interceptar y atacar una barricada van primero,
+  luego investigar y buscar, y al final explorar. Cada 0,5 s de espera una solicitud sube un nivel,
+  así nadie se queda esperando para siempre. Quien pasa al campo de flujo o deja de necesitar ruta
+  sale de la cola; si el mapa cambia (barricada) o se pulsa F2, la búsqueda a medias empieza de nuevo.
+- **Sin ruta** (RF-027): una búsqueda hacia un destino encerrado también se reparte en varios ticks
+  y, al agotarse, el infectado cambia de comportamiento en el tick de IA siguiente.
+- **Panel**: la línea del algoritmo muestra los nodos del último tick sobre el presupuesto
+  (`12/4000`) y la siguiente, las solicitudes en cola (`+1` si hay una a medias), el tiempo de
+  búsqueda del tick y la mayor espera de la partida en ticks de IA.
+- **Medido** (pruebas CP-026, Release, Xeon 2,3 GHz): 100 solicitudes en el mismo tick en una
+  ciudad de 128 × 128 se resuelven en 5 ticks, sin pasar de 4000 nodos ni de 0,7 ms por tick. Una
+  partida de 100 infectados en 128 × 128 durante 60 s hizo 1477 búsquedas con una espera máxima de
+  4 ticks de IA. El benchmark de A\* (RNF-003) no cambia: unos 85 µs de mediana en 128 × 128.
+- Las partidas guardadas con la 0.14.0 o antes pueden dar «otra versión del juego» al cargarlas si
+  en algún tick se llegó al presupuesto, porque ahora ese tick se reparte de otra forma.
+
+### Versión 0.14.0
 
 **Controlar la simulación para explicarla** (HU-22, RF-075, ADR-0005).
 

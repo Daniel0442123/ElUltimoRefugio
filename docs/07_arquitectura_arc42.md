@@ -316,6 +316,14 @@ Planificador ..> FlowField
 Dijkstra se implementa como A\* con h ≡ 0 sobre el mismo `EstadoBusqueda`, lo que garantiza que ambos usan
 la misma estructura de datos y la comparación solo mide el efecto de la heurística.
 
+**Implementación (0.15.0, HU-23).** El estado reanudable vive dentro de `BuscadorMejorPrimero`
+(`iniciar()` / `avanzar(maxExpansiones)` / `estado()`, con `EstadoBusqueda` = `EnCurso`, `Encontrada` o
+`SinRuta`), y `navegacion::PlanificadorRutas` hace de `Planificador`: cola de solicitudes por agente
+ordenada por prioridad efectiva = prioridad + espera / 5 ticks, y una sola búsqueda a medias a la vez. Por
+eso no hace falta el `ObjectPool<EstadoBusqueda>` del diseño: la memoria es O(V) y no O(V · agentes), y
+como las búsquedas se encadenan dentro del tick, el presupuesto se aprovecha entero. El presupuesto
+cuenta nodos y no tiempo, así que el reparto es el mismo en cualquier equipo (RNF-020).
+
 ---
 
 ## 6. Vista de ejecución

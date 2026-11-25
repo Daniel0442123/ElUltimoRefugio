@@ -152,6 +152,7 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     expansionSel_.reserve(mapa_.numCeldas());
     buscador_.reservar(mapa_.numCeldas());
     dijkstra_.reservar(mapa_.numCeldas());
+    planificador_.reservar(static_cast<std::uint32_t>(infectados_.size()), mapa_.numCeldas());
     quadtree_.reservar(infectados_.size());
     propagador_.reservar(infectados_.size(), propagacion_);
     posiciones_.reserve(infectados_.size());
@@ -293,7 +294,7 @@ void Partida::seleccionar(int agente) {
     const Celda o = z.busqueda.origen;
     const Celda d = z.busqueda.destino;
     buscadorActivo().buscarEn(mapa_, mapa_.nodo(o.x, o.y), mapa_.nodo(d.x, d.y), resultado_, true);
-    anotarMetricas(static_cast<std::size_t>(seleccionado_), o, d);
+    anotarMetricas(static_cast<std::size_t>(seleccionado_), o, d, resultado_);
 }
 
 navegacion::Algoritmo Partida::alternarAlgoritmo() noexcept {
@@ -321,25 +322,25 @@ bool Partida::compararSeleccionado() {
     return true;
 }
 
-void Partida::anotarMetricas(std::size_t i, Celda origen, Celda destino) noexcept {
+void Partida::anotarMetricas(std::size_t i, Celda origen, Celda destino, const navegacion::ResultadoBusqueda& r) noexcept {
     auto& m = infectados_[i].busqueda;
     m.valida = true;
-    m.algoritmo = resultado_.algoritmo;
-    m.encontrada = resultado_.encontrada;
-    m.costo = resultado_.costo;
-    m.expandidos = resultado_.expandidos;
-    m.generados = resultado_.generados;
-    m.maxAbierta = resultado_.maxAbierta;
-    m.largoRuta = static_cast<std::uint32_t>(resultado_.ruta.size());
-    m.tiempoUs = resultado_.tiempoUs;
-    m.memoriaBytes = resultado_.memoriaBytes;
+    m.algoritmo = r.algoritmo;
+    m.encontrada = r.encontrada;
+    m.costo = r.costo;
+    m.expandidos = r.expandidos;
+    m.generados = r.generados;
+    m.maxAbierta = r.maxAbierta;
+    m.largoRuta = static_cast<std::uint32_t>(r.ruta.size());
+    m.tiempoUs = r.tiempoUs;
+    m.memoriaBytes = r.memoriaBytes;
     m.tick = tick_;
     m.origen = origen;
     m.destino = destino;
     if (static_cast<int>(i) == seleccionado_) {
         expansionSel_.clear();
-        expansionSel_.insert(expansionSel_.end(), resultado_.ordenExpansion.begin(),
-                             resultado_.ordenExpansion.end());  // cabe: capacidad reservada
+        expansionSel_.insert(expansionSel_.end(), r.ordenExpansion.begin(),
+                             r.ordenExpansion.end());  // cabe: capacidad reservada
     }
 }
 
@@ -860,6 +861,7 @@ bool Partida::colocarBarricadaEn(Celda c) {
         mapa_.bloquear(c.x, c.y);
         ++cambiosMapa_;  // evento CambioDeMapa (RF-014, RF-025)
         campoSucio_ = true;
+        planificador_.reiniciarEnCurso();  // la búsqueda a medias usaba el mapa anterior
         return true;
     }
     return false;
@@ -872,6 +874,7 @@ void Partida::destruirBarricada(std::size_t b) {
     mapa_.fijarMultiplicador(bar.celda.x, bar.celda.y, bar.multiplicadorPrevio);
     ++cambiosMapa_;
     campoSucio_ = true;
+    planificador_.reiniciarEnCurso();
     for (auto& z : infectados_) {
         if (z.barricada != static_cast<int>(b)) continue;
         z.barricada = -1;
@@ -928,57 +931,88 @@ void Partida::atacarBarricada(Infectado& z) {
     if (b.durabilidad <= 0.0f) destruirBarricada(static_cast<std::size_t>(z.barricada));
 }
 
-// RF-026: se atienden solicitudes por turno rotativo hasta agotar el presupuesto de nodos.
+// RF-026 (HU-23): cada agente que necesita ruta entra en la cola del planificador con la urgencia
+// de su estado; el planificador expande como mucho PRESUPUESTO_NODOS_TICK nodos por tick de IA y
+// continúa en el tick siguiente la búsqueda que quede a medias. Quien deja de necesitar ruta
+// (pasa al campo de flujo, ataca, cambia de estado) sale de la cola.
+namespace {
+std::uint8_t prioridadRuta(EstadoInfectado e) noexcept {
+    switch (e) {
+        case EstadoInfectado::Perseguir:
+        case EstadoInfectado::Interceptar:
+        case EstadoInfectado::AtacarBarricada: return 2;  // Mara cerca o tarea de la horda
+        case EstadoInfectado::Investigar:
+        case EstadoInfectado::Buscar: return 1;
+        default: return 0;  // explorar puede esperar
+    }
+}
+}  // namespace
+
 void Partida::planificarRutas() {
-    busquedasTickIa_ = 0;
-    nodosTickIa_ = 0;
-    tiempoTickIaUs_ = 0.0;
-    const std::size_t n = infectados_.size();
-    for (std::size_t k = 0; k < n; ++k) {
-        const std::size_t i = (inicioCola_ + k) % n;
+    const auto n = static_cast<std::uint32_t>(infectados_.size());
+    for (std::uint32_t i = 0; i < n; ++i) {
+        const auto& z = infectados_[i];
+        if (z.rutaPendiente)
+            planificador_.solicitar(i, prioridadRuta(z.estado));
+        else
+            planificador_.cancelar(i);
+    }
+    planificador_.fijarAlgoritmo(cfg_.algoritmo);  // F2 (RF-074)
+    const auto consulta = [this](std::uint32_t i) {
         auto& z = infectados_[i];
-        if (!z.rutaPendiente) continue;
-        if (nodosTickIa_ >= static_cast<std::uint32_t>(cfg_.presupuestoNodosTick)) {
-            inicioCola_ = i;  // el siguiente tick empieza por quien quedó esperando
+        z.origenBusqueda = celdaDe(z.pos);
+        z.destinoBusqueda = z.objetivo;
+        return std::pair<mundo::Nodo, mundo::Nodo>{mapa_.nodo(z.origenBusqueda.x, z.origenBusqueda.y),
+                                                   mapa_.nodo(z.destinoBusqueda.x, z.destinoBusqueda.y)};
+    };
+    const auto entregar = [this](std::uint32_t i, const navegacion::ResultadoBusqueda& r) { entregarRuta(i, r); };
+    const auto registrar = seleccionado_ >= 0 ? static_cast<std::uint32_t>(seleccionado_) : navegacion::PlanificadorRutas::kSinAgente;
+    planificador_.procesar(mapa_, static_cast<std::uint32_t>(std::max(1, cfg_.presupuestoNodosTick)), consulta, entregar,
+                           registrar);
+    const auto& m = planificador_.metricas();
+    busquedasTickIa_ = m.terminadas;
+    nodosTickIa_ = m.expandidos;
+    tiempoTickIaUs_ = m.tiempoUs;
+    esperaMaximaRuta_ = std::max(esperaMaximaRuta_, m.esperaMaxima);
+    maxNodosTickIa_ = std::max(maxNodosTickIa_, m.expandidos);
+}
+
+void Partida::entregarRuta(std::size_t i, const navegacion::ResultadoBusqueda& r) {
+    auto& z = infectados_[i];
+    anotarMetricas(i, z.origenBusqueda, z.destinoBusqueda, r);
+    ++busquedasTotales_;
+    // Si el objetivo cambió mientras se buscaba, la ruta sirve para ir avanzando y se pide otra.
+    z.rutaPendiente = !(z.destinoBusqueda == z.objetivo);
+    z.desdeUltimaRuta = 0.0f;
+    z.ruta.clear();
+    z.indiceRuta = 0;
+    if (z.verificarDesvio) {
+        // RF-052: sin rodeo, o con uno que cuesta más de FACTOR_DESVIO_BARRICADA veces la ruta
+        // que tenía, ataca la barricada; si no, sigue por el rodeo. Las dos se registran (RF-072).
+        z.verificarDesvio = false;
+        const double limite = static_cast<double>(cfg_.factorDesvioBarricada) * z.costoSinBarricada;
+        const Celda celdaBarricada = barricadas_[static_cast<std::size_t>(z.barricada)].celda;
+        if (!r.encontrada || r.costo > limite) {
+            registrarPlan(i, z.objetivo, celdaBarricada, static_cast<float>(z.costoSinBarricada),
+                          r.encontrada ? static_cast<float>(r.costo) : -1.0f, MotivoPlan::AtacarBarricada);
+            z.rutaBloqueada = true;  // la FSM pasa a AtacarBarricada en el siguiente ciclo
             return;
         }
-        const Celda c = celdaDe(z.pos);
-        const bool registrarExpansion = static_cast<int>(i) == seleccionado_;  // RF-071
-        buscadorActivo().buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_,
-                                  registrarExpansion);
-        anotarMetricas(i, c, z.objetivo);
-        ++busquedasTickIa_;
-        ++busquedasTotales_;
-        nodosTickIa_ += resultado_.expandidos;
-        tiempoTickIaUs_ += resultado_.tiempoUs;
-        z.rutaPendiente = false;
-        z.desdeUltimaRuta = 0.0f;
-        z.ruta.clear();
-        z.indiceRuta = 0;
-        if (z.verificarDesvio) {
-            // RF-052: sin rodeo, o con uno que cuesta más de FACTOR_DESVIO_BARRICADA veces la ruta
-            // que tenía, ataca la barricada; si no, sigue por el rodeo. Las dos se registran (RF-072).
-            z.verificarDesvio = false;
-            const double limite = static_cast<double>(cfg_.factorDesvioBarricada) * z.costoSinBarricada;
-            const Celda celdaBarricada = barricadas_[static_cast<std::size_t>(z.barricada)].celda;
-            if (!resultado_.encontrada || resultado_.costo > limite) {
-                registrarPlan(i, z.objetivo, celdaBarricada, static_cast<float>(z.costoSinBarricada),
-                              resultado_.encontrada ? static_cast<float>(resultado_.costo) : -1.0f, MotivoPlan::AtacarBarricada);
-                z.rutaBloqueada = true;  // la FSM pasa a AtacarBarricada en el siguiente ciclo
-                continue;
-            }
-            registrarPlan(i, celdaBarricada, z.objetivo, static_cast<float>(z.costoSinBarricada),
-                          static_cast<float>(resultado_.costo), MotivoPlan::Rodeo);
-        }
-        if (resultado_.encontrada) {
-            z.costoRuta = resultado_.costo;
-            z.ruta.insert(z.ruta.end(), resultado_.ruta.begin(), resultado_.ruta.end());  // cabe: capacidad reservada
-            z.indiceRuta = 1;  // la primera celda es donde ya está
-        } else {
-            z.sinRuta = true;  // RF-027: otro comportamiento en el siguiente tick de IA
-        }
+        registrarPlan(i, celdaBarricada, z.objetivo, static_cast<float>(z.costoSinBarricada), static_cast<float>(r.costo),
+                      MotivoPlan::Rodeo);
     }
-    inicioCola_ = n == 0 ? 0 : (inicioCola_ + 1) % n;
+    if (r.encontrada) {
+        z.costoRuta = r.costo;
+        z.ruta.insert(z.ruta.end(), r.ruta.begin(), r.ruta.end());  // cabe: capacidad reservada
+        // La búsqueda pudo tardar varios ticks: se retoma la ruta en la celda más avanzada de las
+        // primeras que el agente tiene a menos de una celda (ADR-0007, latencia de 1 a 10 ticks).
+        z.indiceRuta = 1;  // la primera celda es donde estaba al pedirla
+        const std::size_t tope = std::min<std::size_t>(z.ruta.size(), 8);
+        for (std::size_t k = 1; k < tope; ++k)
+            if (distancia(z.pos, centroDe(mapa_.celda(z.ruta[k]))) < 1.0f) z.indiceRuta = k;
+    } else {
+        z.sinRuta = true;  // RF-027: otro comportamiento en el siguiente tick de IA
+    }
 }
 
 // --------------------------------------------------------------------------------- Ejecución

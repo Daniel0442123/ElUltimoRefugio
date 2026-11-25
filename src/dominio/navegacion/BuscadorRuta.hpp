@@ -17,6 +17,11 @@
 /// las coordenadas del vecino y guarda g, padre y estado de cada nodo en un solo registro de
 /// 16 bytes (una línea de caché por nodo). buscarEn() reutiliza la memoria de un resultado previo:
 /// tras la primera búsqueda en un mapa no hay asignaciones del montículo.
+///
+/// Búsqueda reanudable (RF-026, ADR-0007): iniciar() y avanzar() dejan la abierta, g, padre y
+/// cerrado en el buscador entre llamadas, así una búsqueda larga se reparte en varios ticks de IA
+/// sin superar un número máximo de nodos expandidos por llamada. El resultado es exactamente el
+/// mismo que con buscarEn() (mismo orden de expansión, misma ruta y mismo costo).
 
 #include <cstddef>
 #include <cstdint>
@@ -32,6 +37,14 @@ using mundo::GrafoRejilla;
 using mundo::Nodo;
 
 enum class Algoritmo : std::uint8_t { Dijkstra, AEstrella };
+
+/// Estado de una búsqueda reanudable (RF-026, RF-027).
+enum class EstadoBusqueda : std::uint8_t {
+    Inactiva,    ///< No se ha iniciado ninguna (o se abandonó).
+    EnCurso,     ///< Quedan nodos en la abierta y aún no se cerró el destino.
+    Encontrada,  ///< Ruta completa en el resultado.
+    SinRuta,     ///< RF-027: se agotó la abierta (o el origen o el destino no son transitables).
+};
 
 [[nodiscard]] std::string_view nombreAlgoritmo(Algoritmo a) noexcept;
 
@@ -103,6 +116,23 @@ public:
     void buscarEn(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& salida,
                   bool registrarExpansion = false) override;
     [[nodiscard]] Algoritmo algoritmo() const noexcept override { return algoritmo_; }
+    /// Cambia entre Dijkstra y A*. Abandona la búsqueda reanudable en curso, si la hay.
+    void fijarAlgoritmo(Algoritmo a) noexcept {
+        if (a != algoritmo_) estado_ = EstadoBusqueda::Inactiva;
+        algoritmo_ = a;
+    }
+
+    /// Empieza una búsqueda reanudable: vacía @p salida y mete el origen en la abierta, sin expandir
+    /// nada. Si el origen o el destino no son válidos, la búsqueda termina ya en SinRuta.
+    EstadoBusqueda iniciar(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& salida,
+                           bool registrarExpansion = false);
+    /// Expande como mucho @p maxExpansiones nodos más. Hay que pasar el mismo grafo (sin cambios) y
+    /// el mismo resultado que a iniciar(). Al terminar deja la ruta y el costo en @p salida;
+    /// salida.expandidos y salida.tiempoUs acumulan todas las llamadas.
+    EstadoBusqueda avanzar(const GrafoRejilla& grafo, ResultadoBusqueda& salida, std::uint32_t maxExpansiones);
+    [[nodiscard]] EstadoBusqueda estado() const noexcept { return estado_; }
+    /// Olvida la búsqueda en curso (el mapa cambió o el agente ya no la necesita).
+    void abandonar() noexcept { estado_ = EstadoBusqueda::Inactiva; }
 
     /// Reserva toda la memoria que puede necesitar una búsqueda en un mapa de @p numNodos celdas:
     /// la abierta nunca supera 8·V + 1 entradas (una por arista relajada más el origen). Tras
@@ -120,8 +150,10 @@ private:
     static_assert(sizeof(EstadoNodo) == 16);
 
     void prepararEspacio(std::uint32_t numNodos);
+    /// Expande hasta cerrar el destino, vaciar la abierta o llegar a @p limite expandidos en total.
     template <bool UsarH>
-    void expandir(const GrafoRejilla& grafo, Nodo origen, Nodo destino, ResultadoBusqueda& r, bool registrar);
+    EstadoBusqueda expandir(const GrafoRejilla& grafo, ResultadoBusqueda& r, std::uint32_t limite);
+    void terminar(ResultadoBusqueda& r);
 
     Algoritmo algoritmo_;
     // Arreglo indexado por nodo que se reutiliza entre búsquedas: reiniciar es O(1) en vez de
@@ -129,6 +161,11 @@ private:
     std::vector<EstadoNodo> nodos_;
     std::uint32_t generacion_{0};
     MonticuloBinario abierta_;
+    // Búsqueda en curso (reanudable).
+    EstadoBusqueda estado_{EstadoBusqueda::Inactiva};
+    Nodo origen_{0};
+    Nodo destino_{0};
+    bool registrar_{false};
 };
 
 /// Fábrica de buscadores (patrón Factory). RNF-026: un algoritmo nuevo se registra aquí.
