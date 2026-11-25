@@ -54,7 +54,7 @@ jobs:
       - name: Pruebas
         run: ctest --test-dir build -C Release --output-on-failure
 
-      - name: Humo de benchmark y estrés de recursión
+      - name: Humo de benchmark, estrés y aislados/coordinados
         shell: bash
         run: |
           exe=build/refugio_bench; [ -f build/Release/refugio_bench.exe ] && exe=build/Release/refugio_bench.exe
@@ -64,6 +64,7 @@ jobs:
           "$py" tools/resumen_bench.py results/bench_config.csv > /dev/null
           "$py" tools/resumen_bench.py results/bench_config_dinamico.csv > /dev/null
           "$exe" --estres-recursion --agentes 50,200 --reps 3 --salida results/estres_humo.csv
+          "$exe" --coord-exp 7 --reps 3 --salida results/coord_humo.csv
 
   sanitizadores:
     name: ASan + UBSan

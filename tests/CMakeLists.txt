@@ -16,6 +16,7 @@ add_executable(refugio_tests
     unit/test_monitoreo.cpp
     unit/test_comparacion.cpp
     unit/test_benchmark.cpp
+    unit/test_aislados_coordinados.cpp
     unit/contador_asignaciones.cpp
 )
 target_link_libraries(refugio_tests PRIVATE refugio_dominio refugio_archivo refugio_cli Catch2::Catch2WithMain)

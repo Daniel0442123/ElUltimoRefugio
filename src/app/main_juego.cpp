@@ -5,7 +5,8 @@
 /// radio mientras los infectados exploran, la oyen, la persiguen con A* y la atacan.
 ///   WASD / flechas = mover, Shift = correr, Ctrl = sigilo, E = recoger / activar la radio,
 ///   Q = señuelo hacia el cursor, B = barricada en la celda de al lado hacia el cursor,
-///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), C = modo coordinado,
+///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), F4 (o C) = modo aislado /
+///   coordinado de la horda (HU-18),
 ///   clic izquierdo sobre un infectado = monitor del agente (HU-14), N = nodos expandidos,
 ///   L = consola del registro de IA (HU-15), F2 = alternar Dijkstra / A* para todos los agentes,
 ///   F3 = comparar la última consulta del agente seleccionado con ambos (HU-16),
@@ -13,7 +14,7 @@
 ///   El registro de IA se escribe también en logs/ia_<semilla>.log.
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
-/// Con --bench o --estres-recursion se ejecuta sin ventana.
+/// Con --bench, --estres-recursion o --coord-exp se ejecuta sin ventana.
 ///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
 /// real del frame; el dibujo va aparte y no cambia el resultado de la simulación.
@@ -71,7 +72,7 @@ public:
     void actualizar() {
         if (IsKeyPressed(KEY_R)) reiniciar(semilla_ + 1);
         if (IsKeyPressed(KEY_F1)) depuracion_ = !depuracion_;
-        if (IsKeyPressed(KEY_C)) {  // RF-084: comparar horda aislada y coordinada
+        if (IsKeyPressed(KEY_F4) || IsKeyPressed(KEY_C)) {  // RF-056: horda aislada o coordinada (HU-18)
             coordinado_ = !coordinado_;
             partida_->fijarCoordinado(coordinado_);
         }
