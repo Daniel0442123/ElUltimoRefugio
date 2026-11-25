@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 #include "dominio/juego/Partida.hpp"
 
@@ -256,6 +257,21 @@ void Partida::planificarSuperviviente() {
     registroSup_[static_cast<std::size_t>(totalRegistrosSup_ % kCapacidadRegistroSuperviviente)] = RegistroSuperviviente{
         tick_, s.meta, s.plan.encontrado ? s.motivo : MotivoReplan::SinPlan, s.tickFallo, s.accionFallida, s.plan.longitud, s.plan.costo};
     ++totalRegistrosSup_;
+    // RF-064 / RF-072: el plan nuevo también va al registro de IA, con sus acciones.
+    const auto& r = registroSup_[static_cast<std::size_t>((totalRegistrosSup_ - 1) % kCapacidadRegistroSuperviviente)];
+    char acciones[96];
+    int n = 0;
+    acciones[0] = '\0';
+    for (std::size_t k = 0; k < s.plan.longitud && n >= 0 && static_cast<std::size_t>(n) < sizeof(acciones); ++k) {
+        const auto a = superviviente::nombreAccion(static_cast<Accion>(s.plan.acciones[k]));
+        n += std::snprintf(acciones + n, sizeof(acciones) - static_cast<std::size_t>(n), "%s%.*s", k == 0 ? "" : ">",
+                           static_cast<int>(a.size()), a.data());
+    }
+    const auto meta = superviviente::nombreMeta(r.meta);
+    const auto mo = nombreMotivoReplan(r.motivo);
+    registroIa_.anotar(tick_, TipoEventoIa::Superviviente, kAgenteSuperviviente,
+                       "S\tmeta=%.*s\tmotivo=%.*s\tplan=%s\tcosto=%.1f", static_cast<int>(meta.size()), meta.data(),
+                       static_cast<int>(mo.size()), mo.data(), s.plan.longitud > 0 ? acciones : "-", static_cast<double>(r.costo));
 }
 
 // Ruta A* hasta @p destino; se recalcula si cambia el destino o el mapa (CambioDeMapa).

@@ -15,7 +15,39 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.8.0)
+## Estado actual (0.9.0)
+
+**Panel de monitoreo y registro de planes** (HU-14, HU-15). Ya se puede ver qué piensa cada agente:
+
+- **Monitor del agente** (RF-070, RF-023): con un clic sobre un infectado, la parte baja del panel
+  muestra su estado, su objetivo (con la táctica o la tarea de Contract Net), la percepción del
+  último ciclo de IA (si ve a Mara y a qué distancia, cuántos ruidos oyó, la alerta que recibió y
+  cuántas pistas guarda), y su última búsqueda: algoritmo, heurística, origen y destino, costo,
+  largo de la ruta, nodos expandidos y generados, tamaño máximo de la abierta, tiempo en µs y
+  memoria. Debajo va su historial de cambios de estado y de plan. Clic fuera de un agente lo suelta.
+- **Superposición** (RF-071): la ruta del agente seleccionado se dibuja en blanco (sin necesidad de
+  F1), con su objetivo marcado, y los nodos que cerró su última búsqueda se pintan en magenta, más
+  intensos cuanto antes se expandieron. Hay exactamente tantos como dice «Nodos expandidos»
+  (CP-071). Al seleccionarlo se repite su última consulta para que los nodos se vean al momento.
+  **N** oculta o muestra los nodos.
+- **Registro de IA** (RF-072, RF-073): cada cambio de estado, cambio de plan, plan nuevo del
+  superviviente y mensaje entre agentes (alerta, anuncio, puja y adjudicación de Contract Net) se
+  anota con su tick. **L** abre una consola sobre el mapa con tres vistas: estados y planes,
+  mensajes, o todo. Las mismas líneas se escriben en `logs/ia_<semilla>.log` (junto a donde se
+  ejecuta el juego), con el formato `tick⇥tipo⇥agente⇥campos`:
+
+  ```text
+  31	transicion	Z8	estado=Explorar>Investigar	motivo=oye ruido
+  45	plan	Z3	anterior=(1,1)	nuevo=(14,15)	motivo=senuelo	valores=0.21>0.52
+  52	mensaje	Z0>Z1	tipo=alerta	salto=1	confianza=0.70
+  52	mensaje	Z2>Z0	tipo=puja	salto=1	confianza=0.70	costo=6.41
+  ```
+
+  Si la carpeta `logs/` no se puede crear, el juego sigue sin archivo.
+- Seleccionar un agente no cambia la simulación (misma semilla, mismo resultado) y ni el monitor
+  ni el registro asignan memoria en el bucle (CP-106).
+
+### Versión 0.8.0
 
 **Superviviente de la radio autónomo** (HU-13). En el refugio vive un aliado que decide solo qué
 hacer, con tres técnicas encadenadas (ADR-0008):
@@ -220,6 +252,9 @@ Partida (escena inicial):
 | Q | Lanzar un señuelo hacia el cursor (8 celdas como máximo) |
 | B | Poner una barricada en la celda de al lado, hacia el cursor |
 | F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
+| Clic izquierdo | Seleccionar el infectado bajo el cursor y ver su monitor; clic en otro sitio lo suelta |
+| N | Mostrar u ocultar los nodos expandidos del agente seleccionado |
+| L | Consola del registro de IA: estados y planes → mensajes → todo → oculta |
 | C | Activar / desactivar el modo coordinado (alertas y Contract Net entre infectados) |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
@@ -269,7 +304,7 @@ supera 64 KB (RNF-027).
 ```text
 src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agentes (FSM, percepción),
                    juego (partida), coordinación, superviviente (Utility, GOAP, árbol), experimentos, puertos
-src/adaptadores/   Implementaciones con raylib (y luego archivos, Tiled, raygui)
+src/adaptadores/   raylib (vistas) y archivo (registro de IA en logs/); luego Tiled y raygui
 src/app/           main del juego, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
 config/            Parámetros de IA

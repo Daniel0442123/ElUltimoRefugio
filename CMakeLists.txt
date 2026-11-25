@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.8.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.9.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,9 +41,17 @@ add_library(refugio_dominio STATIC
     src/dominio/superviviente/Superviviente.cpp
     src/dominio/juego/Partida.cpp
     src/dominio/juego/PartidaSuperviviente.cpp
+    src/dominio/juego/RegistroIa.cpp
 )
 target_include_directories(refugio_dominio PUBLIC src)
 refugio_configurar_objetivo(refugio_dominio)
+
+# ---------------------------------------------------------------------------
+# Adaptadores de archivo sin raylib: registro de IA en logs/ (RF-072, RF-073)
+# ---------------------------------------------------------------------------
+add_library(refugio_archivo STATIC src/adaptadores/archivo/RegistroArchivo.cpp)
+target_link_libraries(refugio_archivo PUBLIC refugio_dominio)
+refugio_configurar_objetivo(refugio_archivo)
 
 # ---------------------------------------------------------------------------
 # Herramienta sin ventana: benchmark y pruebas de estrés (RF-080, RNF-027)
@@ -58,7 +66,7 @@ refugio_configurar_objetivo(refugio_bench)
 if(REFUGIO_BUILD_GAME)
     add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp
                                            src/adaptadores/raylib/VistaPartida.cpp)
-    target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio raylib)
+    target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 
     add_executable(refugio src/app/main_juego.cpp src/app/Cli.cpp)
