@@ -7,6 +7,19 @@ namespace refugio::adaptadores {
 
 namespace fs = std::filesystem;
 
+namespace {
+/// fopen con la ruta nativa: en Windows _wfopen_s (rutas con tildes y sin el aviso C4996 de MSVC).
+std::FILE* abrir(const fs::path& ruta, bool escribir) {
+#ifdef _WIN32
+    std::FILE* f = nullptr;
+    if (_wfopen_s(&f, ruta.c_str(), escribir ? L"wb" : L"rb") != 0) return nullptr;
+    return f;
+#else
+    return std::fopen(ruta.c_str(), escribir ? "wb" : "rb");
+#endif
+}
+}  // namespace
+
 LecturaArchivo leerArchivo(const fs::path& ruta, std::uintmax_t maxBytes) {
     LecturaArchivo r;
     std::error_code ec;
@@ -26,7 +39,7 @@ LecturaArchivo leerArchivo(const fs::path& ruta, std::uintmax_t maxBytes) {
         r.error = ruta.generic_string() + " ocupa más de " + std::to_string(maxBytes / (1024 * 1024)) + " MB";
         return r;
     }
-    std::FILE* f = std::fopen(ruta.string().c_str(), "rb");
+    std::FILE* f = abrir(ruta, false);
     if (f == nullptr) {
         r.error = "no se pudo abrir " + ruta.generic_string();
         return r;
@@ -49,7 +62,7 @@ std::string escribirAtomico(const fs::path& ruta, std::string_view datos) {
     if (ruta.has_parent_path()) fs::create_directories(ruta.parent_path(), ec);
     fs::path tmp = ruta;
     tmp += ".tmp";
-    std::FILE* f = std::fopen(tmp.string().c_str(), "wb");
+    std::FILE* f = abrir(tmp, true);
     if (f == nullptr) return "no se pudo crear " + tmp.generic_string();
     const bool escrito = std::fwrite(datos.data(), 1, datos.size(), f) == datos.size();
     const bool vaciado = std::fflush(f) == 0;
