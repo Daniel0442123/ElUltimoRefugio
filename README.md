@@ -15,7 +15,41 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.11.0)
+## Estado actual (0.12.0)
+
+**Guardar, cargar y configurar** (HU-19, RF-090 a RF-093) y **tutorial de sigilo** (HU-20, RF-017).
+
+- **Menú de pausa (Esc)**: Continuar, Guardar partida, Cargar partida, Opciones y Salir del juego.
+  Se maneja con las flechas, Enter y Esc, y la simulación se detiene mientras está abierto. Esc ya
+  no cierra el juego: se sale desde el menú o cerrando la ventana.
+- **Guardar y cargar** (RF-090, RF-091): tres ranuras en `saves/slot1.sav` a `slot3.sav`. F5 guarda
+  y F9 carga la ranura 1 sin abrir el menú. El archivo se escribe primero como `slotN.sav.tmp` y
+  luego se renombra, así que un corte a mitad no estropea la partida anterior (RNF-017). Cargar o
+  salir con progreso sin guardar pide confirmación (RNF-014).
+- **Qué se guarda** (ADR-0016): como la simulación es determinista, la partida se guarda como su
+  inicio (semilla, mapa, parámetros de IA) más las entradas de cada tick, comprimidas en tramos, y
+  la huella del estado. Al cargar se repiten las entradas y se comprueba la huella, así que el
+  generador aleatorio, las memorias, las rutas y los planes quedan exactamente igual. 10 minutos de
+  juego ocupan unos 16 KB. Una partida solo se puede continuar con la misma versión del juego.
+- **Archivos dañados** (RF-093, RNF-016, RNF-021): la cabecera `REFG`, la versión, la longitud, el
+  CRC-32 y los rangos se validan antes de cargar, y los archivos de más de 10 MB se rechazan sin
+  leerlos. Si algo falla, el menú dice «La partida guardada está dañada» y la partida actual sigue.
+- **Opciones** (RF-092): volumen (con efectos de sonido generados en memoria al recoger, lanzar un
+  señuelo, poner una barricada, guardar y avanzar en el tutorial), tutorial activado o no, y
+  **Controles**: cada acción se reasigna pulsando Enter y luego la tecla nueva; si la tecla ya
+  estaba en uso, las dos acciones se intercambian. Esc, Enter y las flechas quedan reservadas para
+  el menú (las flechas siempre mueven a Mara). Los cambios se guardan al momento en
+  `config/juego.json` y `config/controles.json`; el panel muestra siempre las teclas actuales.
+- **Al iniciar** se leen `config/juego.json`, `config/controles.json` y `config/ia.json` (velocidades,
+  ruidos, tiempos de la misión, señuelo, memoria, alertas, coordinación y navegación). Si falta un
+  archivo se usan los valores por defecto; si uno es inválido, el juego avisa en pantalla y en la
+  consola qué campo falla y usa los valores por defecto de ese campo.
+- **Tutorial** (RF-017): en la primera partida nueva salen cuatro indicaciones en orden (moverse,
+  sigilo, correr hace ruido y recoger un objeto), con una barra de progreso. Cada una desaparece al
+  hacer la acción. «Saltar tutorial» (botón o T) lo quita. Al terminar, `logs/ia_<semilla>.log`
+  anota cuánto tardó (RNF-011). No sale al reiniciar con R ni al cargar una partida.
+
+### Versión 0.11.0
 
 **Comparar agentes aislados y coordinados** (HU-18, RF-056, RF-084).
 
@@ -44,6 +78,7 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
   mensajes, celdas sobrecargadas, máximo de infectados a 2 celdas de Mara, duración media y
   victorias/derrotas. Con la semilla 7 y 10 repeticiones la horda coordinada rodea a Mara con 7,4
   infectados de media frente a 5,3 de la aislada y la derrota llega antes (20,6 s frente a 21,5 s).
+  (Desde 0.12.0 la tecla C ya no cambia el modo: solo F4, que se puede reasignar.)
 
 ### Versión 0.10.0
 
@@ -312,7 +347,8 @@ ctest --test-dir build -C Release --output-on-failure
 
 ### Controles
 
-Partida (escena inicial):
+Partida (escena inicial). Son las teclas por defecto; todas menos Esc, Enter y las flechas se
+pueden cambiar en Esc > Opciones > Controles:
 
 | Tecla | Acción |
 |---|---|
@@ -321,11 +357,14 @@ Partida (escena inicial):
 | E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) y abrir la extracción 60 s |
 | Q | Lanzar un señuelo hacia el cursor (8 celdas como máximo) |
 | B | Poner una barricada en la celda de al lado, hacia el cursor |
+| Esc | Menú de pausa: guardar, cargar, opciones (volumen, tutorial, controles) y salir |
+| F5 / F9 | Guardado rápido / carga rápida en la ranura 1 |
+| T | Saltar el tutorial |
 | F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
 | Clic izquierdo | Seleccionar el infectado bajo el cursor y ver su monitor; clic en otro sitio lo suelta |
 | N | Mostrar u ocultar los nodos expandidos del agente seleccionado |
 | L | Consola del registro de IA: estados y planes → mensajes → todo → oculta |
-| F4 (o C) | Modo aislado / coordinado de la horda (alertas y Contract Net entre infectados) |
+| F4 | Modo aislado / coordinado de la horda (alertas y Contract Net entre infectados) |
 | F2 | Alternar Dijkstra / A\* para todos los agentes |
 | F3 | Con un infectado seleccionado: tabla Dijkstra frente a A\* de su última consulta (otra vez F3 la oculta) |
 | R | Nueva partida (siguiente semilla) |
@@ -383,11 +422,13 @@ difiere antes de la primera detección (RF-056).
 
 ```text
 src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agentes (FSM, percepción),
-                   juego (partida), coordinación, superviviente (Utility, GOAP, árbol), experimentos, puertos
-src/adaptadores/   raylib (vistas) y archivo (registro de IA en logs/); luego Tiled y raygui
-src/app/           main del juego, main del benchmark y CLI
+                   juego (partida, tutorial), coordinación, superviviente (Utility, GOAP, árbol),
+                   experimentos, config (JSON de opciones, controles e IA), persistencia (partidas), puertos
+src/adaptadores/   raylib (vistas y sonidos) y archivo (registro de IA en logs/, partidas en saves/,
+                   configuración en config/); luego Tiled y raygui
+src/app/           main del juego, menú de pausa, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
-config/            Parámetros de IA
+config/            Parámetros de IA (ia.json); el juego crea juego.json y controles.json
 bench/             Configuración del benchmark (bench/config.json)
 docs/              Requisitos (ISO 29148), RNF (ISO 25010), trazabilidad, arc42 + C4 y ADR
 tools/             Scripts de análisis y comprobaciones de CI
