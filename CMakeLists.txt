@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.12.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.13.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,6 +59,7 @@ add_library(refugio_dominio STATIC
     src/dominio/experimentos/ExperimentoCoordinacion.cpp
     src/dominio/experimentos/EstresRecursion.cpp
     src/dominio/experimentos/GeneradorMapas.cpp
+    src/dominio/experimentos/Optimizacion.cpp
     src/dominio/agentes/Percepcion.cpp
     src/dominio/agentes/MaquinaEstados.cpp
     src/dominio/agentes/Memoria.cpp
@@ -75,6 +76,9 @@ add_library(refugio_dominio STATIC
     src/dominio/persistencia/PartidaGuardada.cpp
 )
 target_include_directories(refugio_dominio PUBLIC src)
+# La optimización (HU-21) reparte las simulaciones entre hilos.
+find_package(Threads REQUIRED)
+target_link_libraries(refugio_dominio PUBLIC Threads::Threads)
 refugio_configurar_objetivo(refugio_dominio)
 
 # ---------------------------------------------------------------------------

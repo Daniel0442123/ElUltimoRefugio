@@ -1,0 +1,8 @@
+{
+  "descripcion": "HU-21 / CP-085: recocido simulado sobre los pesos de config/ia.json (ADR-0015)",
+  "algoritmo": "sa",
+  "semilla": 11,
+  "sa": { "iteraciones": 2000, "temperatura_inicial": 0.05, "alfa": 0.995, "sigma": 0.1 },
+  "evaluacion": { "simulaciones": 8, "segundos": 90, "ancho": 32, "alto": 22, "infectados": 10, "hilos": 0 },
+  "aptitud": { "contacto": 1.0, "cobertura": 1.0, "sobrecarga": 0.5, "dificultad": 4.0, "victorias_minimas": 0.2, "victorias_maximas": 0.4 }
+}

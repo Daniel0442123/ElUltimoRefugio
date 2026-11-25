@@ -18,7 +18,7 @@
 | [ADR-0012](ADR-0012-determinismo-pcg32.md) | Determinismo con PCG32 y hash de estado | Aceptada | RF-086, RNF-020, RF-084 |
 | [ADR-0013](ADR-0013-mapas-tiled-json.md) | Mapas Tiled en JSON con nlohmann/json | Aceptada | RF-001, RF-031, RES-03, RNF-016 |
 | [ADR-0014](ADR-0014-estrategia-calidad.md) | Catch2, sanitizadores, Tracy y CI | Aceptada | RNF-015, RNF-016, RNF-024, RNF-025, RNF-009, RNF-028 |
-| [ADR-0015](ADR-0015-optimizacion-ga-sa.md) | Optimización offline con algoritmo genético y recocido simulado | Propuesta | RF-085, RF-086, StR-17 |
+| [ADR-0015](ADR-0015-optimizacion-ga-sa.md) | Optimización offline con algoritmo genético y recocido simulado | Aceptada | RF-085, RF-086, StR-17 |
 | [ADR-0016](ADR-0016-guardado-por-repeticion.md) | Guardar la partida como inicio + entradas y repetirla al cargar | Aceptada | RF-090, RF-091, RF-093, RNF-007, RNF-017, RNF-021 |
 
 ## Plantilla para un ADR nuevo

@@ -578,7 +578,7 @@ V = celdas transitables, E ≤ 8V, n = agentes, k = vecinos promedio, D = profun
 ### 8.10 Configuración
 
 `config/juego.json` (ventana, audio, idioma), `config/ia.json` (parámetros de SRS §2, prototipos de agente,
-pesos de utilidad y steering), `config/controles.json`. Los resultados de la optimización (RF-085) se pueden
+pesos de utilidad y steering en la sección `"pesos"`), `config/controles.json`. La sección `"pesos"` de los resultados de la optimización (RF-085, `results/opt_<ga|sa>_<semilla>.json`) se puede
 copiar directamente a `config/ia.json`.
 
 ### 8.11 Catálogo de patrones de diseño
@@ -622,7 +622,7 @@ Ver [05_casos_prueba.md](05_casos_prueba.md) y ADR-0014.
 | [ADR-0012](adr/ADR-0012-determinismo-pcg32.md) | Determinismo con PCG32 y hash de estado | Aceptada |
 | [ADR-0013](adr/ADR-0013-mapas-tiled-json.md) | Mapas Tiled en JSON con nlohmann/json | Aceptada |
 | [ADR-0014](adr/ADR-0014-estrategia-calidad.md) | Catch2, sanitizadores, Tracy y CI | Aceptada |
-| [ADR-0015](adr/ADR-0015-optimizacion-ga-sa.md) | Optimización offline con algoritmo genético y recocido simulado | Propuesta |
+| [ADR-0015](adr/ADR-0015-optimizacion-ga-sa.md) | Optimización offline con algoritmo genético y recocido simulado | Aceptada |
 
 ---
 

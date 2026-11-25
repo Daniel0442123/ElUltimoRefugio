@@ -33,7 +33,8 @@
 
 namespace refugio::persistencia {
 
-inline constexpr std::uint16_t kVersionFormato = 1;
+/// 1: hasta la 0.12.0. 2: añade los pesos de ia.json (HU-21); el 1 se sigue leyendo.
+inline constexpr std::uint16_t kVersionFormato = 2;
 inline constexpr std::size_t kTamCabecera = 16;
 /// RNF-021: no se analiza ningún archivo de más de 10 MB.
 inline constexpr std::size_t kMaxBytesArchivo = 10u * 1024u * 1024u;

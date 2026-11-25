@@ -126,9 +126,39 @@ private:
 [[nodiscard]] std::string escribirControles(const Controles& c);
 
 // ------------------------------------------------------------------------------- ia.json
+/// Sección «pesos» de config/ia.json (HU-21, RF-085): los pesos de steering y de utilidad de las
+/// tácticas y los parámetros de dificultad del perseguidor que ajusta la optimización offline.
+/// Los valores por defecto son los de ConfigPartida.
+struct PesosIa {
+    float steeringSeguir{8.0f};
+    float steeringSeparacion{14.0f};
+    float steeringAlineacion{0.4f};
+    float steeringCohesion{0.2f};
+    float steeringAnticipacion{30.0f};
+    float utilidadExplorar{0.15f};
+    float pesoInterceptar{0.8f};
+    float histeresisTactica{1.1f};
+    float visionRadio{6.0f};
+    float velPerseguir{3.4f};
+    float danioPorSegundo{10.0f};
+    friend bool operator==(const PesosIa&, const PesosIa&) = default;
+};
+
+/// Un campo de «pesos»: sección y clave en ia.json, rango válido y miembro de PesosIa.
+struct CampoPesos {
+    std::string_view seccion;  ///< «steering», «tactica» o «infectados».
+    std::string_view clave;
+    float minimo;
+    float maximo;
+    float PesosIa::*campo;
+};
+inline constexpr std::size_t kNumPesos = 11;
+/// Los 11 campos, en el orden en que se guardan en la partida y se optimizan.
+[[nodiscard]] const std::array<CampoPesos, kNumPesos>& camposPesos() noexcept;
+
 /// Parámetros de config/ia.json que usa la partida. Los «prototipos» de infectado aún no se leen:
-/// la partida usa su perseguidor ajustado (ConfigPartida). Los valores por defecto son los de
-/// ConfigPartida, así que aplicar los parámetros por defecto no cambia nada.
+/// la partida usa su perseguidor ajustado (ConfigPartida) con la sección «pesos». Los valores por
+/// defecto son los de ConfigPartida, así que aplicar los parámetros por defecto no cambia nada.
 struct ParametrosIa {
     int tickSimHz{60};
     int tickIaHz{10};
@@ -147,6 +177,7 @@ struct ParametrosIa {
     int flowfieldUmbral{8};
     int presupuestoNodosTick{4000};
     float factorDesvioBarricada{2.0f};
+    PesosIa pesos{};
     friend bool operator==(const ParametrosIa&, const ParametrosIa&) = default;
 };
 
@@ -156,5 +187,9 @@ struct ParametrosIa {
 [[nodiscard]] Lectura<ParametrosIa> leerParametrosIa(std::string_view texto, std::string_view archivo = "config/ia.json");
 /// Copia los parámetros en @p cfg (el resto de ConfigPartida no cambia).
 void aplicar(const ParametrosIa& p, juego::ConfigPartida& cfg);
+/// Copia solo los pesos en @p cfg.
+void aplicar(const PesosIa& p, juego::ConfigPartida& cfg);
+/// Sección «pesos» en el formato de config/ia.json, sangrada con @p sangria espacios.
+[[nodiscard]] std::string escribirPesos(const PesosIa& p, int sangria = 2);
 
 }  // namespace refugio::config

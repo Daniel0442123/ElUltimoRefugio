@@ -291,6 +291,13 @@ std::string validar(const ParametrosIa& p) {
     if (p.presupuestoNodosTick < 100 || p.presupuestoNodosTick > 1000000)
         return "navegacion.presupuesto_nodos_tick debe estar entre 100 y 1000000";
     if (!en(p.factorDesvioBarricada, 1.0f, 100.0f)) return "navegacion.factor_desvio_barricada debe estar entre 1 y 100";
+    for (const auto& c : camposPesos())
+        if (!en(p.pesos.*c.campo, c.minimo, c.maximo)) {
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), " debe estar entre %g y %g", static_cast<double>(c.minimo),
+                          static_cast<double>(c.maximo));
+            return "pesos." + std::string(c.seccion) + "." + std::string(c.clave) + buf;
+        }
     return {};
 }
 
@@ -338,6 +345,19 @@ Lectura<ParametrosIa> leerParametrosIa(std::string_view texto, std::string_view 
         entero(*s, "presupuesto_nodos_tick", "navegacion.presupuesto_nodos_tick", 100, 1000000, p.presupuestoNodosTick, l, archivo);
         numero(*s, "factor_desvio_barricada", "navegacion.factor_desvio_barricada", 1, 100, p.factorDesvioBarricada, l, archivo);
     }
+    if (const auto* s = seccion(doc, "pesos", l, archivo)) {
+        for (const auto& c : camposPesos()) {
+            const ValorJson* sub = s->buscar(c.seccion);
+            if (sub == nullptr) continue;
+            const std::string ruta = "pesos." + std::string(c.seccion);
+            if (!sub->esObjeto()) {
+                if (&c == &camposPesos()[0] || c.seccion != (&c - 1)->seccion)
+                    l.errores.push_back(std::string(archivo) + ": «" + ruta + "» debe ser un objeto; se usan sus valores por defecto");
+                continue;
+            }
+            numero(*sub, c.clave, ruta + "." + std::string(c.clave), c.minimo, c.maximo, p.pesos.*c.campo, l, archivo);
+        }
+    }
     // Reglas entre campos (tick_ia_hz divide a tick_sim_hz, duración >= periodo): si fallan, todo
     // ia.json vuelve a los valores por defecto para no mezclar un archivo a medias.
     if (const std::string e = validar(p); !e.empty()) {
@@ -373,6 +393,58 @@ void aplicar(const ParametrosIa& p, juego::ConfigPartida& cfg) {
     cfg.flowfieldUmbral = p.flowfieldUmbral;
     cfg.presupuestoNodosTick = p.presupuestoNodosTick;
     cfg.factorDesvioBarricada = p.factorDesvioBarricada;
+    aplicar(p.pesos, cfg);
+}
+
+const std::array<CampoPesos, kNumPesos>& camposPesos() noexcept {
+    static const std::array<CampoPesos, kNumPesos> campos{{
+        {"steering", "seguir", 0.0f, 100.0f, &PesosIa::steeringSeguir},
+        {"steering", "separacion", 0.0f, 100.0f, &PesosIa::steeringSeparacion},
+        {"steering", "alineacion", 0.0f, 10.0f, &PesosIa::steeringAlineacion},
+        {"steering", "cohesion", 0.0f, 10.0f, &PesosIa::steeringCohesion},
+        {"steering", "anticipacion", 0.0f, 200.0f, &PesosIa::steeringAnticipacion},
+        {"tactica", "utilidad_explorar", 0.0f, 1.0f, &PesosIa::utilidadExplorar},
+        {"tactica", "peso_interceptar", 0.0f, 5.0f, &PesosIa::pesoInterceptar},
+        {"tactica", "histeresis", 1.0f, 3.0f, &PesosIa::histeresisTactica},
+        {"infectados", "vision_radio", 0.5f, 30.0f, &PesosIa::visionRadio},
+        {"infectados", "vel_perseguir", 0.1f, 20.0f, &PesosIa::velPerseguir},
+        {"infectados", "danio_por_segundo", 0.0f, 1000.0f, &PesosIa::danioPorSegundo},
+    }};
+    return campos;
+}
+
+void aplicar(const PesosIa& p, juego::ConfigPartida& cfg) {
+    cfg.steering.pesoSeguir = p.steeringSeguir;
+    cfg.steering.pesoSeparacion = p.steeringSeparacion;
+    cfg.steering.pesoAlineacion = p.steeringAlineacion;
+    cfg.steering.pesoCohesion = p.steeringCohesion;
+    cfg.steering.pesoAnticipacion = p.steeringAnticipacion;
+    cfg.tactica.utilidadExplorar = p.utilidadExplorar;
+    cfg.tactica.pesoInterceptar = p.pesoInterceptar;
+    cfg.histeresisTactica = p.histeresisTactica;
+    cfg.visionRadio = p.visionRadio;
+    cfg.velPerseguir = p.velPerseguir;
+    cfg.danioPorSegundo = p.danioPorSegundo;
+}
+
+std::string escribirPesos(const PesosIa& p, int sangria) {
+    const std::string s0(static_cast<std::size_t>(std::max(0, sangria)), ' ');
+    std::string t = "{";
+    std::string_view seccionActual;
+    for (const auto& c : camposPesos()) {
+        if (c.seccion != seccionActual) {
+            if (!seccionActual.empty()) t += " },";
+            t += "\n" + s0 + "  \"" + std::string(c.seccion) + "\": {";
+            seccionActual = c.seccion;
+        } else {
+            t += ",";
+        }
+        char buf[48];
+        std::snprintf(buf, sizeof(buf), "%.6g", static_cast<double>(p.*c.campo));
+        t += " \"" + std::string(c.clave) + "\": " + buf;
+    }
+    t += " }\n" + s0 + "}";
+    return t;
 }
 
 }  // namespace refugio::config
