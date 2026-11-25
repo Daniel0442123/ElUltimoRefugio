@@ -1,0 +1,17 @@
+{
+  "descripcion": "HU-17: Dijkstra frente a A* en 4 tamanos, 20 pares y 5 repeticiones (800 filas) y escenario dinamico con una barricada en el tick 30.",
+  "tamanos": [32, 64, 128, 256],
+  "pares": 20,
+  "repeticiones": 5,
+  "densidad": 0.25,
+  "terreno_caro": 0.10,
+  "semilla": 42,
+  "mapa": "ciudad",
+  "dinamico": {
+    "activo": true,
+    "tamanos": [64, 128],
+    "eventos": [
+      { "tick": 30, "adelante": 4, "multiplicador": 0 }
+    ]
+  }
+}

@@ -24,6 +24,7 @@
 #include "dominio/agentes/Percepcion.hpp"
 #include "dominio/mundo/Grafo.hpp"
 #include "dominio/navegacion/BuscadorRuta.hpp"
+#include "dominio/navegacion/Comparacion.hpp"
 #include "dominio/navegacion/CampoFlujo.hpp"
 #include "dominio/navegacion/Quadtree.hpp"
 #include "dominio/navegacion/Steering.hpp"
@@ -74,6 +75,8 @@ struct ConfigPartida {
     float periodoReplan{0.3f};   ///< Segundos mínimos entre dos rutas del mismo agente al perseguir.
     float radioExplorar{10.0f};
     int presupuestoNodosTick{4000};  ///< RF-026: nodos expandidos por tick de IA como máximo.
+    /// RF-024, RF-074: algoritmo de búsqueda de todos los agentes (F2 lo alterna en la partida).
+    navegacion::Algoritmo algoritmo{navegacion::Algoritmo::AEstrella};
     agentes::ParametrosFsm fsm{};
     // Coordinación (RF-047, config/ia.json «alertas»)
     bool coordinado{true};             ///< Modo coordinado: los infectados se avisan al ver a Mara.
@@ -489,6 +492,28 @@ public:
     /// Su tamaño es igual a infectados()[seleccionado()].busqueda.expandidos (CP-071).
     [[nodiscard]] const std::vector<mundo::Nodo>& expansionSeleccionado() const noexcept { return expansionSel_; }
 
+    /// Algoritmo de búsqueda activo para todos los agentes, infectados y superviviente (RF-024,
+    /// RF-074). Cambiarlo solo afecta a las búsquedas siguientes: las rutas vigentes se conservan.
+    void fijarAlgoritmo(navegacion::Algoritmo a) noexcept { cfg_.algoritmo = a; }
+    /// F2: pasa de A* a Dijkstra o al revés y devuelve el nuevo algoritmo activo.
+    navegacion::Algoritmo alternarAlgoritmo() noexcept;
+    [[nodiscard]] navegacion::Algoritmo algoritmo() const noexcept { return cfg_.algoritmo; }
+
+    /// F3 (HU-16, RF-074): repite la última consulta del agente seleccionado con Dijkstra y con A*
+    /// sobre el mapa actual y guarda la tabla en comparacion(). No cambia la simulación: usa sus
+    /// propios resultados y no toca rutas, métricas ni el generador aleatorio. Devuelve false si no
+    /// hay agente seleccionado o aún no ha planificado.
+    bool compararSeleccionado();
+    /// Última comparación (valida == false si no hay ninguna) y agente y tick en que se hizo.
+    [[nodiscard]] const navegacion::ComparacionBusqueda& comparacion() const noexcept { return comparacion_; }
+    [[nodiscard]] int agenteComparado() const noexcept { return agenteComparado_; }
+    [[nodiscard]] std::uint64_t tickComparacion() const noexcept { return tickComparacion_; }
+    /// Olvida la comparación (el panel deja de mostrar la tabla).
+    void descartarComparacion() noexcept {
+        comparacion_.valida = false;
+        agenteComparado_ = -1;
+    }
+
     /// Contract Net (RF-049) y reparto de llegadas (RF-051).
     [[nodiscard]] std::uint64_t subastas() const noexcept { return subastas_; }
     [[nodiscard]] std::uint64_t adjudicaciones() const noexcept { return adjudicaciones_; }
@@ -526,6 +551,9 @@ private:
     void registrarMensaje(std::size_t emisor, std::size_t receptor, TipoMensaje t, int salto, float confianza,
                           float costo = -1.0f);
     void anotarMetricas(std::size_t i, mundo::Celda origen, mundo::Celda destino) noexcept;
+    [[nodiscard]] navegacion::BuscadorMejorPrimero& buscadorActivo() noexcept {
+        return cfg_.algoritmo == navegacion::Algoritmo::Dijkstra ? dijkstra_ : buscador_;
+    }
     void fijarObjetivo(Infectado& z, mundo::Celda c);
     [[nodiscard]] Vec2 moverConColision(Vec2 pos, Vec2 delta) const noexcept;
     [[nodiscard]] bool libre(Vec2 p) const noexcept;
@@ -572,6 +600,7 @@ private:
 
     // Planificación con presupuesto (RF-026) y A* compartido.
     navegacion::BuscadorMejorPrimero buscador_{navegacion::Algoritmo::AEstrella};
+    navegacion::BuscadorMejorPrimero dijkstra_{navegacion::Algoritmo::Dijkstra};  ///< RF-024, RF-074
     navegacion::ResultadoBusqueda resultado_;
     std::size_t inicioCola_{0};  ///< Turno rotativo: los agentes que esperan más se atienden antes.
     std::uint32_t busquedasTickIa_{0};
@@ -643,6 +672,13 @@ private:
     // Monitoreo del agente seleccionado (RF-070, RF-071)
     int seleccionado_{-1};
     std::vector<mundo::Nodo> expansionSel_;
+
+    // Comparación en vivo Dijkstra / A* (RF-074): buscadores propios para no tocar los del juego.
+    navegacion::BuscadorMejorPrimero compDijkstra_{navegacion::Algoritmo::Dijkstra};
+    navegacion::BuscadorMejorPrimero compAEstrella_{navegacion::Algoritmo::AEstrella};
+    navegacion::ComparacionBusqueda comparacion_;
+    int agenteComparado_{-1};
+    std::uint64_t tickComparacion_{0};
 };
 
 }  // namespace refugio::juego

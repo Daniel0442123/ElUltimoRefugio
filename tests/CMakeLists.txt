@@ -14,9 +14,14 @@ add_executable(refugio_tests
     unit/test_extraccion_refugio.cpp
     unit/test_superviviente.cpp
     unit/test_monitoreo.cpp
+    unit/test_comparacion.cpp
+    unit/test_benchmark.cpp
     unit/contador_asignaciones.cpp
 )
-target_link_libraries(refugio_tests PRIVATE refugio_dominio refugio_archivo Catch2::Catch2WithMain)
+target_link_libraries(refugio_tests PRIVATE refugio_dominio refugio_archivo refugio_cli Catch2::Catch2WithMain)
+# CP-080: las pruebas leen tests/data/bench_mini.json y escriben en el directorio de compilación.
+target_compile_definitions(refugio_tests PRIVATE REFUGIO_DATOS_PRUEBA="${CMAKE_CURRENT_SOURCE_DIR}/data"
+                                                 REFUGIO_DIR_SALIDA="${CMAKE_CURRENT_BINARY_DIR}/salida")
 refugio_configurar_objetivo(refugio_tests)
 
 include(Catch)

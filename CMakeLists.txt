@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.9.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.10.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,30 @@ option(REFUGIO_COVERAGE     "Instrumentar para cobertura (GCC/Clang)" OFF)
 
 add_compile_definitions(REFUGIO_VERSION="${PROJECT_VERSION}")
 
+# RF-081: commit y opciones de compilación para la cabecera de los resultados del benchmark. El
+# commit se lee al configurar; CMake vuelve a configurar cuando cambia la rama o su último commit.
+set(REFUGIO_COMMIT "desconocido")
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --short HEAD
+                    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" OUTPUT_VARIABLE REFUGIO_COMMIT
+                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" symbolic-ref -q HEAD
+                    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" OUTPUT_VARIABLE _refugio_ref
+                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/.git/HEAD")
+    if(_refugio_ref AND EXISTS "${CMAKE_SOURCE_DIR}/.git/${_refugio_ref}")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/.git/${_refugio_ref}")
+    endif()
+    if(REFUGIO_COMMIT STREQUAL "")
+        set(REFUGIO_COMMIT "desconocido")
+    endif()
+endif()
+set(REFUGIO_OPCIONES "${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION} C++${CMAKE_CXX_STANDARD}")
+if(REFUGIO_SANITIZERS)
+    string(APPEND REFUGIO_OPCIONES " asan+ubsan")
+endif()
+
 include(cmake/Opciones.cmake)
 include(cmake/Dependencias.cmake)
 
@@ -21,8 +45,10 @@ include(cmake/Dependencias.cmake)
 # Dominio puro: sin raylib, sin E/S de ventana (ADR-0003, RNF-023)
 # ---------------------------------------------------------------------------
 add_library(refugio_dominio STATIC
+    src/dominio/nucleo/Json.cpp
     src/dominio/mundo/Grafo.cpp
     src/dominio/navegacion/BuscadorRuta.cpp
+    src/dominio/navegacion/Comparacion.cpp
     src/dominio/navegacion/Quadtree.cpp
     src/dominio/navegacion/CampoFlujo.cpp
     src/dominio/navegacion/Steering.cpp
@@ -56,8 +82,13 @@ refugio_configurar_objetivo(refugio_archivo)
 # ---------------------------------------------------------------------------
 # Herramienta sin ventana: benchmark y pruebas de estrés (RF-080, RNF-027)
 # ---------------------------------------------------------------------------
-add_executable(refugio_bench src/app/main_bench.cpp src/app/Cli.cpp)
-target_link_libraries(refugio_bench PRIVATE refugio_dominio)
+add_library(refugio_cli STATIC src/app/Cli.cpp)
+target_link_libraries(refugio_cli PUBLIC refugio_dominio)
+target_compile_definitions(refugio_cli PRIVATE REFUGIO_COMMIT="${REFUGIO_COMMIT}" REFUGIO_OPCIONES="${REFUGIO_OPCIONES}")
+refugio_configurar_objetivo(refugio_cli)
+
+add_executable(refugio_bench src/app/main_bench.cpp)
+target_link_libraries(refugio_bench PRIVATE refugio_cli)
 refugio_configurar_objetivo(refugio_bench)
 
 # ---------------------------------------------------------------------------
@@ -69,8 +100,8 @@ if(REFUGIO_BUILD_GAME)
     target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 
-    add_executable(refugio src/app/main_juego.cpp src/app/Cli.cpp)
-    target_link_libraries(refugio PRIVATE refugio_adaptadores)
+    add_executable(refugio src/app/main_juego.cpp)
+    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli)
     refugio_configurar_objetivo(refugio)
 endif()
 

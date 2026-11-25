@@ -1,0 +1,8 @@
+{
+  "descripcion": "CP-080: 4 tamanos x 20 pares x 5 repeticiones = 800 filas de medicion.",
+  "tamanos": [32, 64, 128, 256],
+  "pares": 20,
+  "repeticiones": 5,
+  "densidad": 0.25,
+  "semilla": 42
+}

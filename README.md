@@ -15,7 +15,47 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.9.0)
+## Estado actual (0.10.0)
+
+**Comparar Dijkstra y A\* en vivo y benchmark reproducible** (HU-16, HU-17).
+
+- **F2 en la partida** (RF-024, RF-074): cambia el algoritmo de búsqueda de *todos* los agentes
+  (infectados y superviviente) entre A\* y Dijkstra. El panel muestra cuál está activo
+  («AEstrella (F2) tick IA…» o «Dijkstra (F2)…») y las búsquedas siguientes ya usan el nuevo. Se
+  mantiene al reiniciar con R. Con Dijkstra los nodos expandidos del agente seleccionado se pintan
+  en cian; con A\*, en magenta, igual que en el laboratorio.
+- **F3 en la partida** (RF-074): con un infectado seleccionado, repite su última consulta con los
+  dos algoritmos sobre el mapa actual y muestra una tabla con costo, nodos expandidos y generados,
+  tiempo y memoria de cada uno. Debajo dice si el costo coincide (tolerancia 1e-6) y cuántos nodos se
+  ahorra A\*. La tabla se rehace sola cada vez que el agente planifica una ruta nueva. Cada
+  comparación queda en el registro de IA (`comparar=(x,y)>(x,y) dijkstra=costo/nodos
+  aestrella=costo/nodos mismo_costo=si`). Comparar no cambia la simulación.
+- **Laboratorio (Tab)**: con F3 ahora también dice si los costos coinciden y el porcentaje de nodos
+  que ahorra A\*.
+- **Benchmark con archivo de configuración** (RF-080): `refugio --bench bench/config.json` (o
+  `refugio_bench`, que no abre ventana). Sin `--salida` escribe
+  `results/bench_<fecha>_<semilla>.csv`. Con `bench/config.json` salen 2 × 4 × 20 × 5 = 800 filas.
+  Las opciones de la línea de comandos mandan sobre el JSON, y una clave mal escrita o un valor
+  fuera de rango se rechazan con un mensaje que dice cuál.
+- **Columnas** (RF-080): `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, par,
+  repeticion, origen_x, origen_y, destino_x, destino_y, encontrada, costo, longitud,
+  nodos_expandidos, nodos_generados, max_abierta, tiempo_us, memoria_pico_bytes,
+  replanificaciones, costo_inicial, eventos_aplicados`.
+- **Metadatos** (RF-081): la cabecera incluye versión y commit, CPU, núcleos, RAM, sistema
+  operativo, compilador y opciones de compilación, fecha, semilla maestra y archivo de configuración.
+- **Optimalidad** (RF-082): cada consulta compara el costo de A\* con el de Dijkstra; si alguna
+  difiere en más de 1e-6 el programa lo dice y termina con código 2. También cuenta las consultas
+  en que A\* expandiera más nodos que Dijkstra (con heurística consistente son 0).
+- **Escenario dinámico** (RF-083): con `"dinamico"` en el JSON (o `--dinamico`) un agente recorre su
+  ruta, una celda por tick, y en el tick 30 aparece una barricada 4 celdas por delante. Si el
+  cambio toca la ruta que le queda, replanifica desde donde está. El resultado va a
+  `…_dinamico.csv`, con las replanificaciones, el costo recorrido y la suma de nodos y tiempo de
+  todas sus búsquedas. Los eventos también pueden ir en una celda fija (`"x"`, `"y"`) o cambiar el
+  costo del terreno (`"multiplicador"`).
+- **Resumen**: `python tools/resumen_bench.py <csv>` agrupa por mapa y algoritmo, añade las
+  replanificaciones en el CSV dinámico y vuelve a comprobar la optimalidad en el estático.
+
+### Versión 0.9.0
 
 **Panel de monitoreo y registro de planes** (HU-14, HU-15). Ya se puede ver qué piensa cada agente:
 
@@ -256,6 +296,8 @@ Partida (escena inicial):
 | N | Mostrar u ocultar los nodos expandidos del agente seleccionado |
 | L | Consola del registro de IA: estados y planes → mensajes → todo → oculta |
 | C | Activar / desactivar el modo coordinado (alertas y Contract Net entre infectados) |
+| F2 | Alternar Dijkstra / A\* para todos los agentes |
+| F3 | Con un infectado seleccionado: tabla Dijkstra frente a A\* de su última consulta (otra vez F3 la oculta) |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 
@@ -280,9 +322,13 @@ escombros (costo 2 a 5) son marrones.
 ## Experimentos
 
 ```bash
-# Dijkstra vs A*: 4 tamaños x 20 pares x 5 repeticiones, semilla 42 -> CSV con metadatos del equipo
+# Dijkstra vs A* con bench/config.json: 4 tamaños x 20 pares x 5 repeticiones, semilla 42 (800 filas)
+# y escenario dinámico con una barricada en el tick 30 -> results/bench_<fecha>_42.csv y _dinamico.csv
+./build/headless/refugio_bench --bench bench/config.json
+python3 tools/resumen_bench.py results/bench_<fecha>_42.csv
+
+# Lo mismo sin archivo, con opciones (mandan sobre el JSON si se dan los dos)
 ./build/headless/refugio_bench --bench --tamanos 32,64,128,256 --pares 20 --reps 5 --semilla 42 --salida results/bench.csv
-python3 tools/resumen_bench.py results/bench.csv
 
 # Estrés de las funciones recursivas (profundidad, llamadas, mensajes, pila)
 ./build/headless/refugio_bench --estres-recursion --agentes 50,500,2000 --profundidades 1,3,10 --salida results/estres.csv
@@ -308,6 +354,7 @@ src/adaptadores/   raylib (vistas) y archivo (registro de IA en logs/); luego Ti
 src/app/           main del juego, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
 config/            Parámetros de IA
+bench/             Configuración del benchmark (bench/config.json)
 docs/              Requisitos (ISO 29148), RNF (ISO 25010), trazabilidad, arc42 + C4 y ADR
 tools/             Scripts de análisis y comprobaciones de CI
 ```

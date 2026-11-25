@@ -59,6 +59,10 @@ jobs:
         run: |
           exe=build/refugio_bench; [ -f build/Release/refugio_bench.exe ] && exe=build/Release/refugio_bench.exe
           "$exe" --bench --tamanos 32,64 --pares 5 --reps 5 --salida results/bench_humo.csv
+          "$exe" --bench bench/config.json --salida results/bench_config.csv
+          py=$(command -v python3 || command -v python)
+          "$py" tools/resumen_bench.py results/bench_config.csv > /dev/null
+          "$py" tools/resumen_bench.py results/bench_config_dinamico.csv > /dev/null
           "$exe" --estres-recursion --agentes 50,200 --reps 3 --salida results/estres_humo.csv
 
   sanitizadores:
