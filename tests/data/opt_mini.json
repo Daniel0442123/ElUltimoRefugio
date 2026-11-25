@@ -1,0 +1,7 @@
+{
+  "descripcion": "Humo de CI para refugio --optimize: pocas evaluaciones y simulaciones cortas",
+  "semilla": 11,
+  "ga": { "poblacion": 6, "generaciones": 3 },
+  "sa": { "iteraciones": 10 },
+  "evaluacion": { "simulaciones": 2, "segundos": 20 }
+}

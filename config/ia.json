@@ -10,6 +10,12 @@
   "alertas": { "radio_comunicacion": 5, "profundidad_max": 3, "atenuacion": 0.7 },
   "coordinacion": { "max_agentes_por_celda": 2, "flowfield_umbral": 8 },
   "navegacion": { "presupuesto_nodos_tick": 4000, "factor_desvio_barricada": 2.0 },
+  "_comentario_pesos": "HU-21: pesos que ajusta refugio --optimize ga|sa. Copia aqui la seccion \"pesos\" de results/opt_*.json.",
+  "pesos": {
+    "steering": { "seguir": 8, "separacion": 14, "alineacion": 0.4, "cohesion": 0.2, "anticipacion": 30 },
+    "tactica": { "utilidad_explorar": 0.15, "peso_interceptar": 0.8, "histeresis": 1.1 },
+    "infectados": { "vision_radio": 6, "vel_perseguir": 3.4, "danio_por_segundo": 10 }
+  },
   "prototipos": {
     "explorador": { "vision_radio": 7, "vision_angulo": 110, "velocidad": 2.0 },
     "perseguidor": { "vision_radio": 5, "vision_angulo": 90, "velocidad": 4.0, "danio_por_segundo": 10 }

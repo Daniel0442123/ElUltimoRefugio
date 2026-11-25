@@ -15,7 +15,48 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.12.0)
+## Estado actual (0.13.0)
+
+**Optimizar los parámetros de la IA con algoritmo genético y recocido simulado** (HU-21, RF-085,
+ADR-0015).
+
+- **Qué se optimiza**: once pesos de la horda, que ahora están en la sección `"pesos"` de
+  `config/ia.json` y el juego lee al iniciar: los de steering (`seguir`, `separacion`,
+  `alineacion`, `cohesion`, `anticipacion`), los de utilidad de las tácticas (`utilidad_explorar`,
+  `peso_interceptar`, `histeresis`) y la dificultad del perseguidor (`vision_radio`,
+  `vel_perseguir`, `danio_por_segundo`). Los valores del repositorio son los de siempre, así que el
+  juego se comporta igual que en 0.12.0 mientras no se cambien.
+- **Cómo se ejecuta**: `refugio --optimize ga --config opt/ga.json` o
+  `refugio --optimize sa --config opt/sa.json` (también con `refugio_bench`, sin ventana). Escribe
+  `results/opt_ga_11.json` o `results/opt_sa_11.json`. Opciones: `--semilla`, `--salida` y
+  `--hilos` (por defecto, todos los núcleos; el número de hilos no cambia el resultado).
+- **Algoritmo genético** (`opt/ga.json`): 30 individuos, 40 generaciones, torneo de 3, cruce
+  uniforme (0,9), mutación gaussiana σ = 0,1 con probabilidad 0,2 por gen y elitismo de 2. Los
+  pesos actuales entran como primer individuo. El JSON guarda por generación la aptitud mejor,
+  media y peor y el mejor individuo; la del mejor nunca baja (si bajara, el programa termina con
+  código 5).
+- **Recocido simulado** (`opt/sa.json`): 2000 iteraciones desde los pesos actuales, temperatura
+  inicial 0,05 y enfriamiento geométrico α = 0,995. El vecino suma ruido gaussiano σ = 0,1 a todos
+  los genes. Por iteración se guardan la temperatura, la aptitud del vecino, la actual y la mejor,
+  si se aceptó y la solución actual.
+- **Aptitud**: cada candidato juega 8 partidas sin ventana (semillas 11 a 18, horda coordinada y el
+  guion fijo de Mara del experimento de HU-18). Todos los candidatos usan las mismas semillas, así
+  que se comparan en igualdad de condiciones y la misma configuración da siempre el mismo JSON.
+  `aptitud = presión + cobertura − 0,5 × celdas sobrecargadas por tick de IA − 4 × desvío de la
+  tasa de victorias del guion fuera de [20 %, 40 %]`, con presión = 1 − t_contacto / 90 s. Los pesos
+  de la fórmula se cambian en la sección `"aptitud"` del archivo.
+- **Resultado**: el JSON trae las métricas de los pesos iniciales y de los mejores y la sección
+  `"pesos"` lista para copiar a `config/ia.json`. Con la semilla 11, el GA tarda unos 10 s en 4
+  núcleos (1122 evaluaciones) y el SA unos 20 s (2001 evaluaciones). Los dos suben la aptitud de
+  0,42 a cerca de 1,39: la cobertura pasa de 34 % a 46-47 % y las celdas sobrecargadas casi
+  desaparecen, pero para que el guion gane un 20-40 % de las partidas bajan la visión y la velocidad
+  de los perseguidores por debajo de la de Mara caminando. El guion no esquiva a nadie, así que
+  esos pesos hacen la horda demasiado fácil para una persona: por eso no se copian solos a
+  `config/ia.json` (ver ADR-0015, riesgo de sobreajuste al guion).
+- **Partidas guardadas**: el formato pasa a la versión 2 para guardar también los pesos. Las de
+  0.12.0 se siguen leyendo, con los pesos por defecto.
+
+### Versión 0.12.0
 
 **Guardar, cargar y configurar** (HU-19, RF-090 a RF-093) y **tutorial de sigilo** (HU-20, RF-017).
 
@@ -402,6 +443,11 @@ python3 tools/resumen_bench.py results/bench_<fecha>_42.csv
 # Horda aislada frente a coordinada: 10 partidas por modo con las semillas 7..16 (20 filas)
 ./build/headless/refugio_bench --coord-exp 7 --reps 10
 
+# Optimizar los pesos de la horda: algoritmo genético (30 x 40) y recocido simulado (2000 iteraciones),
+# semilla 11 -> results/opt_ga_11.json y results/opt_sa_11.json
+./build/headless/refugio_bench --optimize ga --config opt/ga.json
+./build/headless/refugio_bench --optimize sa --config opt/sa.json
+
 # Estrés de las funciones recursivas (profundidad, llamadas, mensajes, pila)
 ./build/headless/refugio_bench --estres-recursion --agentes 50,500,2000 --profundidades 1,3,10 --salida results/estres.csv
 ```
@@ -409,13 +455,14 @@ python3 tools/resumen_bench.py results/bench_<fecha>_42.csv
 El benchmark termina con código 2 si A* y Dijkstra difieren en costo (RF-082); el estrés termina con
 código 3 si alguna recursión supera su límite, si un agente recibe la misma alerta dos veces o si la pila
 supera 64 KB (RNF-027). El experimento de coordinación termina con código 4 si un par aislado/coordinado
-difiere antes de la primera detección (RF-056).
+difiere antes de la primera detección (RF-056). La optimización termina con código 5 si la aptitud del
+mejor individuo del GA baja entre generaciones (RF-085).
 
 ## Integración continua
 
 | Flujo | Cuándo | Qué hace |
 |---|---|---|
-| `CI` | push a `main` y cada PR | Compila juego y pruebas en Linux (GCC, Clang) y Windows (MSVC); ASan + UBSan; comprueba que el dominio no dependa de raylib; humo de benchmark, estrés y aislados/coordinados |
+| `CI` | push a `main` y cada PR | Compila juego y pruebas en Linux (GCC, Clang) y Windows (MSVC); ASan + UBSan; comprueba que el dominio no dependa de raylib; humo de benchmark, estrés, aislados/coordinados y optimización |
 | `Rendimiento y estrés` | cada noche y manual (Actions → Run workflow) | Benchmark completo y estrés de recursión en Linux y Windows; tabla en el resumen del run y CSV como artefacto |
 
 ## Estructura
@@ -430,6 +477,7 @@ src/app/           main del juego, menú de pausa, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
 config/            Parámetros de IA (ia.json); el juego crea juego.json y controles.json
 bench/             Configuración del benchmark (bench/config.json)
+opt/               Configuración de la optimización (opt/ga.json, opt/sa.json)
 docs/              Requisitos (ISO 29148), RNF (ISO 25010), trazabilidad, arc42 + C4 y ADR
 tools/             Scripts de análisis y comprobaciones de CI
 ```

@@ -18,7 +18,7 @@
 ///   (RF-092); si alguno es inválido se avisa y se usan los valores por defecto (RF-093).
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
-/// Con --bench, --estres-recursion o --coord-exp se ejecuta sin ventana.
+/// Con --bench, --estres-recursion, --coord-exp u --optimize se ejecuta sin ventana.
 ///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
 /// real del frame; el dibujo va aparte y no cambia el resultado de la simulación.

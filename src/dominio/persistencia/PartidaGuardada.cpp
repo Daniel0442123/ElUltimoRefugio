@@ -133,9 +133,13 @@ void escribirIa(Escritor& w, const config::ParametrosIa& p) {
         w.f32(v);
     for (const int v : {p.profundidadMax, p.maxAgentesPorCelda, p.flowfieldUmbral, p.presupuestoNodosTick})
         w.u32(static_cast<std::uint32_t>(v));
+    // Formato 2 (0.13.0): los pesos de la sección «pesos» de ia.json (HU-21).
+    for (const auto& c : config::camposPesos()) w.f32(p.pesos.*c.campo);
 }
 
-config::ParametrosIa leerIa(Lector& r) {
+/// @p version del formato: el 1 no lleva pesos y se carga con los pesos por defecto, que son los
+/// que usaba el juego antes de la 0.13.0.
+config::ParametrosIa leerIa(Lector& r, std::uint16_t version) {
     config::ParametrosIa p;
     p.tickSimHz = r.u16();
     p.tickIaHz = r.u16();
@@ -148,6 +152,8 @@ config::ParametrosIa leerIa(Lector& r) {
         const std::uint32_t x = r.u32();
         *v = x > 0x7FFFFFFFu ? -1 : static_cast<int>(x);
     }
+    if (version >= 2)
+        for (const auto& c : config::camposPesos()) p.pesos.*c.campo = r.f32();
     return p;
 }
 
@@ -365,7 +371,7 @@ ResultadoLecturaPartida decodificar(std::span<const std::uint8_t> bytes) {
     in.flowfieldUmbral = r.u16();
     const std::uint8_t alg = r.u8();
     const std::uint8_t coord = r.u8();
-    in.ia = leerIa(r);
+    in.ia = leerIa(r, version);
     g.ticks = r.u32();
     g.huella = r.u64();
     const std::uint32_t numTramos = r.u32();

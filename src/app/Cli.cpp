@@ -20,6 +20,8 @@
 #include "dominio/experimentos/Benchmark.hpp"
 #include "dominio/experimentos/EstresRecursion.hpp"
 #include "dominio/experimentos/ExperimentoCoordinacion.hpp"
+#include "dominio/experimentos/Optimizacion.hpp"
+#include "dominio/nucleo/Json.hpp"
 
 #ifndef REFUGIO_VERSION
 #define REFUGIO_VERSION "0.1.0"
@@ -167,6 +169,11 @@ void ayuda() {
                  "                [--salida results/coord.csv]\n"
                  "    Horda aislada frente a coordinada (HU-18): reps partidas en cada modo con las mismas\n"
                  "    semillas y el mismo guion de Mara. Sin --salida escribe results/coord_<fecha>_<semilla>.csv.\n"
+                 "  refugio --optimize ga|sa [--config opt/ga.json] [--semilla 11] [--hilos 0]\n"
+                 "                [--salida results/opt_ga_11.json]\n"
+                 "    Optimiza los pesos de steering, tacticas y dificultad de la horda (HU-21) con un\n"
+                 "    algoritmo genetico (ga) o recocido simulado (sa). Sin --salida escribe\n"
+                 "    results/opt_<ga|sa>_<semilla>.json; su seccion \"pesos\" se copia a config/ia.json.\n"
                  "  refugio_bench --estres-recursion [--agentes 50,100,...] [--profundidades 1,2,3]\n"
                  "                [--reps 5] [--semilla 42] [--salida results/estres.csv]\n";
 }
@@ -233,6 +240,61 @@ int ejecutarCoordinacion(const Valor& valor, int codigoPrevio, bool hayOtroModo)
     return hayOtroModo ? codigoPrevio : 0;
 }
 
+/// --optimize ga|sa --config <archivo> (RF-085). Devuelve 5 si el GA no conserva al mejor.
+template <typename Valor>
+int ejecutarOptimizacion(const Valor& valor, int codigoPrevio, bool hayOtroModo) {
+    std::string alg(valor("--optimize"));
+    if (alg.empty()) alg = std::string(valor("--optimizar"));
+    if (alg != "ga" && alg != "sa") throw std::runtime_error("--optimize necesita ga o sa");
+    experimentos::ConfigOptimizacion cfg;
+    if (auto v = valor("--config"); !v.empty()) {
+        const std::string ruta(v);
+        try {
+            cfg = experimentos::leerConfigOptimizacion(leerArchivo(ruta));
+        } catch (const nucleo::ErrorJson& e) {
+            throw std::runtime_error(ruta + ": " + e.what());
+        }
+        cfg.archivoConfig = ruta;
+    }
+    // La opción de la línea de órdenes manda sobre el «algoritmo» del archivo.
+    cfg.algoritmo = alg == "ga" ? experimentos::AlgoritmoOptimizacion::Genetico : experimentos::AlgoritmoOptimizacion::Recocido;
+    if (auto v = valor("--semilla"); !v.empty()) cfg.semilla = std::stoull(std::string(v));
+    if (auto v = valor("--hilos"); !v.empty()) cfg.evaluacion.hilos = std::max(0, std::stoi(std::string(v)));
+    if (auto v = valor("--salida"); !v.empty() && !hayOtroModo) cfg.salida = std::string(v);
+    if (cfg.salida.empty())
+        cfg.salida = "results/opt_" + std::string(experimentos::nombreAlgoritmo(cfg.algoritmo)) + "_" +
+                     std::to_string(cfg.semilla) + ".json";
+
+    auto meta = metadatosEquipo();
+    if (!cfg.archivoConfig.empty()) meta.push_back("config=" + cfg.archivoConfig);
+    const auto inicio = std::chrono::steady_clock::now();
+    std::cout << "Optimizando con " << (alg == "ga" ? "algoritmo genetico" : "recocido simulado") << " (semilla "
+              << cfg.semilla << ", " << cfg.evaluacion.simulaciones << " simulaciones por candidato)...\n"
+              << std::flush;
+    // Se escribe en memoria y se vuelca al final: un error a medias no deja un JSON truncado.
+    std::ostringstream json;
+    const auto r = experimentos::ejecutarOptimizacion(cfg, meta, json);
+    auto f = abrirSalida(cfg.salida);
+    f << json.str();
+    const double seg = std::chrono::duration<double>(std::chrono::steady_clock::now() - inicio).count();
+
+    const auto linea = [](std::string_view nombre, const experimentos::MetricasAptitud& m) {
+        std::cout << "  " << nombre << ": aptitud " << m.aptitud << ", victorias del guion " << m.victorias << " de "
+                  << m.simulaciones << ", contacto medio " << m.tContactoMedio << " s, cobertura "
+                  << m.cobertura * 100.0 << " %, celdas sobrecargadas por tick de IA " << m.sobrecargadasPorTick << '\n';
+    };
+    std::cout << "Optimizacion " << alg << ": " << r.evaluaciones << " evaluaciones, " << r.simulaciones
+              << " simulaciones en " << seg << " s -> " << cfg.salida << '\n';
+    linea("pesos iniciales", r.base);
+    linea("mejores pesos  ", r.mejor);
+    std::cout << "  Copia la seccion \"pesos\" de " << cfg.salida << " a config/ia.json para usarlos en el juego.\n";
+    if (!r.mejorNoDecreciente) {
+        std::cerr << "ERROR: la aptitud del mejor individuo bajo entre generaciones (falla el elitismo)\n";
+        return 5;
+    }
+    return hayOtroModo ? codigoPrevio : 0;
+}
+
 }  // namespace
 
 bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
@@ -240,6 +302,8 @@ bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
     const bool bench = std::find(args.begin(), args.end(), "--bench") != args.end();
     const bool estres = std::find(args.begin(), args.end(), "--estres-recursion") != args.end();
     const bool coord = std::find(args.begin(), args.end(), "--coord-exp") != args.end();
+    const bool optimizar = std::find(args.begin(), args.end(), "--optimize") != args.end() ||
+                           std::find(args.begin(), args.end(), "--optimizar") != args.end();
     const bool help = std::find(args.begin(), args.end(), "--ayuda") != args.end() ||
                       std::find(args.begin(), args.end(), "--help") != args.end();
     if (help) {
@@ -247,7 +311,7 @@ bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
         codigo = 0;
         return true;
     }
-    if (!bench && !estres && !coord) return false;
+    if (!bench && !estres && !coord && !optimizar) return false;
 
     auto valor = [&](std::string_view clave) -> std::string_view {
         for (std::size_t i = 0; i + 1 < args.size(); ++i)
@@ -314,6 +378,7 @@ bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
             else if (!bench) codigo = 0;
         }
         if (coord) codigo = ejecutarCoordinacion(valor, codigo, bench || estres);
+        if (optimizar) codigo = ejecutarOptimizacion(valor, codigo, bench || estres || coord);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         codigo = 1;

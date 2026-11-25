@@ -1,0 +1,8 @@
+{
+  "descripcion": "HU-21 / CP-085: algoritmo genético sobre los pesos de config/ia.json (ADR-0015)",
+  "algoritmo": "ga",
+  "semilla": 11,
+  "ga": { "poblacion": 30, "generaciones": 40, "torneo": 3, "prob_cruce": 0.9, "prob_mutacion": 0.2, "sigma": 0.1, "elites": 2 },
+  "evaluacion": { "simulaciones": 8, "segundos": 90, "ancho": 32, "alto": 22, "infectados": 10, "hilos": 0 },
+  "aptitud": { "contacto": 1.0, "cobertura": 1.0, "sobrecarga": 0.5, "dificultad": 4.0, "victorias_minimas": 0.2, "victorias_maximas": 0.4 }
+}

@@ -1,6 +1,7 @@
 #pragma once
 /// @file Cli.hpp
-/// @brief Modos sin ventana: --bench, --estres-recursion y --coord-exp (RF-080, RNF-027, RF-084).
+/// @brief Modos sin ventana: --bench, --estres-recursion, --coord-exp y --optimize (RF-080, RNF-027,
+///        RF-084, RF-085).
 
 #include <string>
 #include <vector>
