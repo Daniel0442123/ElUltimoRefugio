@@ -15,9 +15,28 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.3.0)
+## Estado actual (0.4.0)
 
-**Horda coordinada.** Sobre el prototipo jugable de 0.2.0:
+**Horda que reparte la aproximación** (HU-10). Sobre las alertas de 0.3.0:
+
+- **Contract Net** (RF-049): el infectado que ve a Mara hace de gestor y anuncia tareas a los que
+  alertó y aún no la persiguen: *Interceptar* el punto donde estará Mara en 2 s según sus dos últimos
+  avistamientos (RF-053), *Flanquear* por hasta dos accesos a 3 celdas del lado opuesto al suyo, y
+  *Perseguir*. Cada uno puja con su distancia octil y cada tarea se adjudica a la puja más baja, una
+  por agente. Los de interceptar o flanquear pasan al nuevo estado **Interceptar** (turquesa).
+- **Reparto de la llegada** (RF-051): con dos o más perseguidores, las 8 celdas alrededor de Mara se
+  reparten minimizando la suma de distancias, con 2 infectados por celda como máximo; a 2,5 celdas
+  cada uno se acerca por la suya en vez de amontonarse por el mismo lado.
+- **Steering** (RF-029): el movimiento de los infectados ya no es directo. Cada paso suma seguir,
+  separación, alineación, cohesión, evitación de paredes y anticipación de choques, con aceleración y
+  velocidad máximas. Los vecinos salen del quadtree (RF-030).
+- Con F1 se ven el destino de cada tarea (cuadro turquesa) y la celda de llegada de cada perseguidor
+  (cuadro naranja). El panel cuenta las subastas y las tareas adjudicadas. Nada de esto asigna memoria
+  en el bucle (CP-106).
+
+### Versión 0.3.0
+
+**Alertas y campo de flujo.** Sobre el prototipo jugable de 0.2.0:
 
 - **Alertas recursivas entre infectados** (RF-046, RF-047): quien ve a Mara avisa a los que tiene a
   5 celdas o menos, y estos a los suyos, hasta 3 saltos, con un conjunto de visitados y confianza
@@ -112,13 +131,13 @@ Partida (escena inicial):
 | WASD / flechas | Mover a Mara |
 | Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
 | E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) |
-| F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido y flechas del campo de flujo |
-| C | Activar / desactivar el modo coordinado (alertas entre infectados) |
+| F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
+| C | Activar / desactivar el modo coordinado (alertas y Contract Net entre infectados) |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 
 Colores de los infectados: verde = explorar, amarillo = investigar, naranja = perseguir,
-magenta = buscar, rojo = atacar.
+magenta = buscar, rojo = atacar, turquesa = interceptar (tarea de Contract Net).
 
 Laboratorio Dijkstra / A\*:
 

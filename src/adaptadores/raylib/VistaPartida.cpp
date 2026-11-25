@@ -17,6 +17,7 @@ Color colorEstado(EstadoInfectado e) {
         case EstadoInfectado::Perseguir: return {240, 130, 30, 255};   // naranja: la vio
         case EstadoInfectado::Buscar: return {200, 90, 200, 255};      // magenta: la perdió de vista
         case EstadoInfectado::Atacar: return {220, 30, 30, 255};       // rojo
+        case EstadoInfectado::Interceptar: return {60, 200, 210, 255};  // turquesa: le cortan el paso
     }
     return WHITE;
 }
@@ -114,6 +115,19 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
                 DrawLineEx(a, centroCelda(p.mapa().celda(z.ruta[k]), e), 2.0f, Fade(colorEstado(z.estado), 0.8f));
             }
         }
+        // RF-049 / RF-051: destino de cada tarea adjudicada y celda de llegada alrededor de Mara.
+        for (const auto& z : p.infectados()) {
+            if (z.estado == EstadoInfectado::Interceptar && z.tieneTarea) {
+                const Vector2 d = centroCelda(z.destinoTarea, e);
+                DrawLineEx(aPantalla(z.pos, e), d, 1.5f, Fade(colorEstado(z.estado), 0.6f));
+                DrawRectangleLinesEx({d.x - tc * 0.35f, d.y - tc * 0.35f, tc * 0.7f, tc * 0.7f}, 2.0f,
+                                     colorEstado(z.estado));
+            }
+            if (z.tieneLlegada) {
+                const Vector2 l = centroCelda(z.llegada, e);
+                DrawRectangleLinesEx({l.x - tc * 0.5f, l.y - tc * 0.5f, tc, tc}, 1.0f, Fade(ORANGE, 0.5f));
+            }
+        }
         if (p.huboRuidoUltimoTickIa())
             DrawCircleLinesV(aPantalla(p.origenUltimoRuido(), e), p.radioUltimoRuido() * tc, Fade(YELLOW, 0.8f));
     }
@@ -172,9 +186,9 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
 
     DrawText("Infectados", x, y, 18, GOLD);
     y += 22;
-    std::array<int, 5> cuenta{};
+    std::array<int, agentes::kNumEstadosInfectado> cuenta{};
     for (const auto& z : p.infectados()) ++cuenta[static_cast<std::size_t>(z.estado)];
-    for (int s = 0; s < 5; ++s) {
+    for (int s = 0; s < agentes::kNumEstadosInfectado; ++s) {
         const auto est = static_cast<agentes::EstadoInfectado>(s);
         const auto nombre = agentes::nombreEstado(est);
         DrawCircle(x + 6, y + 7, 5, colorEstado(est));
@@ -200,6 +214,10 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
                   static_cast<unsigned long long>(p.alertasEmitidas()),
                   static_cast<unsigned long long>(p.mensajesAlerta()));
     DrawText(buf, x, y, 12, cfg.coordinado ? YELLOW : LIGHTGRAY);
+    y += 15;
+    std::snprintf(buf, sizeof(buf), "Contract Net: %llu subastas, %llu tareas",
+                  static_cast<unsigned long long>(p.subastas()), static_cast<unsigned long long>(p.adjudicaciones()));
+    DrawText(buf, x, y, 12, cfg.coordinado && cfg.contractNet ? Color{60, 200, 210, 255} : LIGHTGRAY);
     y += 20;
 
     DrawText("Transiciones FSM", x, y, 16, GOLD);

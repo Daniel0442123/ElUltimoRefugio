@@ -2,8 +2,9 @@
 /// @file MaquinaEstados.hpp
 /// @brief Máquina de estados finitos del infectado (RF-044, ADR-0008).
 ///
-/// Primer corte de RF-044 con los estados Explorar (deambular), Investigar, Perseguir, Buscar y
-/// Atacar. Interceptar y AtacarBarricada llegan con la coordinación (RF-049, RF-052).
+/// Estados de RF-044: Explorar (deambular), Investigar, Perseguir, Buscar, Atacar e Interceptar
+/// (tarea Interceptar o Flanquear adjudicada por Contract Net, RF-049). AtacarBarricada llega con
+/// las barricadas (RF-052).
 ///
 /// La transición es una función pura de (estado, percepción, contexto): no lee el mundo, así se
 /// prueba fila por fila contra la tabla del SRS (CP-044) y se puede reemplazar por el modelo
@@ -16,7 +17,8 @@
 
 namespace refugio::agentes {
 
-enum class EstadoInfectado : std::uint8_t { Explorar, Investigar, Perseguir, Buscar, Atacar };
+enum class EstadoInfectado : std::uint8_t { Explorar, Investigar, Perseguir, Buscar, Atacar, Interceptar };
+inline constexpr int kNumEstadosInfectado = 6;
 
 enum class MotivoTransicion : std::uint8_t {
     Ninguno,
@@ -29,6 +31,7 @@ enum class MotivoTransicion : std::uint8_t {
     FueraDeAlcance,   ///< Atacar -> Perseguir / Buscar
     SinRuta,          ///< RF-027: la búsqueda no encontró ruta -> otro comportamiento
     RecibeAlerta,     ///< Explorar / Buscar -> Investigar el punto que avisó otro infectado (RF-047)
+    AsignaTarea,      ///< Contract Net adjudica Interceptar o Flanquear -> Interceptar (RF-049)
 };
 
 [[nodiscard]] std::string_view nombreEstado(EstadoInfectado e) noexcept;
@@ -40,6 +43,7 @@ struct PercepcionInfectado {
     float distanciaMara{0.0f};  ///< Solo válida si veAMara.
     bool oyeRuido{false};
     bool recibeAlerta{false};  ///< Llegó una alerta de otro infectado (modo coordinado, RF-047).
+    bool tareaInterceptar{false};  ///< Le adjudicaron Interceptar o Flanquear (RF-049).
 };
 
 /// Estado interno del agente que la FSM necesita además de la percepción.
