@@ -13,9 +13,10 @@ add_executable(refugio_tests
     unit/test_tacticas.cpp
     unit/test_extraccion_refugio.cpp
     unit/test_superviviente.cpp
+    unit/test_monitoreo.cpp
     unit/contador_asignaciones.cpp
 )
-target_link_libraries(refugio_tests PRIVATE refugio_dominio Catch2::Catch2WithMain)
+target_link_libraries(refugio_tests PRIVATE refugio_dominio refugio_archivo Catch2::Catch2WithMain)
 refugio_configurar_objetivo(refugio_tests)
 
 include(Catch)

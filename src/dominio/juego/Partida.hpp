@@ -20,6 +20,7 @@
 #include "dominio/coordinacion/AsignadorAccesos.hpp"
 #include "dominio/coordinacion/ContractNet.hpp"
 #include "dominio/coordinacion/PropagadorAlertas.hpp"
+#include "dominio/juego/RegistroIa.hpp"
 #include "dominio/agentes/Percepcion.hpp"
 #include "dominio/mundo/Grafo.hpp"
 #include "dominio/navegacion/BuscadorRuta.hpp"
@@ -168,6 +169,51 @@ struct RegistroPlan {
     MotivoPlan motivo{};
 };
 
+/// RF-073: mensajes entre agentes. Las alertas vienen de la propagación recursiva (RF-047); los
+/// anuncios, pujas y adjudicaciones, de una ronda de Contract Net (RF-049).
+enum class TipoMensaje : std::uint8_t { Alerta, Anuncio, Puja, Adjudicacion };
+[[nodiscard]] std::string_view nombreTipoMensaje(TipoMensaje t) noexcept;
+
+/// RF-073: tick, emisor, receptor, tipo, salto y confianza. @c costo solo en pujas y
+/// adjudicaciones (distancia octil de la puja); -1 en los demás.
+struct RegistroMensaje {
+    std::uint64_t tick{};
+    std::uint16_t emisor{};
+    std::uint16_t receptor{};
+    TipoMensaje tipo{};
+    std::uint8_t salto{};
+    float confianza{};
+    float costo{-1.0f};
+};
+
+/// RF-023 / RF-070: métricas de la última búsqueda A* de un agente, para el panel de monitoreo.
+struct MetricasBusqueda {
+    bool valida{false};  ///< Ya planificó alguna vez.
+    navegacion::Algoritmo algoritmo{navegacion::Algoritmo::AEstrella};
+    bool encontrada{false};
+    double costo{0.0};
+    std::uint32_t expandidos{0};
+    std::uint32_t generados{0};
+    std::uint32_t maxAbierta{0};
+    std::uint32_t largoRuta{0};  ///< Celdas de la ruta, origen y destino incluidos.
+    double tiempoUs{0.0};
+    std::size_t memoriaBytes{0};
+    std::uint64_t tick{0};
+    mundo::Celda origen{};
+    mundo::Celda destino{};
+};
+
+/// RF-070: percepción relevante del último ciclo de IA (lo que vio, oyó y le llegó por mensaje).
+struct PercepcionMonitor {
+    bool veAMara{false};
+    float distanciaMara{0.0f};
+    std::uint8_t ruidosOidos{0};
+    bool recibioAlerta{false};
+    float confianzaAlerta{0.0f};
+    bool recibioTarea{false};
+    std::uint8_t evidencias{0};  ///< Entradas en su memoria (RF-043).
+};
+
 struct ObjetoMision {
     TipoObjeto tipo{};
     mundo::Celda celda{};
@@ -235,6 +281,9 @@ struct Infectado {
     std::array<float, agentes::kNumTacticas> puntuaciones{};
     bool hayCorte{false};
     mundo::Celda puntoCorte{};
+    // Panel de monitoreo (RF-070)
+    MetricasBusqueda busqueda{};
+    PercepcionMonitor percibido{};
 };
 
 /// Lo que hace el superviviente en cada paso de simulación; lo fija la hoja del árbol que corre.
@@ -330,6 +379,7 @@ public:
     static constexpr std::size_t kMaxSenuelos = 4;
     static constexpr std::size_t kMaxBarricadas = 8;
     static constexpr std::size_t kCapacidadRegistroSuperviviente = 16;
+    static constexpr std::size_t kCapacidadMensajes = 256;
 
     Partida(Escenario escenario, const ConfigPartida& cfg = {}, std::uint64_t semilla = 42);
 
@@ -415,6 +465,30 @@ public:
     [[nodiscard]] std::uint64_t totalRegistrosSuperviviente() const noexcept { return totalRegistrosSup_; }
     [[nodiscard]] const superviviente::ArbolComportamiento& arbolSuperviviente() const noexcept { return arbolSup_; }
 
+    /// Mensajes entre agentes (RF-073), anillo como los demás registros.
+    [[nodiscard]] std::size_t numMensajes() const noexcept;
+    [[nodiscard]] const RegistroMensaje& ultimoMensaje(std::size_t haceN) const noexcept;
+    [[nodiscard]] std::uint64_t totalMensajes() const noexcept { return totalMensajes_; }
+
+    /// Registro de IA en texto (RF-072, RF-073): transiciones, cambios de plan, planes del
+    /// superviviente y mensajes, en el orden en que ocurren. Es la consola del panel.
+    [[nodiscard]] const RegistroIa& registroIa() const noexcept { return registroIa_; }
+    /// Sumidero para el archivo logs/ia_<semilla>.log (no es dueño; nullptr lo desactiva).
+    void fijarRegistro(puertos::IRegistro* sumidero) noexcept { registroIa_.fijarSumidero(sumidero); }
+    [[nodiscard]] std::uint64_t semilla() const noexcept { return semilla_; }
+
+    /// Panel de monitoreo (HU-14, RF-070, RF-071). Seleccionar un infectado hace que sus búsquedas
+    /// guarden el orden de expansión, que la vista pinta sobre el mapa. Al seleccionarlo se repite
+    /// su última consulta sobre el mapa actual para que los nodos se vean al momento. No cambia
+    /// la simulación: solo escribe métricas y el orden de expansión.
+    void seleccionar(int agente);
+    [[nodiscard]] int seleccionado() const noexcept { return seleccionado_; }
+    /// Índice del infectado más cercano a @p punto a @p radio celdas o menos; -1 si no hay.
+    [[nodiscard]] int agenteEn(Vec2 punto, float radio = 0.6f) const noexcept;
+    /// Nodos cerrados por la última búsqueda del agente seleccionado, en orden de expansión.
+    /// Su tamaño es igual a infectados()[seleccionado()].busqueda.expandidos (CP-071).
+    [[nodiscard]] const std::vector<mundo::Nodo>& expansionSeleccionado() const noexcept { return expansionSel_; }
+
     /// Contract Net (RF-049) y reparto de llegadas (RF-051).
     [[nodiscard]] std::uint64_t subastas() const noexcept { return subastas_; }
     [[nodiscard]] std::uint64_t adjudicaciones() const noexcept { return adjudicaciones_; }
@@ -449,6 +523,9 @@ private:
     void actualizarCampo();
     void velocidadHacia(Infectado& z, Vec2 meta, float velocidad, float frenado);
     void registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado hacia, MotivoTransicion m);
+    void registrarMensaje(std::size_t emisor, std::size_t receptor, TipoMensaje t, int salto, float confianza,
+                          float costo = -1.0f);
+    void anotarMetricas(std::size_t i, mundo::Celda origen, mundo::Celda destino) noexcept;
     void fijarObjetivo(Infectado& z, mundo::Celda c);
     [[nodiscard]] Vec2 moverConColision(Vec2 pos, Vec2 delta) const noexcept;
     [[nodiscard]] bool libre(Vec2 p) const noexcept;
@@ -482,6 +559,7 @@ private:
     float integridad_{100.0f};
     int golpeandoPuerta_{0};
     std::uint64_t tick_{0};
+    std::uint64_t semilla_{0};
     nucleo::Pcg32 rng_;
 
     // Ruidos (RF-003, RF-013): se acumulan entre ticks de IA y se consumen en el siguiente.
@@ -556,6 +634,15 @@ private:
 
     std::array<RegistroTransicion, kCapacidadRegistro> registro_{};
     std::uint64_t totalTransiciones_{0};
+
+    // Mensajes y registro de IA en texto (RF-072, RF-073)
+    std::array<RegistroMensaje, kCapacidadMensajes> mensajes_{};
+    std::uint64_t totalMensajes_{0};
+    RegistroIa registroIa_;
+
+    // Monitoreo del agente seleccionado (RF-070, RF-071)
+    int seleccionado_{-1};
+    std::vector<mundo::Nodo> expansionSel_;
 };
 
 }  // namespace refugio::juego

@@ -6,7 +6,9 @@
 ///   WASD / flechas = mover, Shift = correr, Ctrl = sigilo, E = recoger / activar la radio,
 ///   Q = señuelo hacia el cursor, B = barricada en la celda de al lado hacia el cursor,
 ///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), C = modo coordinado,
-///   R = nueva partida, Tab = laboratorio.
+///   clic izquierdo sobre un infectado = monitor del agente (HU-14), N = nodos expandidos,
+///   L = consola del registro de IA (HU-15), R = nueva partida, Tab = laboratorio.
+///   El registro de IA se escribe también en logs/ia_<semilla>.log.
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
 /// Con --bench o --estres-recursion se ejecuta sin ventana.
@@ -18,6 +20,8 @@
 
 #include <cstdio>
 #include <memory>
+
+#include "adaptadores/archivo/RegistroArchivo.hpp"
 
 #include "adaptadores/raylib/VistaDepuracion.hpp"
 #include "adaptadores/raylib/VistaPartida.hpp"
@@ -49,8 +53,11 @@ public:
         juego::ConfigPartida cfg;
         cfg.flowfieldUmbral = kUmbralCampoPrototipo;
         cfg.coordinado = coordinado_;
+        partida_.reset();  // deja de escribir en el registro anterior antes de cerrarlo
+        registro_ = std::make_unique<adaptadores::RegistroArchivo>("logs", semilla);  // RF-072, RF-073
         partida_ = std::make_unique<juego::Partida>(
             juego::crearEscenarioAleatorio(kColumnas, kFilas, kInfectados, semilla), cfg, semilla);
+        if (registro_->abierto()) partida_->fijarRegistro(registro_.get());
         acumulado_ = 0.0f;
     }
 
@@ -61,6 +68,14 @@ public:
             coordinado_ = !coordinado_;
             partida_->fijarCoordinado(coordinado_);
         }
+        if (IsKeyPressed(KEY_N)) nodos_ = !nodos_;                                  // RF-071
+        if (IsKeyPressed(KEY_L)) consola_ = adaptadores::siguienteModo(consola_);  // RF-072, RF-073
+        // RF-070: clic izquierdo en el mapa selecciona el infectado bajo el cursor (o suelta).
+        const Vector2 r = GetMousePosition();
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && r.x < static_cast<float>(kColumnas * kCelda))
+            partida_->seleccionar(
+                partida_->agenteEn({r.x / static_cast<float>(kCelda), r.y / static_cast<float>(kCelda)}, 0.7f));
+        if (++frames_ % 60 == 0) registro_->vaciar();  // el archivo se puede abrir con el juego en marcha
 
         juego::EntradaJugador e;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) e.ejeX += 1.0f;
@@ -93,17 +108,22 @@ public:
 
     void dibujar() const {
         const adaptadores::EstiloVista estilo{kCelda, 0, 0};
-        adaptadores::dibujarPartida(*partida_, estilo, depuracion_);
+        adaptadores::dibujarPartida(*partida_, estilo, depuracion_, nodos_);
+        adaptadores::dibujarConsolaIa(*partida_, consola_, 0, kFilas * kCelda - 12 * 13 - 8, kColumnas * kCelda, 11);
         adaptadores::dibujarFinPartida(*partida_, kColumnas * kCelda, kFilas * kCelda);
         adaptadores::dibujarPanelPartida(*partida_, kColumnas * kCelda + 12, 12, kAltoVentana, GetFPS());
         char buf[48];
         std::snprintf(buf, sizeof(buf), "semilla %llu", static_cast<unsigned long long>(semilla_));
-        DrawText(buf, kColumnas * kCelda + 12, kAltoVentana - 130, 12, GRAY);
+        DrawText(buf, kColumnas * kCelda + 12, kAltoVentana - 146, 12, GRAY);
     }
 
 private:
+    std::unique_ptr<adaptadores::RegistroArchivo> registro_;
     std::unique_ptr<juego::Partida> partida_;
     std::uint64_t semilla_{42};
+    std::uint64_t frames_{0};
+    bool nodos_{true};
+    adaptadores::ModoConsola consola_{adaptadores::ModoConsola::Oculta};
     float acumulado_{0.0f};
     bool depuracion_{false};
     bool coordinado_{true};

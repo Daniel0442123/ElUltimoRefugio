@@ -5,6 +5,8 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
+#include <string_view>
 
 namespace refugio::adaptadores {
 namespace {
@@ -75,6 +77,8 @@ const char* abreviada(superviviente::Accion a) {
     return "?";
 }
 constexpr Color kColorSuperviviente{40, 200, 170, 255};
+constexpr Color kColorExpandido{220, 60, 220, 255};  // el mismo magenta que A* en el laboratorio
+constexpr Color kColorSeleccion{255, 255, 255, 255};
 
 void barra(int x, int y, int ancho, int alto, float fraccion, Color relleno) {
     DrawRectangle(x, y, ancho, alto, {50, 52, 58, 255});
@@ -82,11 +86,234 @@ void barra(int x, int y, int ancho, int alto, float fraccion, Color relleno) {
                   relleno);
     DrawRectangleLines(x, y, ancho, alto, {90, 92, 100, 255});
 }
+void dibujarAyuda(int x, int alto) {
+    int yc = alto - 128;
+    DrawText("WASD/flechas: mover", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("Shift: correr  Ctrl: sigilo", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("E: recoger / activar radio", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("Q: senuelo al cursor  B: barricada", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("F1: depuracion  R: reiniciar  C: coord.", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("Clic: monitor  N: nodos  L: registro", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("Tab: laboratorio Dijkstra/A*", x, yc, 13, LIGHTGRAY);
+}
+
+/// Copia @p t en @p buf cambiando cada tabulador por dos espacios (raylib no dibuja tabuladores).
+void sinTabs(std::string_view t, char* buf, std::size_t tam) {
+    std::size_t n = 0;
+    for (const char ch : t) {
+        if (n + 3 >= tam) break;
+        if (ch == '\t') {
+            buf[n++] = ' ';
+            buf[n++] = ' ';
+        } else {
+            buf[n++] = ch;
+        }
+    }
+    buf[n] = '\0';
+}
+
+/// Una entrada del historial del agente: una transición de la FSM o un cambio de plan.
+struct EntradaHistorial {
+    std::uint64_t tick{};
+    bool esPlan{false};
+    std::size_t indice{};
+};
+
+/// RF-070 + RF-072: monitor del agente seleccionado en el panel lateral, hasta @p limite en y.
+void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
+    char buf[128];
+    const auto id = static_cast<std::size_t>(p.seleccionado());
+    const auto& z = p.infectados()[id];
+    const auto& m = z.busqueda;
+    const auto& pc = z.percibido;
+    std::snprintf(buf, sizeof(buf), "Agente Z%zu", id);
+    DrawText(buf, x, y, 18, GOLD);
+    DrawText("clic fuera: soltar", x + 130, y + 5, 10, GRAY);
+    y += 22;
+    const auto est = agentes::nombreEstado(z.estado);
+    DrawCircle(x + 5, y + 6, 5, colorEstado(z.estado));
+    std::snprintf(buf, sizeof(buf), "Estado: %.*s (%.1f s)", static_cast<int>(est.size()), est.data(),
+                  static_cast<double>(z.tiempoEnEstado));
+    DrawText(buf, x + 14, y, 13, RAYWHITE);
+    y += 16;
+    // Objetivo: la celda a la que va y por qué (tarea de Contract Net o táctica propia).
+    const auto tac = agentes::nombreTactica(z.tactica);
+    if (z.tieneTarea) {
+        const auto ta = coordinacion::nombreTarea(z.tarea);
+        std::snprintf(buf, sizeof(buf), "Objetivo: (%d,%d) tarea %.*s", z.objetivo.x, z.objetivo.y,
+                      static_cast<int>(ta.size()), ta.data());
+    } else if (z.tieneObjetivo) {
+        std::snprintf(buf, sizeof(buf), "Objetivo: (%d,%d) tactica %.*s", z.objetivo.x, z.objetivo.y,
+                      static_cast<int>(tac.size()), tac.data());
+    } else {
+        std::snprintf(buf, sizeof(buf), "Objetivo: ninguno");
+    }
+    DrawText(buf, x, y, 12, RAYWHITE);
+    y += 15;
+    // Percepción relevante del último ciclo de IA: vista, oído y mensajes.
+    std::snprintf(buf, sizeof(buf), "Ve a Mara: %s (a %.1f)  ruidos: %u", pc.veAMara ? "si" : "no",
+                  static_cast<double>(pc.distanciaMara), static_cast<unsigned>(pc.ruidosOidos));
+    DrawText(buf, x, y, 12, pc.veAMara ? ORANGE : LIGHTGRAY);
+    y += 15;
+    if (pc.recibioAlerta)
+        std::snprintf(buf, sizeof(buf), "Mensajes: alerta %.2f%s  memoria: %u", static_cast<double>(pc.confianzaAlerta),
+                      pc.recibioTarea ? " + tarea" : "", static_cast<unsigned>(pc.evidencias));
+    else
+        std::snprintf(buf, sizeof(buf), "Mensajes: %s  memoria: %u", pc.recibioTarea ? "tarea" : "ninguno",
+                      static_cast<unsigned>(pc.evidencias));
+    DrawText(buf, x, y, 12, pc.recibioAlerta ? YELLOW : LIGHTGRAY);
+    y += 18;
+
+    DrawText("Ultima busqueda", x, y, 15, GOLD);
+    y += 18;
+    if (z.usaCampo) {
+        std::snprintf(buf, sizeof(buf), "Ahora sigue el flow field (%.0f us)", p.campo().tiempoUs());
+        DrawText(buf, x, y, 12, SKYBLUE);
+        y += 15;
+    }
+    if (!m.valida) {
+        DrawText("Aun no ha planificado", x, y, 12, LIGHTGRAY);
+        y += 15;
+    } else {
+        const auto alg = navegacion::nombreAlgoritmo(m.algoritmo);
+        std::snprintf(buf, sizeof(buf), "%.*s  heuristica: %s", static_cast<int>(alg.size()), alg.data(),
+                      m.algoritmo == navegacion::Algoritmo::AEstrella ? "octil" : "h = 0");
+        DrawText(buf, x, y, 13, kColorExpandido);
+        y += 16;
+        std::snprintf(buf, sizeof(buf), "(%d,%d) > (%d,%d) hace %.1f s", m.origen.x, m.origen.y, m.destino.x, m.destino.y,
+                      static_cast<double>(p.tick() - m.tick) * static_cast<double>(p.dt()));
+        DrawText(buf, x, y, 12, LIGHTGRAY);
+        y += 15;
+        const std::size_t restantes = z.ruta.size() > z.indiceRuta ? z.ruta.size() - z.indiceRuta : 0;
+        if (m.encontrada)
+            std::snprintf(buf, sizeof(buf), "Costo: %.2f  ruta: %u celdas, faltan %zu", m.costo,
+                          static_cast<unsigned>(m.largoRuta), restantes);
+        else
+            std::snprintf(buf, sizeof(buf), "Sin ruta al objetivo");
+        DrawText(buf, x, y, 12, RAYWHITE);
+        y += 15;
+        std::snprintf(buf, sizeof(buf), "Nodos expandidos: %u  generados: %u", m.expandidos, m.generados);
+        DrawText(buf, x, y, 12, RAYWHITE);
+        y += 15;
+        std::snprintf(buf, sizeof(buf), "Tiempo: %.1f us  memoria: %.1f KB", m.tiempoUs,
+                      static_cast<double>(m.memoriaBytes) / 1024.0);
+        DrawText(buf, x, y, 12, RAYWHITE);
+        y += 15;
+        std::snprintf(buf, sizeof(buf), "Abierta max: %u   pintados: %zu", m.maxAbierta, p.expansionSeleccionado().size());
+        DrawText(buf, x, y, 12, LIGHTGRAY);
+        y += 15;
+    }
+    y += 4;
+
+    // RF-072: historial del agente, mezclando transiciones y cambios de plan, el más reciente arriba.
+    DrawText("Historial del agente", x, y, 15, GOLD);
+    y += 18;
+    std::array<EntradaHistorial, 12> h{};
+    std::size_t nh = 0;
+    for (std::size_t i = 0; i < p.numTransiciones() && nh < 6; ++i)
+        if (p.ultimaTransicion(i).agente == id) h[nh++] = {p.ultimaTransicion(i).tick, false, i};
+    const std::size_t nTrans = nh;
+    for (std::size_t i = 0; i < p.numCambiosPlan() && nh - nTrans < 6; ++i)
+        if (p.ultimoCambioPlan(i).agente == id) h[nh++] = {p.ultimoCambioPlan(i).tick, true, i};
+    std::stable_sort(h.begin(), h.begin() + static_cast<std::ptrdiff_t>(nh),
+                     [](const EntradaHistorial& a, const EntradaHistorial& b) { return a.tick > b.tick; });
+    if (nh == 0) DrawText("Sin cambios todavia", x, y, 12, GRAY);
+    for (std::size_t k = 0; k < nh && y + 13 <= limite; ++k) {
+        const double t = static_cast<double>(h[k].tick) * static_cast<double>(p.dt());
+        if (h[k].esPlan) {
+            const auto& c = p.ultimoCambioPlan(h[k].indice);
+            const auto mo = juego::nombreMotivoPlan(c.motivo);
+            std::snprintf(buf, sizeof(buf), "%5.1fs plan %.*s >(%d,%d) %.2f>%.2f", t, static_cast<int>(mo.size()), mo.data(),
+                          c.nuevo.x, c.nuevo.y, static_cast<double>(c.valorAnterior), static_cast<double>(c.valorNuevo));
+            DrawText(buf, x, y, 11, k == 0 ? Color{255, 200, 120, 255} : Color{200, 160, 110, 255});
+        } else {
+            const auto& tr = p.ultimaTransicion(h[k].indice);
+            const auto a = agentes::nombreEstado(tr.desde);
+            const auto b = agentes::nombreEstado(tr.hacia);
+            const auto mo = agentes::nombreMotivo(tr.motivo);
+            std::snprintf(buf, sizeof(buf), "%5.1fs %.*s>%.*s: %.*s", t, static_cast<int>(a.size()), a.data(),
+                          static_cast<int>(b.size()), b.data(), static_cast<int>(mo.size()), mo.data());
+            DrawText(buf, x, y, 11, k == 0 ? RAYWHITE : GRAY);
+        }
+        y += 13;
+    }
+}
 }  // namespace
 
-void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuracion) {
+ModoConsola siguienteModo(ModoConsola m) noexcept {
+    switch (m) {
+        case ModoConsola::Oculta: return ModoConsola::Planes;
+        case ModoConsola::Planes: return ModoConsola::Mensajes;
+        case ModoConsola::Mensajes: return ModoConsola::Todo;
+        case ModoConsola::Todo: break;
+    }
+    return ModoConsola::Oculta;
+}
+
+void dibujarConsolaIa(const juego::Partida& p, ModoConsola modo, int x, int y, int ancho, int filas) {
+    if (modo == ModoConsola::Oculta) return;
+    using juego::TipoEventoIa;
+    constexpr int kAltoLinea = 13;
+    const int alto = (filas + 1) * kAltoLinea + 8;
+    DrawRectangle(x, y, ancho, alto, Fade(BLACK, 0.72f));
+    DrawRectangleLines(x, y, ancho, alto, {90, 92, 100, 255});
+    const char* titulo = modo == ModoConsola::Planes     ? "Registro de IA: estados y planes (L: mensajes)"
+                         : modo == ModoConsola::Mensajes ? "Registro de IA: mensajes (L: todo)"
+                                                         : "Registro de IA: todo (L: ocultar)";
+    const auto& reg = p.registroIa();
+    char buf[200];
+    std::snprintf(buf, sizeof(buf), "%s   %llu lineas en logs/ia_%llu.log", titulo,
+                  static_cast<unsigned long long>(reg.total()), static_cast<unsigned long long>(p.semilla()));
+    DrawText(buf, x + 6, y + 4, 11, GOLD);
+    // Las líneas que tocan, de la más reciente hacia atrás; se dibujan con la más nueva abajo.
+    std::array<std::size_t, 32> elegidas{};
+    std::size_t n = 0;
+    const auto max = static_cast<std::size_t>(filas) < elegidas.size() ? static_cast<std::size_t>(filas) : elegidas.size();
+    for (std::size_t i = 0; i < reg.tamano() && n < max; ++i) {
+        const auto t = reg.ultima(i).tipo;
+        const bool esMensaje = t == TipoEventoIa::Mensaje;
+        if ((modo == ModoConsola::Planes && esMensaje) || (modo == ModoConsola::Mensajes && !esMensaje)) continue;
+        elegidas[n++] = i;
+    }
+    int yl = y + 4 + kAltoLinea + static_cast<int>(max - n) * kAltoLinea;
+    for (std::size_t k = n; k-- > 0;) {
+        const auto& l = reg.ultima(elegidas[k]);
+        const auto tipo = juego::nombreEventoIa(l.tipo);
+        char linea[200];
+        sinTabs(l.vista(), linea, sizeof(linea));
+        char salida[256];
+        std::snprintf(salida, sizeof(salida), "%6.1fs %-13.*s %s", static_cast<double>(l.tick) * static_cast<double>(p.dt()),
+                      static_cast<int>(tipo.size()), tipo.data(), linea);
+        const Color c = l.tipo == TipoEventoIa::Plan            ? Color{255, 200, 120, 255}
+                        : l.tipo == TipoEventoIa::Mensaje       ? Color{240, 230, 120, 255}
+                        : l.tipo == TipoEventoIa::Superviviente ? kColorSuperviviente
+                                                                : LIGHTGRAY;
+        DrawText(salida, x + 6, yl, 11, k == 0 ? c : Fade(c, 0.8f));
+        yl += kAltoLinea;
+    }
+}
+
+void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuracion, bool nodosExpandidos) {
     dibujarGrafo(p.mapa(), e);
     const float tc = static_cast<float>(e.tamCelda);
+
+    // RF-071: nodos cerrados por la última búsqueda del agente seleccionado, más oscuros cuanto
+    // antes se expandieron. Hay exactamente tantos como «expandidos» en el panel (CP-071).
+    if (nodosExpandidos && p.seleccionado() >= 0) {
+        const auto& exp = p.expansionSeleccionado();
+        const float total = static_cast<float>(exp.size() > 0 ? exp.size() : 1);
+        for (std::size_t k = 0; k < exp.size(); ++k) {
+            const Vector2 c = centroCelda(p.mapa().celda(exp[k]), e);
+            const float f = 0.25f + 0.35f * (1.0f - static_cast<float>(k) / total);
+            DrawRectangleRec({c.x - tc * 0.5f + 1, c.y - tc * 0.5f + 1, tc - 2, tc - 2}, Fade(kColorExpandido, f));
+        }
+    }
 
     // Radio: se ilumina cuando Mara ya tiene los tres objetos.
     const Vector2 cr = centroCelda(p.radio(), e);
@@ -211,6 +438,30 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
         DrawLineEx(c, {c.x + z.orientacion.x * tc * 0.42f, c.y + z.orientacion.y * tc * 0.42f}, 3.0f, {30, 30, 30, 255});
     }
 
+    // RF-070: agente seleccionado. Su ruta se ve siempre (no solo con F1), con su objetivo y un aro.
+    if (p.seleccionado() >= 0) {
+        const auto& z = p.infectados()[static_cast<std::size_t>(p.seleccionado())];
+        const Vector2 c = aPantalla(z.pos, e);
+        for (std::size_t k = z.indiceRuta; k < z.ruta.size(); ++k) {
+            const Vector2 a = k == z.indiceRuta ? c : centroCelda(p.mapa().celda(z.ruta[k - 1]), e);
+            DrawLineEx(a, centroCelda(p.mapa().celda(z.ruta[k]), e), 4.0f, Fade(kColorSeleccion, 0.9f));
+        }
+        if (z.tieneObjetivo) {
+            const Vector2 o = centroCelda(z.objetivo, e);
+            DrawRectangleLinesEx({o.x - tc * 0.45f, o.y - tc * 0.45f, tc * 0.9f, tc * 0.9f}, 3.0f, kColorSeleccion);
+            DrawLineEx({o.x - tc * 0.3f, o.y}, {o.x + tc * 0.3f, o.y}, 2.0f, kColorSeleccion);
+            DrawLineEx({o.x, o.y - tc * 0.3f}, {o.x, o.y + tc * 0.3f}, 2.0f, kColorSeleccion);
+        }
+        const float pulso = 0.5f + 0.06f * std::sin(static_cast<float>(p.tick()) * 0.2f);
+        DrawCircleLinesV(c, tc * pulso, kColorSeleccion);
+        DrawCircleLinesV(c, tc * pulso + 1.0f, kColorSeleccion);
+        char id[8];
+        std::snprintf(id, sizeof(id), "Z%d", p.seleccionado());
+        const float anchoMapa = static_cast<float>(e.origenX) + static_cast<float>(p.mapa().ancho()) * tc;
+        const float xId = c.x + tc * 0.45f + 24.0f > anchoMapa ? c.x - tc * 0.45f - 22.0f : c.x + tc * 0.45f;
+        DrawText(id, static_cast<int>(xId), static_cast<int>(c.y - tc * 0.8f), 14, kColorSeleccion);
+    }
+
     // HU-13: superviviente de la radio (ruta en depuración, chispas al reparar, aro al ayudar).
     if (const auto& s = p.superviviente(); s.activo) {
         const Vector2 cs = aPantalla(s.pos, e);
@@ -312,6 +563,12 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     }
     y += 6;
 
+    if (p.seleccionado() >= 0) {
+        dibujarMonitorAgente(p, x, y, alto - 150);
+        dibujarAyuda(x, alto);
+        return;
+    }
+
     DrawText("Infectados", x, y, 18, GOLD);
     y += 22;
     std::array<int, agentes::kNumEstadosInfectado> cuenta{};
@@ -385,18 +642,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         y += 14;
     }
 
-    int yc = alto - 112;
-    DrawText("WASD/flechas: mover", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Shift: correr  Ctrl: sigilo", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("E: recoger / activar radio", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Q: senuelo al cursor  B: barricada", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("F1: depuracion  R: reiniciar  C: coord.", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Tab: laboratorio Dijkstra/A*", x, yc, 13, LIGHTGRAY);
+    dibujarAyuda(x, alto);
 }
 
 void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa) {

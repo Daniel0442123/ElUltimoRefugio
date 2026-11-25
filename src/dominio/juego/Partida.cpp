@@ -115,6 +115,7 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
       mapa_(std::move(esc.mapa)),
       objetos_(std::move(esc.objetos)),
       radio_(esc.radio),
+      semilla_(semilla),
       rng_(semilla, 7u),
       propagador_(cfg.alertas),
       quadtree_({0.0f, 0.0f, static_cast<float>(mapa_.ancho()), static_cast<float>(mapa_.alto())}) {
@@ -147,6 +148,8 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     // Calentamiento: la primera búsqueda dimensiona los arreglos del buscador y del resultado.
     // Toda la memoria de trabajo se reserva aquí, en la carga (RNF-006).
     resultado_.ruta.reserve(mapa_.numCeldas());
+    resultado_.ordenExpansion.reserve(mapa_.numCeldas());  // RF-071: expansión del agente seleccionado
+    expansionSel_.reserve(mapa_.numCeldas());
     buscador_.reservar(mapa_.numCeldas());
     quadtree_.reservar(infectados_.size());
     propagador_.reservar(infectados_.size(), propagacion_);
@@ -220,6 +223,98 @@ void Partida::registrarPlan(std::size_t i, Celda anterior, Celda nuevo, float vA
     planes_[static_cast<std::size_t>(totalCambiosPlan_ % kCapacidadRegistro)] =
         RegistroPlan{tick_, static_cast<std::uint16_t>(i), anterior, nuevo, vAnt, vNuevo, m};
     ++totalCambiosPlan_;
+    const auto mo = nombreMotivoPlan(m);
+    registroIa_.anotar(tick_, TipoEventoIa::Plan, static_cast<std::uint16_t>(i),
+                       "Z%u\tanterior=(%d,%d)\tnuevo=(%d,%d)\tmotivo=%.*s\tvalores=%.2f>%.2f", static_cast<unsigned>(i),
+                       anterior.x, anterior.y, nuevo.x, nuevo.y, static_cast<int>(mo.size()), mo.data(),
+                       static_cast<double>(vAnt), static_cast<double>(vNuevo));
+}
+
+std::string_view nombreTipoMensaje(TipoMensaje t) noexcept {
+    switch (t) {
+        case TipoMensaje::Alerta: return "alerta";
+        case TipoMensaje::Anuncio: return "anuncio";
+        case TipoMensaje::Puja: return "puja";
+        case TipoMensaje::Adjudicacion: return "adjudicacion";
+    }
+    return "?";
+}
+
+std::size_t Partida::numMensajes() const noexcept {
+    return static_cast<std::size_t>(std::min<std::uint64_t>(totalMensajes_, kCapacidadMensajes));
+}
+
+const RegistroMensaje& Partida::ultimoMensaje(std::size_t haceN) const noexcept {
+    return mensajes_[static_cast<std::size_t>((totalMensajes_ - 1 - haceN) % kCapacidadMensajes)];
+}
+
+void Partida::registrarMensaje(std::size_t emisor, std::size_t receptor, TipoMensaje t, int salto, float confianza,
+                               float costo) {
+    mensajes_[static_cast<std::size_t>(totalMensajes_ % kCapacidadMensajes)] =
+        RegistroMensaje{tick_,      static_cast<std::uint16_t>(emisor), static_cast<std::uint16_t>(receptor), t,
+                        static_cast<std::uint8_t>(salto), confianza, costo};
+    ++totalMensajes_;
+    const auto tipo = nombreTipoMensaje(t);
+    if (costo >= 0.0f)
+        registroIa_.anotar(tick_, TipoEventoIa::Mensaje, static_cast<std::uint16_t>(emisor),
+                           "Z%u>Z%u\ttipo=%.*s\tsalto=%d\tconfianza=%.2f\tcosto=%.2f", static_cast<unsigned>(emisor),
+                           static_cast<unsigned>(receptor), static_cast<int>(tipo.size()), tipo.data(), salto,
+                           static_cast<double>(confianza), static_cast<double>(costo));
+    else
+        registroIa_.anotar(tick_, TipoEventoIa::Mensaje, static_cast<std::uint16_t>(emisor),
+                           "Z%u>Z%u\ttipo=%.*s\tsalto=%d\tconfianza=%.2f", static_cast<unsigned>(emisor),
+                           static_cast<unsigned>(receptor), static_cast<int>(tipo.size()), tipo.data(), salto,
+                           static_cast<double>(confianza));
+}
+
+// ------------------------------------------------------------------- Monitoreo (RF-070, RF-071)
+int Partida::agenteEn(Vec2 punto, float radio) const noexcept {
+    int mejor = -1;
+    float dMejor = radio;
+    for (std::size_t i = 0; i < infectados_.size(); ++i) {
+        const float d = distancia(infectados_[i].pos, punto);
+        if (d <= dMejor) {
+            dMejor = d;
+            mejor = static_cast<int>(i);
+        }
+    }
+    return mejor;
+}
+
+void Partida::seleccionar(int agente) {
+    seleccionado_ = agente >= 0 && static_cast<std::size_t>(agente) < infectados_.size() ? agente : -1;
+    expansionSel_.clear();
+    if (seleccionado_ < 0) return;
+    // Repite su última consulta en el mapa actual registrando la expansión, para pintarla ya. El
+    // resultado es el mismo que obtuvo si el mapa no cambió (A* es determinista); solo el tiempo varía.
+    auto& z = infectados_[static_cast<std::size_t>(seleccionado_)];
+    if (!z.busqueda.valida) return;
+    const Celda o = z.busqueda.origen;
+    const Celda d = z.busqueda.destino;
+    buscador_.buscarEn(mapa_, mapa_.nodo(o.x, o.y), mapa_.nodo(d.x, d.y), resultado_, true);
+    anotarMetricas(static_cast<std::size_t>(seleccionado_), o, d);
+}
+
+void Partida::anotarMetricas(std::size_t i, Celda origen, Celda destino) noexcept {
+    auto& m = infectados_[i].busqueda;
+    m.valida = true;
+    m.algoritmo = resultado_.algoritmo;
+    m.encontrada = resultado_.encontrada;
+    m.costo = resultado_.costo;
+    m.expandidos = resultado_.expandidos;
+    m.generados = resultado_.generados;
+    m.maxAbierta = resultado_.maxAbierta;
+    m.largoRuta = static_cast<std::uint32_t>(resultado_.ruta.size());
+    m.tiempoUs = resultado_.tiempoUs;
+    m.memoriaBytes = resultado_.memoriaBytes;
+    m.tick = tick_;
+    m.origen = origen;
+    m.destino = destino;
+    if (static_cast<int>(i) == seleccionado_) {
+        expansionSel_.clear();
+        expansionSel_.insert(expansionSel_.end(), resultado_.ordenExpansion.begin(),
+                             resultado_.ordenExpansion.end());  // cabe: capacidad reservada
+    }
 }
 
 void Partida::paso(const EntradaJugador& entrada) {
@@ -425,8 +520,10 @@ void Partida::percibirYDecidir(std::size_t i) {
     // con el de mayor utilidad; todos los que oye van a la memoria (RF-043).
     agentes::Evidencia evRuido{};
     float uRuido = -1.0f;
+    int ruidosOidos = 0;
     for (const auto& r : ruidosTick_) {
         if (!agentes::oye(mapa_, z.pos, r.origen, r.radio)) continue;
+        ++ruidosOidos;
         // El tipo Senuelo solo sirve al registro del docente (RF-072); la decisión es la misma.
         const agentes::Evidencia ev{r.senuelo ? agentes::TipoEvidencia::Senuelo : agentes::TipoEvidencia::Ruido,
                                     celdaDe(r.origen), ahora, cfg_.confianzaRuido, kFuenteRuido};
@@ -449,6 +546,9 @@ void Partida::percibirYDecidir(std::size_t i) {
     const coordinacion::TipoTarea tipoTarea = z.tipoTareaPendiente;
     const Celda destinoTarea = z.destinoTarea;
     z.tareaPendiente = false;
+    // RF-070: lo que el panel enseña como percepción relevante de este ciclo.
+    z.percibido = {p.veAMara, dMara, static_cast<std::uint8_t>(std::min(ruidosOidos, 255)), p.recibeAlerta,
+                   z.confianzaAlerta, p.tareaInterceptar, static_cast<std::uint8_t>(std::min<std::size_t>(z.memoria.tamano(), 255))};
 
     // Memoria (primer corte de RF-043): última posición vista de Mara.
     if (p.veAMara) {
@@ -817,7 +917,10 @@ void Partida::planificarRutas() {
             return;
         }
         const Celda c = celdaDe(z.pos);
-        buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_);
+        const bool registrarExpansion = static_cast<int>(i) == seleccionado_;  // RF-071
+        buscador_.buscarEn(mapa_, mapa_.nodo(c.x, c.y), mapa_.nodo(z.objetivo.x, z.objetivo.y), resultado_,
+                           registrarExpansion);
+        anotarMetricas(i, c, z.objetivo);
         ++busquedasTickIa_;
         ++busquedasTotales_;
         nodosTickIa_ += resultado_.expandidos;
@@ -1002,6 +1105,7 @@ void Partida::emitirAlerta(std::size_t i) {
     propagador_.propagarEn(posiciones_, quadtree_, static_cast<std::uint32_t>(i), kConfianzaAvistamiento, propagacion_);
     const Celda celdaMara = celdaDe(mara_.pos);
     for (const auto& m : propagacion_.mensajes) {
+        registrarMensaje(m.emisor, m.receptor, TipoMensaje::Alerta, m.salto, m.confianza);  // RF-073
         auto& r = infectados_[m.receptor];
         if (r.alertaPendiente && r.confianzaAlerta >= m.confianza) continue;  // ya tiene una mejor
         r.alertaPendiente = true;
@@ -1032,6 +1136,11 @@ Celda Partida::celdaLibreCercana(Celda c, int radioMax) const noexcept {
 // Perseguir; los alertados que no persiguen ya pujan con su costo octil y gana la puja más baja.
 void Partida::contratar(std::size_t gestor) {
     const auto& g = infectados_[gestor];
+    const auto confianzaDe = [this](std::uint32_t agente) {
+        for (const auto& m : propagacion_.mensajes)
+            if (m.receptor == agente) return m.confianza;
+        return 0.0f;
+    };
     postores_.clear();
     for (const auto& m : propagacion_.mensajes) {
         const auto& r = infectados_[m.receptor];
@@ -1077,6 +1186,17 @@ void Partida::contratar(std::size_t gestor) {
     tareas_.push_back({coordinacion::TipoTarea::Perseguir, cm});
 
     coordinacion::ejecutarContractNet(tareas_, postores_, contrato_);
+    // RF-073: anuncio gestor -> postor y puja postor -> gestor por cada tarea, y una adjudicación por
+    // tarea ganada. Son mensajes directos (salto 1) con la confianza de la alerta que lo hizo postor.
+    for (const auto& t : tareas_)
+        for (const auto& po : postores_) {
+            const float conf = confianzaDe(po.agente);
+            registrarMensaje(gestor, po.agente, TipoMensaje::Anuncio, 1, conf);
+            registrarMensaje(po.agente, gestor, TipoMensaje::Puja, 1, conf,
+                             static_cast<float>(coordinacion::costoPuja(po.celda, t.destino)));
+        }
+    for (const auto& a : contrato_.adjudicaciones)
+        registrarMensaje(gestor, a.agente, TipoMensaje::Adjudicacion, 1, confianzaDe(a.agente), static_cast<float>(a.costo));
     for (const auto& a : contrato_.adjudicaciones) {
         auto& z = infectados_[a.agente];
         const auto& t = tareas_[a.tarea];
@@ -1165,6 +1285,12 @@ void Partida::registrar(std::size_t i, EstadoInfectado desde, EstadoInfectado ha
     registro_[static_cast<std::size_t>(totalTransiciones_ % kCapacidadRegistro)] =
         RegistroTransicion{tick_, static_cast<std::uint16_t>(i), desde, hacia, m};
     ++totalTransiciones_;
+    const auto a = agentes::nombreEstado(desde);
+    const auto b = agentes::nombreEstado(hacia);
+    const auto mo = agentes::nombreMotivo(m);
+    registroIa_.anotar(tick_, TipoEventoIa::Transicion, static_cast<std::uint16_t>(i), "Z%u\testado=%.*s>%.*s\tmotivo=%.*s",
+                       static_cast<unsigned>(i), static_cast<int>(a.size()), a.data(), static_cast<int>(b.size()), b.data(),
+                       static_cast<int>(mo.size()), mo.data());
 }
 
 }  // namespace refugio::juego
