@@ -97,7 +97,7 @@ void dibujarAyuda(int x, int alto) {
     yc += 16;
     DrawText("Q: senuelo al cursor  B: barricada", x, yc, 13, LIGHTGRAY);
     yc += 16;
-    DrawText("F1: depuracion  R: reiniciar  C: coord.", x, yc, 13, LIGHTGRAY);
+    DrawText("F1: depuracion  R: reiniciar  F4: modo", x, yc, 13, LIGHTGRAY);
     yc += 16;
     DrawText("Clic: monitor  N: nodos  L: registro", x, yc, 13, LIGHTGRAY);
     yc += 16;
@@ -649,9 +649,14 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         std::snprintf(buf, sizeof(buf), "Flow field: inactivo (umbral %d)", cfg.flowfieldUmbral);
     DrawText(buf, x, y, 12, p.campoActivo() ? SKYBLUE : LIGHTGRAY);
     y += 15;
-    std::snprintf(buf, sizeof(buf), "Coordinado (C): %s  alertas %llu / msj %llu", cfg.coordinado ? "si" : "no",
+    // RF-056 (HU-18): F4 apaga y enciende la comunicación entre infectados.
+    DrawText(cfg.coordinado ? "Modo: coordinado (F4)" : "Modo: aislado (F4)", x, y, 14,
+             cfg.coordinado ? YELLOW : Color{255, 140, 90, 255});
+    y += 16;
+    std::snprintf(buf, sizeof(buf), "alertas %llu  msj alerta %llu  msj total %llu",
                   static_cast<unsigned long long>(p.alertasEmitidas()),
-                  static_cast<unsigned long long>(p.mensajesAlerta()));
+                  static_cast<unsigned long long>(p.mensajesAlerta()),
+                  static_cast<unsigned long long>(p.totalMensajes()));
     DrawText(buf, x, y, 12, cfg.coordinado ? YELLOW : LIGHTGRAY);
     y += 15;
     std::snprintf(buf, sizeof(buf), "Contract Net: %llu subastas, %llu tareas",

@@ -19,6 +19,7 @@
 
 #include "dominio/experimentos/Benchmark.hpp"
 #include "dominio/experimentos/EstresRecursion.hpp"
+#include "dominio/experimentos/ExperimentoCoordinacion.hpp"
 
 #ifndef REFUGIO_VERSION
 #define REFUGIO_VERSION "0.1.0"
@@ -162,6 +163,10 @@ void ayuda() {
                  "                [--densidad 0.25] [--semilla 42] [--dinamico] [--salida results/bench.csv]\n"
                  "    Sin --salida escribe results/bench_<fecha>_<semilla>.csv; con escenario dinamico,\n"
                  "    tambien results/bench_<fecha>_<semilla>_dinamico.csv. Las opciones mandan sobre el JSON.\n"
+                 "  refugio --coord-exp <semilla> [--reps 10] [--infectados 10] [--segundos 120]\n"
+                 "                [--salida results/coord.csv]\n"
+                 "    Horda aislada frente a coordinada (HU-18): reps partidas en cada modo con las mismas\n"
+                 "    semillas y el mismo guion de Mara. Sin --salida escribe results/coord_<fecha>_<semilla>.csv.\n"
                  "  refugio_bench --estres-recursion [--agentes 50,100,...] [--profundidades 1,2,3]\n"
                  "                [--reps 5] [--semilla 42] [--salida results/estres.csv]\n";
 }
@@ -187,10 +192,54 @@ std::vector<std::string> metadatosEquipo() {
             "fecha_utc=" + fechaUtc()};
 }
 
+namespace {
+
+void imprimirModo(std::string_view nombre, const experimentos::ResumenModo& r) {
+    std::cout << "  " << nombre << ": " << r.simulaciones << " partidas, deteccion en " << r.detecciones
+              << " (media " << r.mediaDeteccion << " s), contacto en " << r.contactos << " (media " << r.mediaContacto
+              << " s), cobertura media " << r.mediaCobertura * 100.0 << " %, mensajes medios " << r.mediaMensajes
+              << ", celdas sobrecargadas medias " << r.mediaSobrecargadas << ", max. infectados a 2 celdas "
+              << r.mediaMaxCerca << ", duracion media " << r.mediaDuracion << " s, victorias " << r.victorias
+              << ", derrotas " << r.derrotas << '\n';
+}
+
+/// --coord-exp <semilla> (RF-084). Devuelve el código de salida: 4 si algún par diverge antes de la
+/// primera detección (RF-056 exige que el resto sea idéntico).
+template <typename Valor>
+int ejecutarCoordinacion(const Valor& valor, int codigoPrevio, bool hayOtroModo) {
+    experimentos::ConfigCoordinacion cfg;
+    if (auto v = valor("--coord-exp"); !v.empty() && !v.starts_with("--")) cfg.semilla = std::stoull(std::string(v));
+    if (auto v = valor("--reps"); !v.empty()) cfg.repeticiones = std::stoi(std::string(v));
+    if (auto v = valor("--infectados"); !v.empty()) cfg.infectados = std::stoi(std::string(v));
+    if (auto v = valor("--segundos"); !v.empty()) cfg.segundos = std::stod(std::string(v));
+    if (cfg.repeticiones < 1 || cfg.infectados < 1 || cfg.segundos <= 0.0)
+        throw std::runtime_error("--reps, --infectados y --segundos deben ser positivos");
+    std::string salida(valor("--salida"));
+    if (salida.empty() || hayOtroModo)
+        salida = "results/coord_" + fechaArchivo() + "_" + std::to_string(cfg.semilla) + ".csv";
+    auto f = abrirSalida(salida);
+    const auto r = experimentos::ejecutarExperimentoCoordinacion(cfg, metadatosEquipo(), f);
+    std::cout << "Aislados frente a coordinados: " << r.simulaciones.size() << " simulaciones (semilla " << cfg.semilla
+              << ", " << cfg.repeticiones << " por modo) -> " << salida << '\n';
+    imprimirModo("aislado   ", r.aislado);
+    imprimirModo("coordinado", r.coordinado);
+    std::cout << "  pares en que la horda coordinada llego antes a Mara: " << r.contactoAntesCoordinado << " de "
+              << cfg.repeticiones << "; pares distintos antes de la primera deteccion: " << r.paresDivergentes << '\n';
+    if (r.paresDivergentes > 0) {
+        std::cerr << "ERROR: " << r.paresDivergentes
+                  << " pares difieren antes de la primera deteccion; el modo aislado debe cambiar solo la comunicacion\n";
+        return 4;
+    }
+    return hayOtroModo ? codigoPrevio : 0;
+}
+
+}  // namespace
+
 bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
     std::vector<std::string_view> args(argv + 1, argv + argc);
     const bool bench = std::find(args.begin(), args.end(), "--bench") != args.end();
     const bool estres = std::find(args.begin(), args.end(), "--estres-recursion") != args.end();
+    const bool coord = std::find(args.begin(), args.end(), "--coord-exp") != args.end();
     const bool help = std::find(args.begin(), args.end(), "--ayuda") != args.end() ||
                       std::find(args.begin(), args.end(), "--help") != args.end();
     if (help) {
@@ -198,7 +247,7 @@ bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
         codigo = 0;
         return true;
     }
-    if (!bench && !estres) return false;
+    if (!bench && !estres && !coord) return false;
 
     auto valor = [&](std::string_view clave) -> std::string_view {
         for (std::size_t i = 0; i + 1 < args.size(); ++i)
@@ -264,6 +313,7 @@ bool ejecutarModoSinVentana(int argc, char** argv, int& codigo) {
             if (!ok) codigo = 3;
             else if (!bench) codigo = 0;
         }
+        if (coord) codigo = ejecutarCoordinacion(valor, codigo, bench || estres);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         codigo = 1;

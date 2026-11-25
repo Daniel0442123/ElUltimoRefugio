@@ -15,7 +15,37 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.10.0)
+## Estado actual (0.11.0)
+
+**Comparar agentes aislados y coordinados** (HU-18, RF-056, RF-084).
+
+- **F4 en la partida** (RF-056): apaga o enciende la comunicación entre infectados. En modo aislado
+  no se propagan alertas (RF-047) ni hay Contract Net (RF-049); todo lo demás (percepción, memoria,
+  tácticas, reparto de llegadas, generador aleatorio) sigue igual. El panel muestra «Modo: aislado
+  (F4)» en naranja o «Modo: coordinado (F4)» en amarillo, y debajo las alertas y los mensajes. La
+  tecla C sigue funcionando como antes y el modo se conserva al reiniciar con R.
+- **Experimento pareado** (RF-084): `refugio --coord-exp 7 --reps 10` (o `refugio_bench`, sin
+  ventana) simula 10 partidas en modo aislado y 10 en coordinado. La repetición r usa la semilla
+  7 + r en los dos modos, así que cada par comparte mapa, infectados y objetos. Mara sigue un guion
+  fijo que no mira a los infectados: camina por A\* a cada objeto, instala la radio y va a la
+  extracción. Sin `--salida` escribe `results/coord_<fecha>_<semilla>.csv`. Opciones: `--infectados`
+  (10), `--segundos` (tope por partida, 120).
+- **Columnas** (RF-084): `modo, semilla, repeticion, ticks, duracion_s, resultado, motivo_fin,
+  t_primera_deteccion_s, t_contacto_s, cobertura, mensajes, mensajes_alerta, mensajes_contract_net,
+  alertas, subastas, celdas_sobrecargadas, max_celdas_sobrecargadas, max_infectados_cerca,
+  salud_final, objetos_recogidos, hash_previo_deteccion, hash_final`. Un tiempo de -1 significa que
+  no ocurrió. La cobertura es la fracción de celdas transitables que pisó algún infectado; las celdas
+  sobrecargadas se cuentan en cada tick de IA (más de `MAX_AGENTES_POR_CELDA` infectados en una
+  celda) y se suman.
+- **Comprobación de RF-056**: hasta la primera detección las dos partidas de un par tienen que ser
+  la misma, porque todavía no hay nada que comunicar. El CSV guarda la huella del estado del tick
+  anterior a la detección; si algún par difiere, el programa lo dice y termina con código 4.
+- **Resumen por pantalla**: para cada modo, detecciones y contactos con su tiempo medio, cobertura,
+  mensajes, celdas sobrecargadas, máximo de infectados a 2 celdas de Mara, duración media y
+  victorias/derrotas. Con la semilla 7 y 10 repeticiones la horda coordinada rodea a Mara con 7,4
+  infectados de media frente a 5,3 de la aislada y la derrota llega antes (20,6 s frente a 21,5 s).
+
+### Versión 0.10.0
 
 **Comparar Dijkstra y A\* en vivo y benchmark reproducible** (HU-16, HU-17).
 
@@ -295,7 +325,7 @@ Partida (escena inicial):
 | Clic izquierdo | Seleccionar el infectado bajo el cursor y ver su monitor; clic en otro sitio lo suelta |
 | N | Mostrar u ocultar los nodos expandidos del agente seleccionado |
 | L | Consola del registro de IA: estados y planes → mensajes → todo → oculta |
-| C | Activar / desactivar el modo coordinado (alertas y Contract Net entre infectados) |
+| F4 (o C) | Modo aislado / coordinado de la horda (alertas y Contract Net entre infectados) |
 | F2 | Alternar Dijkstra / A\* para todos los agentes |
 | F3 | Con un infectado seleccionado: tabla Dijkstra frente a A\* de su última consulta (otra vez F3 la oculta) |
 | R | Nueva partida (siguiente semilla) |
@@ -330,19 +360,23 @@ python3 tools/resumen_bench.py results/bench_<fecha>_42.csv
 # Lo mismo sin archivo, con opciones (mandan sobre el JSON si se dan los dos)
 ./build/headless/refugio_bench --bench --tamanos 32,64,128,256 --pares 20 --reps 5 --semilla 42 --salida results/bench.csv
 
+# Horda aislada frente a coordinada: 10 partidas por modo con las semillas 7..16 (20 filas)
+./build/headless/refugio_bench --coord-exp 7 --reps 10
+
 # Estrés de las funciones recursivas (profundidad, llamadas, mensajes, pila)
 ./build/headless/refugio_bench --estres-recursion --agentes 50,500,2000 --profundidades 1,3,10 --salida results/estres.csv
 ```
 
 El benchmark termina con código 2 si A* y Dijkstra difieren en costo (RF-082); el estrés termina con
 código 3 si alguna recursión supera su límite, si un agente recibe la misma alerta dos veces o si la pila
-supera 64 KB (RNF-027).
+supera 64 KB (RNF-027). El experimento de coordinación termina con código 4 si un par aislado/coordinado
+difiere antes de la primera detección (RF-056).
 
 ## Integración continua
 
 | Flujo | Cuándo | Qué hace |
 |---|---|---|
-| `CI` | push a `main` y cada PR | Compila juego y pruebas en Linux (GCC, Clang) y Windows (MSVC); ASan + UBSan; comprueba que el dominio no dependa de raylib; humo de benchmark y estrés |
+| `CI` | push a `main` y cada PR | Compila juego y pruebas en Linux (GCC, Clang) y Windows (MSVC); ASan + UBSan; comprueba que el dominio no dependa de raylib; humo de benchmark, estrés y aislados/coordinados |
 | `Rendimiento y estrés` | cada noche y manual (Actions → Run workflow) | Benchmark completo y estrés de recursión en Linux y Windows; tabla en el resumen del run y CSV como artefacto |
 
 ## Estructura
