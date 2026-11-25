@@ -10,6 +10,7 @@ std::string_view nombreEstado(EstadoInfectado e) noexcept {
         case EstadoInfectado::Buscar: return "Buscar";
         case EstadoInfectado::Atacar: return "Atacar";
         case EstadoInfectado::Interceptar: return "Interceptar";
+        case EstadoInfectado::AtacarBarricada: return "AtacarBarricada";
     }
     return "?";
 }
@@ -27,6 +28,8 @@ std::string_view nombreMotivo(MotivoTransicion m) noexcept {
         case MotivoTransicion::SinRuta: return "sin ruta";
         case MotivoTransicion::RecibeAlerta: return "recibe alerta";
         case MotivoTransicion::AsignaTarea: return "tarea asignada";
+        case MotivoTransicion::RutaBloqueada: return "ruta bloqueada";
+        case MotivoTransicion::BarricadaDestruida: return "barricada destruida";
     }
     return "?";
 }
@@ -36,6 +39,8 @@ Transicion decidirTransicion(EstadoInfectado actual, const PercepcionInfectado& 
     using E = EstadoInfectado;
     using M = MotivoTransicion;
     const Transicion seguir{actual, M::Ninguno};
+    // RF-052: desde cualquier estado de movimiento, una barricada sin rodeo razonable se ataca.
+    if (c.rutaBloqueada && actual != E::Atacar && actual != E::AtacarBarricada) return {E::AtacarBarricada, M::RutaBloqueada};
 
     switch (actual) {
         case E::Explorar:
@@ -72,6 +77,11 @@ Transicion decidirTransicion(EstadoInfectado actual, const PercepcionInfectado& 
             if (c.sinRuta) return {E::Explorar, M::SinRuta};
             if (p.tareaInterceptar) return seguir;  // nuevo punto: se reorienta
             if (c.llegoAlObjetivo) return {E::Buscar, M::LlegaAlOrigen};
+            return seguir;
+
+        case E::AtacarBarricada:
+            if (p.veAMara && p.distanciaMara <= par.alcanceAtaque) return {E::Atacar, M::EnAlcance};
+            if (c.barricadaDestruida) return p.veAMara ? Transicion{E::Perseguir, M::VeAMara} : Transicion{E::Investigar, M::BarricadaDestruida};
             return seguir;
 
         case E::Atacar:

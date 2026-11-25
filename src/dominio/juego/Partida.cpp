@@ -22,6 +22,9 @@ constexpr float kDistanciaAtaque = 0.6f;  // Sin celda de llegada, se detiene a 
 constexpr float kRadioLlegada = 0.75f;    // RF-051: distancia a Mara del punto de llegada de cada acceso
 constexpr float kFrenado = 0.5f;          // Radio de frenado suave al llegar
 constexpr std::size_t kMaxTareas = 4;     // Interceptar + 2 x Flanquear + Perseguir
+constexpr std::size_t kMaxRuidosTick = 32;
+constexpr float kAlcanceBarricada = 1.6f;  // Distancia al centro de la barricada para golpearla
+constexpr std::uint32_t kFuenteRuido = 0xFFFFFFFFu;  // Emisor de una evidencia de ruido (desconocido)
 constexpr float kConfianzaAvistamiento = 1.0f;  // ver a Mara directamente es evidencia segura
 
 float longitud(Vec2 v) noexcept { return std::sqrt(v.x * v.x + v.y * v.y); }
@@ -96,6 +99,8 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
       quadtree_({0.0f, 0.0f, static_cast<float>(mapa_.ancho()), static_cast<float>(mapa_.alto())}) {
     mara_.pos = esc.inicioMara;
     mara_.salud = cfg_.saludMax;
+    mara_.senuelos = cfg_.senuelosIniciales;
+    mara_.barricadas = cfg_.barricadasIniciales;
     const auto ancho = static_cast<std::size_t>(mapa_.ancho());
     const auto alto = static_cast<std::size_t>(mapa_.alto());
     const std::size_t bloques = ((ancho + kBloqueVisitasU - 1) / kBloqueVisitasU) * ((alto + kBloqueVisitasU - 1) / kBloqueVisitasU);
@@ -126,6 +131,8 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     celdasLlegada_.reserve(infectados_.size());
     asignaciones_.reserve(infectados_.size());
     moviles_.resize(infectados_.size());
+    ruidosPendientes_.reserve(kMaxRuidosTick);
+    ruidosTick_.reserve(kMaxRuidosTick);
     desdeUltimoRuido_ = cfg_.periodoRuido;
 }
 
@@ -142,10 +149,38 @@ const RegistroTransicion& Partida::ultimaTransicion(std::size_t haceN) const noe
     return registro_[static_cast<std::size_t>(idx)];
 }
 
+std::size_t Partida::numCambiosPlan() const noexcept {
+    return static_cast<std::size_t>(std::min<std::uint64_t>(totalCambiosPlan_, kCapacidadRegistro));
+}
+
+const RegistroPlan& Partida::ultimoCambioPlan(std::size_t haceN) const noexcept {
+    const std::uint64_t idx = (totalCambiosPlan_ - 1 - haceN) % kCapacidadRegistro;
+    return planes_[static_cast<std::size_t>(idx)];
+}
+
+std::string_view nombreMotivoPlan(MotivoPlan m) noexcept {
+    switch (m) {
+        case MotivoPlan::Ruido: return "ruido";
+        case MotivoPlan::Senuelo: return "senuelo";
+        case MotivoPlan::Alerta: return "alerta";
+        case MotivoPlan::Rodeo: return "rodeo";
+        case MotivoPlan::AtacarBarricada: return "atacar barricada";
+    }
+    return "?";
+}
+
+void Partida::registrarPlan(std::size_t i, Celda anterior, Celda nuevo, float vAnt, float vNuevo, MotivoPlan m) {
+    planes_[static_cast<std::size_t>(totalCambiosPlan_ % kCapacidadRegistro)] =
+        RegistroPlan{tick_, static_cast<std::uint16_t>(i), anterior, nuevo, vAnt, vNuevo, m};
+    ++totalCambiosPlan_;
+}
+
 void Partida::paso(const EntradaJugador& entrada) {
     if (estado_ != EstadoPartida::EnCurso) return;
     mara_.recibioDanio = false;
     moverMara(entrada);
+    accionesMara(entrada);
+    actualizarSenuelos();
     if (tick_ % static_cast<std::uint64_t>(pasosPorTickIa_) == 0) tickIa();
     for (std::size_t i = 0; i < infectados_.size(); ++i) ejecutarInfectado(i);
     moverHorda();
@@ -201,11 +236,11 @@ void Partida::moverMara(const EntradaJugador& e) {
     mara_.orientacion = normalizar(dir);
     // RF-003: mientras se mueve emite un Ruido cada periodoRuido con radio según el modo.
     if (desdeUltimoRuido_ >= cfg_.periodoRuido - 1e-5f) {
-        ruidoPendiente_ = true;
         origenRuido_ = mara_.pos;
         radioRuido_ = e.modo == ModoMovimiento::Sigilo   ? cfg_.ruidoSigilo
                       : e.modo == ModoMovimiento::Correr ? cfg_.ruidoCorrer
                                                          : cfg_.ruidoCaminar;
+        if (ruidosPendientes_.size() < kMaxRuidosTick) ruidosPendientes_.push_back({origenRuido_, radioRuido_, false});
         desdeUltimoRuido_ = 0.0f;
     }
     desdeUltimoRuido_ += dt_;
@@ -236,9 +271,12 @@ void Partida::interactuar(const EntradaJugador& e) {
 // -------------------------------------------------------------------------------- Ciclo de IA
 // RF-040: percepción -> memoria -> decisión -> planificación, para cada agente y en ese orden.
 void Partida::tickIa() {
-    ruidoUltimoTickIa_ = ruidoPendiente_;
-    ruidoPendiente_ = false;
+    ruidosTick_.clear();
+    ruidosTick_.insert(ruidosTick_.end(), ruidosPendientes_.begin(), ruidosPendientes_.end());  // cabe: misma capacidad
+    ruidosPendientes_.clear();
+    ruidoUltimoTickIa_ = std::any_of(ruidosTick_.begin(), ruidosTick_.end(), [](const EventoRuido& r) { return !r.senuelo; });
     for (std::size_t i = 0; i < infectados_.size(); ++i) percibirYDecidir(i);
+    revisarBarricadas();
     repartirLlegadas();
     actualizarCampo();
     planificarRutas();
@@ -306,10 +344,33 @@ void Partida::percibirYDecidir(std::size_t i) {
     p.veAMara = agentes::ve(mapa_, z.pos, z.orientacion, mara_.pos, cfg_.visionRadio, cfg_.visionAngulo) ||
                 (dMara <= cfg_.sentidoCercano && agentes::lineaDeVisionLibre(mapa_, aqui, celdaMara));
     p.distanciaMara = dMara;
-    p.oyeRuido = ruidoUltimoTickIa_ && agentes::oye(mapa_, z.pos, origenRuido_, radioRuido_);
+    const double ahora = tiempo();
+    const float semivida = cfg_.semividaMemoria;
+    auto utilidadDe = [&](const agentes::Evidencia& ev) {
+        return agentes::utilidad(ev, ahora, distancia(z.pos, centroDe(ev.celda)), semivida);
+    };
+    // Oído: de todos los ruidos del tick (Mara y señuelos, que el infectado no distingue) se queda
+    // con el de mayor utilidad; todos los que oye van a la memoria (RF-043).
+    agentes::Evidencia evRuido{};
+    float uRuido = -1.0f;
+    for (const auto& r : ruidosTick_) {
+        if (!agentes::oye(mapa_, z.pos, r.origen, r.radio)) continue;
+        // El tipo Senuelo solo sirve al registro del docente (RF-072); la decisión es la misma.
+        const agentes::Evidencia ev{r.senuelo ? agentes::TipoEvidencia::Senuelo : agentes::TipoEvidencia::Ruido,
+                                    celdaDe(r.origen), ahora, cfg_.confianzaRuido, kFuenteRuido};
+        z.memoria.insertar(ev, ahora, semivida);
+        const float u = utilidadDe(ev);
+        if (u > uRuido) {
+            uRuido = u;
+            evRuido = ev;
+        }
+    }
+    p.oyeRuido = uRuido >= 0.0f;
     // Mensajes recibidos (RF-041 los cuenta como percepción): solo en modo coordinado.
     p.recibeAlerta = cfg_.coordinado && z.alertaPendiente;
     const Celda celdaAlerta = z.celdaAlerta;
+    const agentes::Evidencia evAlerta{agentes::TipoEvidencia::Alerta, celdaAlerta, ahora, z.confianzaAlerta, 0};
+    if (p.recibeAlerta) z.memoria.insertar(evAlerta, ahora, semivida);
     z.alertaPendiente = false;
     // RF-049: tarea de interceptar o flanquear adjudicada por Contract Net.
     p.tareaInterceptar = cfg_.coordinado && z.tareaPendiente;
@@ -321,6 +382,9 @@ void Partida::percibirYDecidir(std::size_t i) {
     if (p.veAMara) {
         z.recuerdaMara = true;
         z.ultimaPosMara = celdaMara;
+        z.memoria.insertar({agentes::TipoEvidencia::Avistamiento, celdaMara, ahora, kConfianzaAvistamiento,
+                            static_cast<std::uint32_t>(i)},
+                           ahora, semivida);
         if (z.avistamientos == 0 || z.tickVista != tick_) {  // RF-053: dos avistamientos para el rumbo
             z.vistaPrevia = z.vista;
             z.tickVistaPrevia = z.tickVista;
@@ -338,6 +402,10 @@ void Partida::percibirYDecidir(std::size_t i) {
     c.tiempoEnEstado = z.tiempoEnEstado;
     c.llegoAlObjetivo = !z.tieneObjetivo || (aqui == z.objetivo && z.indiceRuta >= z.ruta.size());
     c.sinRuta = z.sinRuta;
+    c.rutaBloqueada = z.rutaBloqueada;
+    c.barricadaDestruida = z.barricadaDestruida;
+    z.rutaBloqueada = false;
+    z.barricadaDestruida = false;
     const auto t = agentes::decidirTransicion(z.estado, p, c, cfg_.fsm);
     const bool entra = t.motivo != MotivoTransicion::Ninguno;
     if (entra) {
@@ -346,6 +414,7 @@ void Partida::percibirYDecidir(std::size_t i) {
         z.tiempoEnEstado = 0.0f;
         z.usaCampo = false;  // actualizarCampo() decide de nuevo en este tick
         if (t.hacia != EstadoInfectado::Interceptar) z.tieneTarea = false;
+        if (t.hacia != EstadoInfectado::Investigar) z.tieneEvidencia = false;
     }
     // RF-047: quien ve a Mara (evidencia directa, confianza 1) avisa a los cercanos, con pausa.
     if (p.veAMara && cfg_.coordinado && z.desdeUltimaAlerta >= cfg_.periodoAlerta &&
@@ -360,12 +429,35 @@ void Partida::percibirYDecidir(std::size_t i) {
         case E::Explorar:
             if (entra || c.llegoAlObjetivo || sinRuta) elegirObjetivo(i);
             break;
-        case E::Investigar:
-            if (p.recibeAlerta)
-                fijarObjetivo(z, celdaAlerta);
-            else if (p.oyeRuido)
-                fijarObjetivo(z, celdaDe(origenRuido_));
+        case E::Investigar: {
+            if (entra && t.motivo == MotivoTransicion::BarricadaDestruida) {  // vuelve a lo que hacía
+                fijarObjetivo(z, z.objetivoPrevio);
+                break;
+            }
+            // RF-050: candidato = la alerta o el ruido de mayor utilidad. Al entrar manda la regla
+            // de la FSM (alerta antes que ruido); después solo cambia si supera al objetivo actual.
+            const bool hayAlerta = p.recibeAlerta;
+            const bool hayRuido = p.oyeRuido;
+            if (!hayAlerta && !hayRuido) break;
+            const float uAlerta = hayAlerta ? utilidadDe(evAlerta) : -1.0f;
+            const bool eligeAlerta = entra ? hayAlerta : uAlerta >= uRuido;
+            const agentes::Evidencia& cand = eligeAlerta ? evAlerta : evRuido;
+            const float uCand = eligeAlerta ? uAlerta : uRuido;
+            if (!entra) {
+                const float uActual = z.tieneEvidencia ? utilidadDe(z.evidenciaObjetivo) : 0.0f;
+                if (uCand <= uActual) break;
+                if (!(cand.celda == z.objetivo)) {
+                    const MotivoPlan m = eligeAlerta                                           ? MotivoPlan::Alerta
+                                         : cand.tipo == agentes::TipoEvidencia::Senuelo ? MotivoPlan::Senuelo
+                                                                                        : MotivoPlan::Ruido;
+                    registrarPlan(i, z.objetivo, cand.celda, uActual, uCand, m);
+                }
+            }
+            z.evidenciaObjetivo = cand;
+            z.tieneEvidencia = true;
+            fijarObjetivo(z, cand.celda);
             break;
+        }
         case E::Perseguir:
             if (entra || (!(celdaMara == z.objetivo) && z.desdeUltimaRuta >= cfg_.periodoReplan))
                 fijarObjetivo(z, celdaMara);
@@ -391,7 +483,181 @@ void Partida::percibirYDecidir(std::size_t i) {
                 fijarObjetivo(z, destinoTarea);
             }
             break;
+        case E::AtacarBarricada:
+            if (entra) {
+                z.objetivoPrevio = z.objetivo;
+                fijarObjetivo(z, z.puestoAtaque);
+            }
+            break;
     }
+}
+
+// ------------------------------------------------------------------- Señuelos y barricadas
+// RF-013: celda transitable más lejana de la línea de lanzamiento a SENUELO_ALCANCE o menos.
+// La línea se recorre con Bresenham desde la celda de Mara y se corta en la primera pared.
+Celda Partida::destinoSenuelo(Vec2 apuntar) const noexcept {
+    const Celda a = celdaDe(mara_.pos);
+    const Celda b = celdaDe(apuntar);
+    Celda mejor = a;
+    int x = a.x;
+    int y = a.y;
+    const int dx = std::abs(b.x - a.x);
+    const int dy = -std::abs(b.y - a.y);
+    const int sx = a.x < b.x ? 1 : -1;
+    const int sy = a.y < b.y ? 1 : -1;
+    int err = dx + dy;
+    while (!(x == b.x && y == b.y)) {
+        const int e2 = 2 * err;
+        if (e2 >= dy) {
+            err += dy;
+            x += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y += sy;
+        }
+        if (!mapa_.transitable(x, y)) break;
+        if (distancia(centroDe(a), centroDe({x, y})) > cfg_.senueloAlcance) break;
+        mejor = {x, y};
+    }
+    return mejor;
+}
+
+void Partida::accionesMara(const EntradaJugador& e) {
+    if (e.lanzarSenuelo && mara_.senuelos > 0) {
+        for (auto& sn : senuelos_) {
+            if (sn.activo) continue;
+            sn = Senuelo{destinoSenuelo(e.apuntar), cfg_.senueloRuidos, cfg_.senueloPeriodo, true};
+            --mara_.senuelos;
+            break;
+        }
+    }
+    if (e.colocarBarricada && mara_.barricadas > 0) {
+        // RF-014: celda adyacente (8 direcciones) en el sentido del punto apuntado.
+        Vec2 dir{e.apuntar.x - mara_.pos.x, e.apuntar.y - mara_.pos.y};
+        if (longitud(dir) < 1e-3f) dir = mara_.orientacion;
+        dir = normalizar(dir);
+        constexpr float kUmbral = 0.3827f;  // sen 22,5°: reparte el círculo en 8 sectores
+        const int dx = dir.x > kUmbral ? 1 : dir.x < -kUmbral ? -1 : 0;
+        const int dy = dir.y > kUmbral ? 1 : dir.y < -kUmbral ? -1 : 0;
+        const Celda cm = celdaDe(mara_.pos);
+        if ((dx != 0 || dy != 0) && colocarBarricadaEn({cm.x + dx, cm.y + dy})) --mara_.barricadas;
+    }
+}
+
+void Partida::actualizarSenuelos() {
+    for (auto& sn : senuelos_) {
+        if (!sn.activo) continue;
+        sn.desdeRuido += dt_;
+        if (sn.ruidosRestantes > 0 && sn.desdeRuido >= cfg_.senueloPeriodo - 1e-4f) {
+            if (ruidosPendientes_.size() < kMaxRuidosTick) ruidosPendientes_.push_back({centroDe(sn.celda), cfg_.senueloRadio, true});
+            ++ruidosSenuelo_;
+            --sn.ruidosRestantes;
+            sn.desdeRuido = 0.0f;
+        } else if (sn.ruidosRestantes == 0 && sn.desdeRuido >= cfg_.senueloPeriodo - 1e-4f) {
+            sn.activo = false;  // se apaga un periodo después del último ruido
+        }
+    }
+}
+
+void Partida::enviarAlerta(std::size_t agente, Celda celda, float confianza) {
+    auto& z = infectados_[agente];
+    z.alertaPendiente = true;
+    z.celdaAlerta = celda;
+    z.confianzaAlerta = confianza;
+}
+
+int Partida::barricadaEn(Celda c) const noexcept {
+    for (std::size_t b = 0; b < barricadas_.size(); ++b)
+        if (barricadas_[b].activa && barricadas_[b].celda == c) return static_cast<int>(b);
+    return -1;
+}
+
+bool Partida::colocarBarricadaEn(Celda c) {
+    if (!mapa_.transitable(c.x, c.y) || c == radio_) return false;
+    for (const auto& o : objetos_)
+        if (!o.recogido && o.celda == c) return false;
+    // Libre de agentes: ningún cuerpo (círculo de radioCuerpo) toca la celda.
+    auto toca = [&](Vec2 p) {
+        const float qx = std::clamp(p.x, static_cast<float>(c.x), static_cast<float>(c.x + 1));
+        const float qy = std::clamp(p.y, static_cast<float>(c.y), static_cast<float>(c.y + 1));
+        return distancia(p, {qx, qy}) < cfg_.radioCuerpo;
+    };
+    if (toca(mara_.pos)) return false;
+    for (const auto& z : infectados_)
+        if (toca(z.pos)) return false;
+    for (auto& b : barricadas_) {
+        if (b.activa) continue;
+        b = Barricada{c, cfg_.durabilidadBarricada, mapa_.multiplicador(mapa_.nodo(c.x, c.y)), true};
+        mapa_.bloquear(c.x, c.y);
+        ++cambiosMapa_;  // evento CambioDeMapa (RF-014, RF-025)
+        campoSucio_ = true;
+        return true;
+    }
+    return false;
+}
+
+void Partida::destruirBarricada(std::size_t b) {
+    auto& bar = barricadas_[b];
+    bar.activa = false;
+    bar.durabilidad = 0.0f;
+    mapa_.fijarMultiplicador(bar.celda.x, bar.celda.y, bar.multiplicadorPrevio);
+    ++cambiosMapa_;
+    campoSucio_ = true;
+    for (auto& z : infectados_) {
+        if (z.barricada != static_cast<int>(b)) continue;
+        z.barricada = -1;
+        z.verificarDesvio = false;
+        if (z.estado == EstadoInfectado::AtacarBarricada) z.barricadaDestruida = true;
+    }
+}
+
+// RF-025 / RF-052: el agente solo se entera de una barricada en su ruta si la ve (a radio de
+// visión y con línea de visión) o le llega por mensaje; si no, sigue hasta verla. Al verla
+// replanifica, y planificarRutas() compara el rodeo con el costo que tenía la ruta sin ella.
+void Partida::revisarBarricadas() {
+    if (std::none_of(barricadas_.begin(), barricadas_.end(), [](const Barricada& b) { return b.activa; })) return;
+    for (std::size_t i = 0; i < infectados_.size(); ++i) {
+        auto& z = infectados_[i];
+        if (z.verificarDesvio || z.rutaPendiente || z.estado == EstadoInfectado::AtacarBarricada) continue;
+        const Celda aqui = celdaDe(z.pos);
+        Celda previa = aqui;
+        double costo = 0.0;
+        for (std::size_t k = z.indiceRuta; k < z.ruta.size(); ++k) {
+            const Celda c = mapa_.celda(z.ruta[k]);
+            const int b = barricadaEn(c);
+            const double paso = (c.x != previa.x && c.y != previa.y) ? 1.4142135623730951 : 1.0;
+            costo += paso * static_cast<double>(b >= 0 ? barricadas_[static_cast<std::size_t>(b)].multiplicadorPrevio
+                                                       : mapa_.multiplicador(z.ruta[k]));
+            if (b >= 0 && (z.barricada != b)) {
+                const bool laVe = distancia(z.pos, centroDe(c)) <= cfg_.visionRadio && agentes::lineaDeVisionLibre(mapa_, aqui, c);
+                if (!laVe) break;
+                // Costo restante de la ruta antigua como si la barricada no estuviera.
+                for (std::size_t j = k + 1; j < z.ruta.size(); ++j) {
+                    const Celda cj = mapa_.celda(z.ruta[j]);
+                    const Celda ci = mapa_.celda(z.ruta[j - 1]);
+                    costo += ((cj.x != ci.x && cj.y != ci.y) ? 1.4142135623730951 : 1.0) * static_cast<double>(mapa_.multiplicador(z.ruta[j]));
+                }
+                z.barricada = b;
+                z.costoSinBarricada = costo;
+                z.puestoAtaque = previa;
+                z.verificarDesvio = true;
+                z.rutaPendiente = true;  // RF-025: se encola una búsqueda nueva en este mismo tick
+                break;
+            }
+            previa = c;
+        }
+    }
+}
+
+void Partida::atacarBarricada(Infectado& z) {
+    if (z.barricada < 0) return;
+    auto& b = barricadas_[static_cast<std::size_t>(z.barricada)];
+    const Vec2 centro = centroDe(b.celda);
+    z.orientacion = normalizar({centro.x - z.pos.x, centro.y - z.pos.y});
+    if (distancia(z.pos, centro) > kAlcanceBarricada) return;
+    b.durabilidad -= cfg_.danioBarricada * dt_;  // RF-052: 10 puntos/s por atacante
+    if (b.durabilidad <= 0.0f) destruirBarricada(static_cast<std::size_t>(z.barricada));
 }
 
 // RF-026: se atienden solicitudes por turno rotativo hasta agotar el presupuesto de nodos.
@@ -418,7 +684,23 @@ void Partida::planificarRutas() {
         z.desdeUltimaRuta = 0.0f;
         z.ruta.clear();
         z.indiceRuta = 0;
+        if (z.verificarDesvio) {
+            // RF-052: sin rodeo, o con uno que cuesta más de FACTOR_DESVIO_BARRICADA veces la ruta
+            // que tenía, ataca la barricada; si no, sigue por el rodeo. Las dos se registran (RF-072).
+            z.verificarDesvio = false;
+            const double limite = static_cast<double>(cfg_.factorDesvioBarricada) * z.costoSinBarricada;
+            const Celda celdaBarricada = barricadas_[static_cast<std::size_t>(z.barricada)].celda;
+            if (!resultado_.encontrada || resultado_.costo > limite) {
+                registrarPlan(i, z.objetivo, celdaBarricada, static_cast<float>(z.costoSinBarricada),
+                              resultado_.encontrada ? static_cast<float>(resultado_.costo) : -1.0f, MotivoPlan::AtacarBarricada);
+                z.rutaBloqueada = true;  // la FSM pasa a AtacarBarricada en el siguiente ciclo
+                continue;
+            }
+            registrarPlan(i, celdaBarricada, z.objetivo, static_cast<float>(z.costoSinBarricada),
+                          static_cast<float>(resultado_.costo), MotivoPlan::Rodeo);
+        }
         if (resultado_.encontrada) {
+            z.costoRuta = resultado_.costo;
             z.ruta.insert(z.ruta.end(), resultado_.ruta.begin(), resultado_.ruta.end());  // cabe: capacidad reservada
             z.indiceRuta = 1;  // la primera celda es donde ya está
         } else {
@@ -479,6 +761,14 @@ void Partida::ejecutarInfectado(std::size_t i) {
                       : z.estado == E::Investigar ? 0.5f * (cfg_.velExplorar + cfg_.velPerseguir)
                                                   : cfg_.velExplorar;
     const float velMax = vel * factor;
+    // RF-052: junto a la barricada la golpea; si no, va a su puesto de ataque por la ruta.
+    if (z.estado == E::AtacarBarricada && z.barricada >= 0) {
+        atacarBarricada(z);
+        if (z.barricada >= 0 && distancia(z.pos, centroDe(barricadas_[static_cast<std::size_t>(z.barricada)].celda)) <= kAlcanceBarricada) {
+            z.velDeseada = {};
+            return;
+        }
+    }
     // RF-051: cerca de Mara cada perseguidor va a su celda de llegada en vez de a su celda.
     if (z.estado == E::Perseguir && cerca) {
         velocidadHacia(z, puntoDeLlegada(z), velMax, kFrenado);
@@ -699,7 +989,8 @@ void Partida::actualizarCampo() {
     }
     const Celda cm = celdaDe(mara_.pos);
     const mundo::Nodo destino = mapa_.nodo(cm.x, cm.y);
-    if (!campoActivo_ || campo_.destino() != destino) {  // solo se recalcula si Mara cambió de celda
+    if (!campoActivo_ || campo_.destino() != destino || campoSucio_) {  // Mara cambió de celda o el mapa (RF-025)
+        campoSucio_ = false;
         campoActivo_ = campo_.calcular(mapa_, destino);
         ++camposCalculados_;
     }

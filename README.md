@@ -15,7 +15,29 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.4.0)
+## Estado actual (0.5.0)
+
+**Señuelos, barricadas y una horda que reconsidera** (HU-06, HU-07, HU-11). Sobre la horda de 0.4.0:
+
+- **Señuelo** (RF-013): con **Q** Mara lanza un señuelo hacia el cursor. Cae en la celda libre más
+  lejana de la línea, a 8 celdas como máximo y sin atravesar paredes, y suena 10 veces (una por
+  segundo) con radio 8. Empieza con 2.
+- **Barricada** (RF-014, RF-025): con **B** pone una barricada en la celda de al lado, en dirección
+  al cursor, si está libre. La celda deja de ser transitable (evento CambioDeMapa) y el campo de flujo
+  se recalcula. Empieza con 3; cada una aguanta 100 puntos.
+- **Memoria de evidencias** (RF-043): cada infectado guarda hasta 16 pistas (avistamientos, ruidos y
+  alertas) cuya confianza se reduce a la mitad cada 10 s.
+- **Reevaluación** (RF-050): mientras investiga, si oye un ruido (un señuelo, por ejemplo) con más
+  utilidad que la pista que sigue, cambia de objetivo. La utilidad es U = c · e^(−edad/τ) / (1 + d/10).
+  Si ve a Mara, el señuelo no lo distrae.
+- **Respuesta a barricadas** (RF-052): un infectado solo se entera de una barricada en su ruta cuando
+  la ve. Entonces replanifica. Si no hay rodeo, o el rodeo cuesta más del doble, pasa a
+  **AtacarBarricada** (marrón) y le quita 10 puntos por segundo. Al romperla sigue con lo que hacía.
+- **Cambios de plan** (RF-072): el panel muestra los últimos, con el agente, el objetivo anterior y el
+  nuevo, el motivo y las utilidades (o los costos de ruta, si fue por una barricada).
+- Nada de esto asigna memoria en el bucle (CP-106).
+
+### Versión 0.4.0
 
 **Horda que reparte la aproximación** (HU-10). Sobre las alertas de 0.3.0:
 
@@ -131,13 +153,16 @@ Partida (escena inicial):
 | WASD / flechas | Mover a Mara |
 | Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
 | E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) |
+| Q | Lanzar un señuelo hacia el cursor (8 celdas como máximo) |
+| B | Poner una barricada en la celda de al lado, hacia el cursor |
 | F1 | Depuración: conos de visión, rutas de A\*, radio del último ruido, flechas del campo de flujo, tareas y celdas de llegada |
 | C | Activar / desactivar el modo coordinado (alertas y Contract Net entre infectados) |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 
 Colores de los infectados: verde = explorar, amarillo = investigar, naranja = perseguir,
-magenta = buscar, rojo = atacar, turquesa = interceptar (tarea de Contract Net).
+magenta = buscar, rojo = atacar, turquesa = interceptar (tarea de Contract Net), marrón = atacar
+una barricada.
 
 Laboratorio Dijkstra / A\*:
 

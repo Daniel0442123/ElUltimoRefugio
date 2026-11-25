@@ -10,10 +10,12 @@
 /// comprobado por CP-106). El dominio no conoce raylib: la entrada llega como EntradaJugador.
 
 #include <array>
+#include <string_view>
 #include <cstdint>
 #include <vector>
 
 #include "dominio/agentes/MaquinaEstados.hpp"
+#include "dominio/agentes/Memoria.hpp"
 #include "dominio/coordinacion/AsignadorAccesos.hpp"
 #include "dominio/coordinacion/ContractNet.hpp"
 #include "dominio/coordinacion/PropagadorAlertas.hpp"
@@ -73,6 +75,18 @@ struct ConfigPartida {
     int maxAgentesPorCelda{2};    ///< RF-051, MAX_AGENTES_POR_CELDA.
     float radioAproximacion{2.5f};  ///< A esta distancia de Mara cada uno va a su celda de llegada.
     navegacion::ParametrosSteering steering{};  ///< RF-029
+    // Herramientas de Mara (RF-013, RF-014) y respuesta de la horda (RF-050, RF-052)
+    int senuelosIniciales{2};
+    int barricadasIniciales{3};
+    float senueloAlcance{8.0f};    ///< SENUELO_ALCANCE, celdas.
+    float senueloRadio{8.0f};      ///< SENUELO_RADIO, celdas.
+    int senueloRuidos{10};         ///< SENUELO_DURACION / SENUELO_PERIODO = 10 s / 1 s.
+    float senueloPeriodo{1.0f};    ///< SENUELO_PERIODO, s.
+    float durabilidadBarricada{100.0f};
+    float danioBarricada{10.0f};   ///< Puntos por segundo de cada infectado que la ataca.
+    float factorDesvioBarricada{2.0f};  ///< FACTOR_DESVIO_BARRICADA
+    float confianzaRuido{0.8f};    ///< Confianza de un ruido oído (no se sabe si es Mara o un señuelo).
+    float semividaMemoria{agentes::kMemoriaSemivida};  ///< MEMORIA_SEMIVIDA, s.
 };
 
 struct Superviviente {
@@ -83,6 +97,47 @@ struct Superviviente {
     std::array<bool, kNumTiposObjeto> inventario{};
     float progresoInstalacion{0.0f};
     bool recibioDanio{false};  ///< En este paso; interrumpe la instalación (RF-008).
+    int senuelos{0};
+    int barricadas{0};
+};
+
+/// Señuelo lanzado (RF-013): hace ruido cada SENUELO_PERIODO hasta agotar sus ruidos.
+struct Senuelo {
+    mundo::Celda celda{};
+    int ruidosRestantes{0};
+    float desdeRuido{0.0f};
+    bool activo{false};
+};
+
+/// Barricada colocada (RF-014): celda bloqueada con durabilidad; al romperse vuelve a ser transitable.
+struct Barricada {
+    mundo::Celda celda{};
+    float durabilidad{0.0f};
+    std::uint8_t multiplicadorPrevio{mundo::kCostoMin};
+    bool activa{false};
+};
+
+/// Evento Ruido (RF-003, RF-013). @c senuelo solo lo usa el registro: los infectados no lo distinguen.
+struct EventoRuido {
+    Vec2 origen{};
+    float radio{0.0f};
+    bool senuelo{false};
+};
+
+/// Motivo de un cambio de plan (RF-072).
+enum class MotivoPlan : std::uint8_t { Ruido, Senuelo, Alerta, Rodeo, AtacarBarricada };
+[[nodiscard]] std::string_view nombreMotivoPlan(MotivoPlan m) noexcept;
+
+/// RF-072: cambio de objetivo o de plan. Para Ruido, Senuelo y Alerta los valores son utilidades
+/// (RF-050); para Rodeo y AtacarBarricada son costos de ruta (sin la barricada y con el rodeo).
+struct RegistroPlan {
+    std::uint64_t tick{};
+    std::uint16_t agente{};
+    mundo::Celda anterior{};
+    mundo::Celda nuevo{};
+    float valorAnterior{};
+    float valorNuevo{};
+    MotivoPlan motivo{};
 };
 
 struct ObjetoMision {
@@ -133,6 +188,19 @@ struct Infectado {
     // Movimiento con steering (RF-029)
     Vec2 vel{};
     Vec2 velDeseada{};
+    // Memoria de evidencias (RF-043) y evidencia que justifica el objetivo actual (RF-050).
+    agentes::MemoriaEvidencias memoria;
+    agentes::Evidencia evidenciaObjetivo{};
+    bool tieneEvidencia{false};
+    // Barricadas (RF-052)
+    double costoRuta{0.0};          ///< Costo de la ruta A* vigente.
+    bool verificarDesvio{false};    ///< La replanificación en curso es por una barricada.
+    double costoSinBarricada{0.0};  ///< Costo restante de la ruta antigua, como si no hubiera barricada.
+    int barricada{-1};              ///< Índice de la barricada que bloquea o ataca.
+    mundo::Celda puestoAtaque{};    ///< Celda desde la que la ataca.
+    mundo::Celda objetivoPrevio{};  ///< Objetivo al que vuelve cuando la rompe.
+    bool rutaBloqueada{false};
+    bool barricadaDestruida{false};
 };
 
 struct RegistroTransicion {
@@ -148,6 +216,9 @@ struct EntradaJugador {
     float ejeY{0.0f};
     ModoMovimiento modo{ModoMovimiento::Caminar};
     bool interactuar{false};  ///< Mantenido.
+    bool lanzarSenuelo{false};     ///< Pulsación (RF-013).
+    bool colocarBarricada{false};  ///< Pulsación (RF-014).
+    Vec2 apuntar{};                ///< Punto del mundo: destino del señuelo y lado de la barricada.
 };
 
 /// Escenario explícito (para pruebas) o generado (crearEscenarioAleatorio).
@@ -166,6 +237,8 @@ struct Escenario {
 class Partida {
 public:
     static constexpr std::size_t kCapacidadRegistro = 64;
+    static constexpr std::size_t kMaxSenuelos = 4;
+    static constexpr std::size_t kMaxBarricadas = 8;
 
     Partida(Escenario escenario, const ConfigPartida& cfg = {}, std::uint64_t semilla = 42);
 
@@ -212,6 +285,25 @@ public:
     [[nodiscard]] std::uint64_t camposCalculados() const noexcept { return camposCalculados_; }
     [[nodiscard]] std::uint32_t agentesEnCampo() const noexcept { return agentesEnCampo_; }
 
+    /// Herramientas de Mara (RF-013, RF-014).
+    [[nodiscard]] const std::array<Senuelo, kMaxSenuelos>& senuelos() const noexcept { return senuelos_; }
+    [[nodiscard]] const std::array<Barricada, kMaxBarricadas>& barricadas() const noexcept { return barricadas_; }
+    [[nodiscard]] std::uint64_t ruidosSenuelo() const noexcept { return ruidosSenuelo_; }
+    [[nodiscard]] std::uint64_t cambiosMapa() const noexcept { return cambiosMapa_; }
+    /// Ruidos que se procesaron en el último tick de IA (de Mara y de señuelos).
+    [[nodiscard]] const std::vector<EventoRuido>& ruidosUltimoTickIa() const noexcept { return ruidosTick_; }
+    /// Coloca una barricada en @p c si es transitable y no hay nadie (sin exigir adyacencia: la
+    /// acción de Mara la exige). Publica CambioDeMapa. Devuelve false si no se pudo.
+    bool colocarBarricadaEn(mundo::Celda c);
+    /// Mensaje de alerta externo para un agente (escenarios guiados y pruebas); entra como cualquier alerta.
+    void enviarAlerta(std::size_t agente, mundo::Celda celda, float confianza);
+    [[nodiscard]] double tiempo() const noexcept { return static_cast<double>(tick_) * static_cast<double>(dt_); }
+
+    /// Cambios de plan (RF-072), anillo como las transiciones.
+    [[nodiscard]] std::size_t numCambiosPlan() const noexcept;
+    [[nodiscard]] const RegistroPlan& ultimoCambioPlan(std::size_t haceN) const noexcept;
+    [[nodiscard]] std::uint64_t totalCambiosPlan() const noexcept { return totalCambiosPlan_; }
+
     /// Contract Net (RF-049) y reparto de llegadas (RF-051).
     [[nodiscard]] std::uint64_t subastas() const noexcept { return subastas_; }
     [[nodiscard]] std::uint64_t adjudicaciones() const noexcept { return adjudicaciones_; }
@@ -228,6 +320,14 @@ private:
     void planificarRutas();
     void ejecutarInfectado(std::size_t i);
     void moverHorda();
+    void accionesMara(const EntradaJugador& e);
+    void actualizarSenuelos();
+    [[nodiscard]] mundo::Celda destinoSenuelo(Vec2 apuntar) const noexcept;
+    void revisarBarricadas();
+    void atacarBarricada(Infectado& z);
+    void destruirBarricada(std::size_t b);
+    [[nodiscard]] int barricadaEn(mundo::Celda c) const noexcept;
+    void registrarPlan(std::size_t i, mundo::Celda anterior, mundo::Celda nuevo, float vAnt, float vNuevo, MotivoPlan m);
     void contratar(std::size_t gestor);
     void repartirLlegadas();
     [[nodiscard]] Vec2 puntoDeLlegada(const Infectado& z) const noexcept;
@@ -254,9 +354,10 @@ private:
     std::uint64_t tick_{0};
     nucleo::Pcg32 rng_;
 
-    // Ruido de Mara (RF-003): se acumula entre ticks de IA y se consume en el siguiente.
+    // Ruidos (RF-003, RF-013): se acumulan entre ticks de IA y se consumen en el siguiente.
     float desdeUltimoRuido_{0.0f};
-    bool ruidoPendiente_{false};
+    std::vector<EventoRuido> ruidosPendientes_;
+    std::vector<EventoRuido> ruidosTick_;
     bool ruidoUltimoTickIa_{false};
     Vec2 origenRuido_{};
     float radioRuido_{0.0f};
@@ -303,6 +404,16 @@ private:
     // Consulta espacial para el steering y las alertas (RF-030).
     navegacion::Quadtree quadtree_;
     std::vector<std::uint32_t> vecinos_;
+
+    // Señuelos y barricadas (RF-013, RF-014, RF-025)
+    std::array<Senuelo, kMaxSenuelos> senuelos_{};
+    std::array<Barricada, kMaxBarricadas> barricadas_{};
+    std::uint64_t ruidosSenuelo_{0};
+    std::uint64_t cambiosMapa_{0};
+    bool campoSucio_{false};  ///< Un CambioDeMapa obliga a recalcular el campo de flujo.
+
+    std::array<RegistroPlan, kCapacidadRegistro> planes_{};
+    std::uint64_t totalCambiosPlan_{0};
 
     std::array<RegistroTransicion, kCapacidadRegistro> registro_{};
     std::uint64_t totalTransiciones_{0};
