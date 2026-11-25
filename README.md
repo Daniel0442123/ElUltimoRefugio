@@ -15,7 +15,25 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.13.0)
+## Estado actual (0.14.0)
+
+**Controlar la simulación para explicarla** (HU-22, RF-075, ADR-0005).
+
+- **P** pausa y reanuda la simulación; **F6**, en pausa, avanza exactamente un tick (1/60 s);
+  **F7** y **F8** bajan y suben la velocidad entre 0,25×, 0,5×, 1×, 2× y 4× (15 a 240 ticks por
+  segundo real). Las cuatro teclas se pueden cambiar en Esc > Opciones > Controles.
+- En pausa se puede seguir seleccionando infectados, abrir su monitor, la comparación F3, los nodos
+  expandidos y la consola, así que una decisión se puede explicar tick a tick. Un rótulo arriba del
+  mapa recuerda la pausa o la velocidad, y la franja bajo el mapa muestra semilla, tick y velocidad.
+- El control solo decide cuántos pasos fijos corren en cada frame (`juego::ControlSimulacion`);
+  la partida recibe los mismos pasos con las mismas entradas a cualquier velocidad, así que el
+  resultado no cambia: 600 ticks a 0,25×, 1×, 4× o pulsando F6 dan la misma huella de estado (CP-075).
+- Un `config/controles.json` de una versión anterior se sigue leyendo: si ya usabas P o F6 a F8
+  para otra acción, las acciones nuevas reciben teclas libres en vez de perder tu configuración.
+- El panel muestra los estados de los infectados en dos columnas para que quepa la nueva línea
+  de ayuda.
+
+### Versión 0.13.0
 
 **Optimizar los parámetros de la IA con algoritmo genético y recocido simulado** (HU-21, RF-085,
 ADR-0015).
@@ -408,6 +426,9 @@ pueden cambiar en Esc > Opciones > Controles:
 | F4 | Modo aislado / coordinado de la horda (alertas y Contract Net entre infectados) |
 | F2 | Alternar Dijkstra / A\* para todos los agentes |
 | F3 | Con un infectado seleccionado: tabla Dijkstra frente a A\* de su última consulta (otra vez F3 la oculta) |
+| P | Pausar o reanudar la simulación (el mapa, el monitor, F3 y la consola siguen funcionando) |
+| F6 | En pausa: avanzar exactamente un tick de simulación (1/60 s) |
+| F7 / F8 | Simulación más lenta / más rápida: 0,25×, 0,5×, 1×, 2× y 4× |
 | R | Nueva partida (siguiente semilla) |
 | Tab | Ir al laboratorio Dijkstra / A\* |
 

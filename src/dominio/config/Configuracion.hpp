@@ -65,8 +65,12 @@ enum class Accion : std::uint8_t {
     Consola,
     NuevaPartida,
     Laboratorio,
+    PausaSimulacion,  ///< HU-22, RF-075
+    PasoSimulacion,
+    MasLento,
+    MasRapido,
 };
-inline constexpr std::size_t kNumAcciones = 20;
+inline constexpr std::size_t kNumAcciones = 24;
 
 /// Clave en controles.json («arriba», «guardado_rapido», …).
 [[nodiscard]] std::string_view claveAccion(Accion a) noexcept;
@@ -109,7 +113,7 @@ inline constexpr int kAltDer = 346;
 /// Una tecla por acción, sin repetir.
 class Controles {
 public:
-    Controles();  ///< Los valores por defecto (WASD, Shift, Ctrl, E, Q, B, F5, F9, T, F1-F4, N, L, R, Tab).
+    Controles();  ///< Los valores por defecto (WASD, Shift, Ctrl, E, Q, B, F5, F9, T, F1-F4, N, L, R, Tab, P, F6-F8).
     [[nodiscard]] int tecla(Accion a) const noexcept { return teclas_[static_cast<std::size_t>(a)]; }
     /// Asigna @p codigo a @p a. Si otra acción ya la usaba, intercambian sus teclas para que no
     /// queden repetidas. Devuelve false (sin cambiar nada) si la tecla no es asignable.

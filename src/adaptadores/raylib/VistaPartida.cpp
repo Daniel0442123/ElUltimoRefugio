@@ -91,7 +91,7 @@ void dibujarAyuda(int x, int alto, const config::Controles& k) {
     using config::Accion;
     // textoTecla devuelve cadenas cortas (optimización de cadenas pequeñas): no asigna memoria.
     const auto t = [&k](Accion a) { return config::textoTecla(k.tecla(a)); };
-    char l[8][96];
+    char l[9][96];
     std::snprintf(l[0], sizeof(l[0]), "%s%s%s%s/flechas: mover", t(Accion::Arriba).c_str(), t(Accion::Izquierda).c_str(),
                   t(Accion::Abajo).c_str(), t(Accion::Derecha).c_str());
     std::snprintf(l[1], sizeof(l[1]), "%s: correr  %s: sigilo", t(Accion::Correr).c_str(), t(Accion::Sigilo).c_str());
@@ -106,7 +106,9 @@ void dibujarAyuda(int x, int alto, const config::Controles& k) {
                   t(Accion::Comparar).c_str(), t(Accion::Laboratorio).c_str());
     std::snprintf(l[7], sizeof(l[7]), "Esc: menú  %s: guardar  %s: cargar", t(Accion::GuardadoRapido).c_str(),
                   t(Accion::CargaRapida).c_str());
-    int yc = alto - 126;  // 8 líneas de 14 px: el mismo alto que las 7 de 16 px de antes
+    std::snprintf(l[8], sizeof(l[8]), "%s: pausa  %s: 1 tick  %s/%s: velocidad", t(Accion::PausaSimulacion).c_str(),
+                  t(Accion::PasoSimulacion).c_str(), t(Accion::MasLento).c_str(), t(Accion::MasRapido).c_str());
+    int yc = alto - 140;  // 9 líneas de 14 px
     for (const auto& s : l) {
         DrawText(s, x, yc, 12, LIGHTGRAY);
         yc += 14;
@@ -623,7 +625,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     y += 6;
 
     if (p.seleccionado() >= 0) {
-        dibujarMonitorAgente(p, x, y, alto - 150);
+        dibujarMonitorAgente(p, x, y, alto - 164);  // la ayuda ocupa las últimas 9 líneas
         dibujarAyuda(x, alto, controles);
         return;
     }
@@ -632,16 +634,22 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     y += 22;
     std::array<int, agentes::kNumEstadosInfectado> cuenta{};
     for (const auto& z : p.infectados()) ++cuenta[static_cast<std::size_t>(z.estado)];
+    // Dos columnas para dejar sitio a la ayuda de teclas, que ganó una línea con HU-22. El nombre
+    // más largo (AtacarBarricada) va en la primera columna para que quepa en el panel.
+    constexpr int filasEstados = 4;
     for (int s = 0; s < agentes::kNumEstadosInfectado; ++s) {
         const auto est = static_cast<agentes::EstadoInfectado>(s);
         const auto nombre = agentes::nombreEstado(est);
-        DrawCircle(x + 6, y + 7, 5, colorEstado(est));
+        const bool largo = est == agentes::EstadoInfectado::AtacarBarricada;
+        const int fila = largo ? filasEstados - 1 : s < filasEstados - 1 ? s : s - (filasEstados - 1);
+        const int cx = x + (largo || s < filasEstados - 1 ? 0 : 128);
+        const int cy = y + fila * 15;
+        DrawCircle(cx + 6, cy + 7, 5, colorEstado(est));
         std::snprintf(buf, sizeof(buf), "%.*s: %d", static_cast<int>(nombre.size()), nombre.data(),
                       cuenta[static_cast<std::size_t>(s)]);
-        DrawText(buf, x + 16, y, 14, RAYWHITE);
-        y += 15;
+        DrawText(buf, cx + 16, cy, 13, RAYWHITE);
     }
-    y += 4;
+    y += filasEstados * 15 + 4;
     // RF-074: algoritmo activo de todos los agentes (F2).
     const auto alg = navegacion::nombreAlgoritmo(p.algoritmo());
     const int na = static_cast<int>(alg.size());

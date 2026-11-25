@@ -12,7 +12,9 @@
 ///   un infectado = monitor del agente (HU-14), N = nodos expandidos, L = consola del registro
 ///   de IA (HU-15), F2 = alternar Dijkstra / A*, F3 = comparar (HU-16), R = nueva partida,
 ///   Tab = laboratorio, F5 / F9 = guardado y carga rápidos (ranura 1), T = saltar tutorial,
-///   Esc = menú de pausa (guardar y cargar en 3 ranuras, volumen, tutorial, controles, salir).
+///   P = pausar la simulación, F6 = avanzar un tick en pausa, F7 / F8 = más lenta / más rápida
+///   (0,25× a 4×, HU-22), Esc = menú de pausa (guardar y cargar en 3 ranuras, volumen,
+///   tutorial, controles, salir).
 ///   El registro de IA se escribe también en logs/ia_<semilla>.log y las partidas en
 ///   saves/slotN.sav. Al iniciar se leen config/juego.json, config/controles.json y config/ia.json
 ///   (RF-092); si alguno es inválido se avisa y se usan los valores por defecto (RF-093).
@@ -21,7 +23,8 @@
 /// Con --bench, --estres-recursion, --coord-exp u --optimize se ejecuta sin ventana.
 ///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
-/// real del frame; el dibujo va aparte y no cambia el resultado de la simulación.
+/// real del frame; el dibujo va aparte y no cambia el resultado de la simulación. La pausa, el
+/// paso a paso y la velocidad (juego::ControlSimulacion, RF-075) solo cambian ese acumulador.
 
 #include <raylib.h>
 
@@ -40,6 +43,7 @@
 #include "app/Cli.hpp"
 #include "app/MenuPausa.hpp"
 #include "dominio/experimentos/GeneradorMapas.hpp"
+#include "dominio/juego/ControlSimulacion.hpp"
 #include "dominio/juego/Partida.hpp"
 #include "dominio/juego/Tutorial.hpp"
 #include "dominio/navegacion/Comparacion.hpp"
@@ -115,7 +119,7 @@ public:
         if (aviso_.restante > 0.0f) aviso_.restante -= GetFrameTime();
         if (menu_.abierto()) {
             actualizarMenu();
-            acumulado_ = 0.0f;  // en pausa no se acumula tiempo
+            control_.reiniciarAcumulador();  // con el menú abierto no se acumula tiempo
             return;
         }
         if (IsKeyPressed(KEY_ESCAPE)) {
@@ -138,6 +142,11 @@ public:
             coordinado_ = !coordinado_;
             partida_->fijarCoordinado(coordinado_);
         }
+        // RF-075: pausa, un tick en pausa y velocidad de 0,25× a 4× (HU-22).
+        if (pulsada(Accion::PausaSimulacion)) control_.alternarPausa();
+        if (pulsada(Accion::PasoSimulacion)) control_.pedirPaso();
+        if (pulsada(Accion::MasLento)) control_.masLento();
+        if (pulsada(Accion::MasRapido)) control_.masRapido();
         if (pulsada(Accion::Algoritmo)) partida_->alternarAlgoritmo();  // RF-074: todos los agentes
         if (pulsada(Accion::Comparar)) {                               // RF-074: tabla Dijkstra / A*
             comparar_ = !comparar_;
@@ -173,15 +182,14 @@ public:
         const Vector2 raton = GetMousePosition();
         e.apuntar = {raton.x / static_cast<float>(kCelda), raton.y / static_cast<float>(kCelda)};
 
-        // Paso fijo: se recorta el frame a 0,25 s para no entrar en espiral tras una pausa.
-        const float frame = GetFrameTime();
-        acumulado_ += frame < 0.25f ? frame : 0.25f;
-        while (acumulado_ >= partida_->dt()) {
+        // Paso fijo: el control recorta el frame a 0,25 s, aplica la velocidad y, en pausa, da
+        // solo los pasos pedidos con F6 (RF-075).
+        const int pasos = control_.pasosParaFrame(static_cast<double>(GetFrameTime()));
+        for (int k = 0; k < pasos; ++k) {
             e.lanzarSenuelo = senueloPendiente_;
             e.colocarBarricada = barricadaPendiente_;
             senueloPendiente_ = barricadaPendiente_ = false;
             pasoSimulacion(e);
-            acumulado_ -= partida_->dt();
         }
         // En vivo: la tabla se rehace cuando el agente seleccionado planifica una ruta nueva.
         if (comparar_) {
@@ -205,10 +213,13 @@ public:
         adaptadores::dibujarPanelPartida(*partida_, kColumnas * kCelda + 12, 12, kAltoVentana, GetFPS(), config_.controles);
         botonTutorial_ = menu_.abierto() ? Rectangle{}
                                          : adaptadores::dibujarTutorial(tutorial_, config_.controles, kColumnas * kCelda);
-        char buf[64];
-        std::snprintf(buf, sizeof(buf), "semilla %llu  tick %llu", static_cast<unsigned long long>(semilla_),
-                      static_cast<unsigned long long>(partida_->tick()));
-        DrawText(buf, kColumnas * kCelda + 12, kAltoVentana - 144, 12, GRAY);
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "semilla %llu  tick %llu  %s", static_cast<unsigned long long>(semilla_),
+                      static_cast<unsigned long long>(partida_->tick()), textoVelocidad().c_str());
+        // Bajo el mapa, a la derecha: la franja de 16 px que queda libre entre el mapa y la ventana.
+        DrawText(buf, kColumnas * kCelda - MeasureText(buf, 12) - 8, kFilas * kCelda + 2, 12,
+                 control_.pausada() || control_.indiceVelocidad() != juego::ControlSimulacion::kIndiceNormal ? GOLD : GRAY);
+        if (!menu_.abierto()) dibujarControlSimulacion();
         if (aviso_.restante > 0.0f && !menu_.abierto()) dibujarAviso();
         if (menu_.abierto()) dibujarMenu();
     }
@@ -229,7 +240,11 @@ private:
         coordinado_ = partida_->config().coordinado;
         if (registro_->abierto()) partida_->fijarRegistro(registro_.get());
         tickGuardado_ = partida_->tick();
-        acumulado_ = 0.0f;
+        // La pausa y la velocidad se mantienen al reiniciar o cargar; el tiempo acumulado no.
+        const juego::ControlSimulacion previo = control_;
+        control_ = juego::ControlSimulacion(static_cast<double>(partida_->dt()));
+        control_.fijarIndiceVelocidad(previo.indiceVelocidad());
+        control_.pausar(previo.pausada());
         senueloPendiente_ = barricadaPendiente_ = false;
     }
 
@@ -367,6 +382,33 @@ private:
         aviso_ = {std::move(texto), error, segundos};
     }
 
+    [[nodiscard]] std::string textoVelocidad() const {
+        if (control_.pausada()) return "PAUSA";
+        char buf[16];
+        std::snprintf(buf, sizeof(buf), "x%g", control_.velocidad());
+        return buf;
+    }
+
+    /// RF-075: en pausa o a otra velocidad, un rótulo arriba del mapa lo recuerda con sus teclas.
+    void dibujarControlSimulacion() const {
+        char buf[128];
+        const auto t = [this](Accion a) { return config::textoTecla(tecla(a)); };
+        if (control_.pausada())
+            std::snprintf(buf, sizeof(buf), "PAUSA  -  %s: avanzar 1 tick   %s: continuar", t(Accion::PasoSimulacion).c_str(),
+                          t(Accion::PausaSimulacion).c_str());
+        else if (control_.indiceVelocidad() != juego::ControlSimulacion::kIndiceNormal)
+            std::snprintf(buf, sizeof(buf), "Velocidad x%g  (%d ticks/s)   %s / %s: cambiar", control_.velocidad(),
+                          static_cast<int>(std::lround(control_.velocidad() / control_.dt())),
+                          t(Accion::MasLento).c_str(), t(Accion::MasRapido).c_str());
+        else
+            return;
+        const int ancho = MeasureText(buf, 18) + 24;
+        const int x = (kColumnas * kCelda - ancho) / 2;
+        DrawRectangle(x, 8, ancho, 30, Fade({16, 18, 24, 255}, 0.85f));
+        DrawRectangleLines(x, 8, ancho, 30, control_.pausada() ? GOLD : SKYBLUE);
+        DrawText(buf, x + 12, 14, 18, control_.pausada() ? GOLD : SKYBLUE);
+    }
+
     void dibujarAviso() const {
         const int ancho = MeasureText(aviso_.texto.c_str(), 18) + 24;
         const int x = (kColumnas * kCelda - ancho) / 2;
@@ -430,7 +472,7 @@ private:
     std::uint64_t frames_{0};
     bool nodos_{true};
     adaptadores::ModoConsola consola_{adaptadores::ModoConsola::Oculta};
-    float acumulado_{0.0f};
+    juego::ControlSimulacion control_;  ///< HU-22: pausa, paso a paso y velocidad
     bool depuracion_{false};
     bool coordinado_{true};
     bool senueloPendiente_{false};

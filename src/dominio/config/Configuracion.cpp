@@ -120,7 +120,16 @@ constexpr std::array<DatosAccion, kNumAcciones> kAcciones{{
     {"consola", "Consola de IA", 'L'},
     {"nueva_partida", "Nueva partida", 'R'},
     {"laboratorio", "Laboratorio de rutas", tecla::kTab},
+    {"pausa_simulacion", "Pausar la simulación", 'P'},
+    {"paso_simulacion", "Avanzar un tick (en pausa)", tecla::kF1 + 5},
+    {"mas_lento", "Simulación más lenta", tecla::kF1 + 6},
+    {"mas_rapido", "Simulación más rápida", tecla::kF1 + 7},
 }};
+
+/// Teclas que reciben las acciones nuevas cuya tecla por defecto ya está ocupada (leerControles).
+constexpr int kTeclasDeReserva[] = {
+    tecla::kF1 + 9, tecla::kF1 + 10, tecla::kF1 + 11, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+    'Z', 'X', 'C', 'V', 'F', 'G', 'H', 'J', 'K', 'M', 'O', 'I', 'U', 'Y'};
 
 }  // namespace
 
@@ -222,12 +231,14 @@ Lectura<Controles> leerControles(std::string_view texto, std::string_view archiv
     // Primero se leen todas; luego se comprueba que no se repitan. Si hay repetidas, se vuelve a
     // los controles por defecto completos: arreglar solo una podría dejar otra acción sin tecla.
     std::array<int, kNumAcciones> leidas{};
+    std::array<bool, kNumAcciones> enArchivo{};
     const Controles porDefecto;
     for (std::size_t i = 0; i < kNumAcciones; ++i) {
         const auto a = static_cast<Accion>(i);
         leidas[i] = porDefecto.tecla(a);
         const ValorJson* v = doc.buscar(claveAccion(a));
         if (v == nullptr) continue;
+        enArchivo[i] = true;
         const int codigo = v->esCadena() ? teclaDesdeNombre(v->comoCadena()) : tecla::kNinguna;
         if (codigo == tecla::kNinguna) {
             l.errores.push_back(std::string(archivo) + ": «" + std::string(claveAccion(a)) +
@@ -237,6 +248,27 @@ Lectura<Controles> leerControles(std::string_view texto, std::string_view archiv
                                 "» usa una tecla reservada para el menú; se usa " + nombreTecla(leidas[i]));
         } else {
             leidas[i] = codigo;
+        }
+    }
+    // Un controles.json de la 0.13.0 o anterior no trae las acciones de HU-22. Si la tecla por
+    // defecto de una de ellas ya la usa otra acción del archivo, la nueva recibe la primera tecla
+    // libre en vez de descartar todos los controles de la jugadora. Con las acciones antiguas no
+    // se hace: un archivo que repite una de ellas sigue volviendo a los valores por defecto.
+    const auto usada = [&leidas](int codigo) {
+        for (const int t : leidas)
+            if (t == codigo) return true;
+        return false;
+    };
+    for (auto i = static_cast<std::size_t>(Accion::PausaSimulacion); i < kNumAcciones; ++i) {
+        if (enArchivo[i]) continue;
+        bool choca = false;
+        for (std::size_t j = 0; j < kNumAcciones; ++j) choca = choca || (j != i && enArchivo[j] && leidas[j] == leidas[i]);
+        if (!choca) continue;
+        for (const int libre : kTeclasDeReserva) {
+            if (!usada(libre)) {
+                leidas[i] = libre;
+                break;
+            }
         }
     }
     for (std::size_t i = 0; i < kNumAcciones; ++i)
