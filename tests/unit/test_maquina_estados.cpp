@@ -44,6 +44,11 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
         {"Interceptar llega sin verla -> Buscar", E::Interceptar, nada, {0, true, false}, E::Buscar, M::LlegaAlOrigen},
         {"Interceptar sin ruta -> Explorar", E::Interceptar, nada, {0, false, true}, E::Explorar, M::SinRuta},
         {"Interceptar en camino sigue", E::Interceptar, nada, sinNovedad, E::Interceptar, M::Ninguno},
+        {"Investigar + ruta bloqueada -> AtacarBarricada (RF-052)", E::Investigar, nada, {0, false, false, true, false}, E::AtacarBarricada, M::RutaBloqueada},
+        {"Perseguir + ruta bloqueada -> AtacarBarricada", E::Perseguir, veLejos, {0, false, false, true, false}, E::AtacarBarricada, M::RutaBloqueada},
+        {"AtacarBarricada sigue mientras resiste", E::AtacarBarricada, nada, sinNovedad, E::AtacarBarricada, M::Ninguno},
+        {"AtacarBarricada destruida -> Investigar", E::AtacarBarricada, nada, {0, false, false, false, true}, E::Investigar, M::BarricadaDestruida},
+        {"AtacarBarricada destruida y ve a Mara -> Perseguir", E::AtacarBarricada, veLejos, {0, false, false, false, true}, E::Perseguir, M::VeAMara},
         {"Investigar + ve a Mara -> Perseguir", E::Investigar, veLejos, sinNovedad, E::Perseguir, M::VeAMara},
         {"Investigar llega sin evidencia -> Buscar", E::Investigar, nada, {0, true, false}, E::Buscar, M::LlegaAlOrigen},
         {"Investigar sin ruta -> Explorar (RF-027)", E::Investigar, nada, {0, false, true}, E::Explorar, M::SinRuta},
@@ -70,5 +75,5 @@ TEST_CASE("CP-044 Transiciones de la FSM del infectado: una fila por transicion"
 
 TEST_CASE("CP-044 Cada estado y motivo tiene nombre para el registro", "[RF-044][RF-072]") {
     for (int e = 0; e < kNumEstadosInfectado; ++e) CHECK(nombreEstado(static_cast<E>(e)) != "?");
-    for (int m = 0; m <= static_cast<int>(M::AsignaTarea); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
+    for (int m = 0; m <= static_cast<int>(M::BarricadaDestruida); ++m) CHECK(nombreMotivo(static_cast<M>(m)) != "?");
 }

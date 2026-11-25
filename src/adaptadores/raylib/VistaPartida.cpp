@@ -18,6 +18,7 @@ Color colorEstado(EstadoInfectado e) {
         case EstadoInfectado::Buscar: return {200, 90, 200, 255};      // magenta: la perdió de vista
         case EstadoInfectado::Atacar: return {220, 30, 30, 255};       // rojo
         case EstadoInfectado::Interceptar: return {60, 200, 210, 255};  // turquesa: le cortan el paso
+        case EstadoInfectado::AtacarBarricada: return {150, 90, 40, 255};  // marrón: golpea una barricada
     }
     return WHITE;
 }
@@ -81,6 +82,32 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
 
     for (const auto& o : p.objetos())
         if (!o.recogido) dibujarObjeto(o.tipo, centroCelda(o.celda, e), tc * 0.55f);
+
+    // RF-014: barricada de tablas con su durabilidad.
+    const auto& cfgP = p.config();
+    for (const auto& b : p.barricadas()) {
+        if (!b.activa) continue;
+        const Vector2 c = centroCelda(b.celda, e);
+        const Rectangle r{c.x - tc * 0.45f, c.y - tc * 0.45f, tc * 0.9f, tc * 0.9f};
+        DrawRectangleRec(r, {120, 80, 45, 255});
+        DrawLineEx({r.x, r.y}, {r.x + r.width, r.y + r.height}, 3.0f, {80, 50, 25, 255});
+        DrawLineEx({r.x + r.width, r.y}, {r.x, r.y + r.height}, 3.0f, {80, 50, 25, 255});
+        DrawRectangleLinesEx(r, 2.0f, {80, 50, 25, 255});
+        const float f = b.durabilidad / cfgP.durabilidadBarricada;
+        DrawRectangleRec({r.x, r.y - 5.0f, r.width, 3.0f}, {50, 52, 58, 255});
+        DrawRectangleRec({r.x, r.y - 5.0f, r.width * f, 3.0f}, f > 0.3f ? Color{230, 170, 60, 255} : RED);
+    }
+    // RF-013: señuelo con la onda de su último ruido.
+    for (const auto& sn : p.senuelos()) {
+        if (!sn.activo) continue;
+        const Vector2 c = centroCelda(sn.celda, e);
+        const float fase = sn.desdeRuido / cfgP.senueloPeriodo;
+        if (fase < 1.0f)
+            DrawCircleLinesV(c, cfgP.senueloRadio * tc * std::fmin(1.0f, fase * 1.5f), Fade(GOLD, 0.6f * (1.0f - fase)));
+        DrawCircleV(c, tc * 0.22f, {250, 210, 60, 255});
+        DrawCircleLinesV(c, tc * 0.22f, {90, 70, 10, 255});
+        DrawCircleLinesV(c, tc * 0.32f, Fade(GOLD, 0.8f));
+    }
 
     if (depuracion && p.campoActivo()) {  // RF-028: flecha de cada celda hacia su siguiente paso
         const auto& g = p.mapa();
@@ -165,7 +192,10 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
                                                                  : "caminar (ruido 3)";
     std::snprintf(buf, sizeof(buf), "Modo: %s", modo);
     DrawText(buf, x, y, 14, LIGHTGRAY);
-    y += 24;
+    y += 18;
+    std::snprintf(buf, sizeof(buf), "Senuelos (Q): %d   Barricadas (B): %d", m.senuelos, m.barricadas);
+    DrawText(buf, x, y, 14, LIGHTGRAY);
+    y += 22;
 
     DrawText("Objetivos", x, y, 18, GOLD);
     y += 22;
@@ -222,7 +252,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
 
     DrawText("Transiciones FSM", x, y, 16, GOLD);
     y += 20;
-    const std::size_t n = p.numTransiciones() < 6 ? p.numTransiciones() : 6;
+    const std::size_t n = p.numTransiciones() < 4 ? p.numTransiciones() : 4;
     for (std::size_t i = 0; i < n; ++i) {
         const auto& t = p.ultimaTransicion(i);
         const auto a = agentes::nombreEstado(t.desde);
@@ -235,13 +265,30 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         DrawText(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
         y += 14;
     }
+    y += 4;
+    // RF-072: cambios de objetivo con sus utilidades (o costos de ruta, si es por una barricada).
+    DrawText("Cambios de plan", x, y, 16, GOLD);
+    y += 20;
+    const std::size_t np = p.numCambiosPlan() < 3 ? p.numCambiosPlan() : 3;
+    for (std::size_t i = 0; i < np; ++i) {
+        const auto& c = p.ultimoCambioPlan(i);
+        const auto mo = juego::nombreMotivoPlan(c.motivo);
+        std::snprintf(buf, sizeof(buf), "%5.1fs Z%u (%d,%d)>(%d,%d) %.*s %.2f>%.2f",
+                      static_cast<double>(c.tick) * static_cast<double>(p.dt()), static_cast<unsigned>(c.agente),
+                      c.anterior.x, c.anterior.y, c.nuevo.x, c.nuevo.y, static_cast<int>(mo.size()), mo.data(),
+                      static_cast<double>(c.valorAnterior), static_cast<double>(c.valorNuevo));
+        DrawText(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
+        y += 14;
+    }
 
-    int yc = alto - 96;
+    int yc = alto - 112;
     DrawText("WASD/flechas: mover", x, yc, 13, LIGHTGRAY);
     yc += 16;
     DrawText("Shift: correr  Ctrl: sigilo", x, yc, 13, LIGHTGRAY);
     yc += 16;
     DrawText("E: recoger / activar radio", x, yc, 13, LIGHTGRAY);
+    yc += 16;
+    DrawText("Q: senuelo al cursor  B: barricada", x, yc, 13, LIGHTGRAY);
     yc += 16;
     DrawText("F1: depuracion  R: reiniciar  C: coord.", x, yc, 13, LIGHTGRAY);
     yc += 16;

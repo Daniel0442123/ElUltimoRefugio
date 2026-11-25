@@ -4,6 +4,7 @@
 /// Escena «Partida» (por defecto): Mara reúne medicamentos, combustible y batería y activa la
 /// radio mientras los infectados exploran, la oyen, la persiguen con A* y la atacan.
 ///   WASD / flechas = mover, Shift = correr, Ctrl = sigilo, E = recoger / activar la radio,
+///   Q = señuelo hacia el cursor, B = barricada en la celda de al lado hacia el cursor,
 ///   F1 = depuración (conos de visión, rutas, ruido, campo de flujo), C = modo coordinado,
 ///   R = nueva partida, Tab = laboratorio.
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
@@ -71,11 +72,20 @@ public:
         else if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
             e.modo = juego::ModoMovimiento::Sigilo;
         e.interactuar = IsKeyDown(KEY_E);
+        // RF-013 / RF-014: Q lanza un señuelo al cursor y B pone una barricada a su lado. Son
+        // pulsaciones: se guardan hasta el siguiente paso de simulación y se usan una sola vez.
+        if (IsKeyPressed(KEY_Q)) senueloPendiente_ = true;
+        if (IsKeyPressed(KEY_B)) barricadaPendiente_ = true;
+        const Vector2 raton = GetMousePosition();
+        e.apuntar = {raton.x / static_cast<float>(kCelda), raton.y / static_cast<float>(kCelda)};
 
         // Paso fijo: se recorta el frame a 0,25 s para no entrar en espiral tras una pausa.
         const float frame = GetFrameTime();
         acumulado_ += frame < 0.25f ? frame : 0.25f;
         while (acumulado_ >= partida_->dt()) {
+            e.lanzarSenuelo = senueloPendiente_;
+            e.colocarBarricada = barricadaPendiente_;
+            senueloPendiente_ = barricadaPendiente_ = false;
             partida_->paso(e);
             acumulado_ -= partida_->dt();
         }
@@ -88,7 +98,7 @@ public:
         adaptadores::dibujarPanelPartida(*partida_, kColumnas * kCelda + 12, 12, kAltoVentana, GetFPS());
         char buf[48];
         std::snprintf(buf, sizeof(buf), "semilla %llu", static_cast<unsigned long long>(semilla_));
-        DrawText(buf, kColumnas * kCelda + 12, kAltoVentana - 116, 12, GRAY);
+        DrawText(buf, kColumnas * kCelda + 12, kAltoVentana - 130, 12, GRAY);
     }
 
 private:
@@ -97,6 +107,8 @@ private:
     float acumulado_{0.0f};
     bool depuracion_{false};
     bool coordinado_{true};
+    bool senueloPendiente_{false};
+    bool barricadaPendiente_{false};
 };
 
 // --------------------------------------------------------------------------- Laboratorio
