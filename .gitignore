@@ -9,6 +9,11 @@ results/
 logs/
 saves/
 *.sav
+*.sav.tmp
+# Preferencias de cada jugadora (las escribe el menú de opciones, RF-092)
+config/juego.json
+config/controles.json
+*.json.tmp
 
 # IDE y sistema
 .vs/

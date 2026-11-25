@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.11.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.12.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,14 +69,20 @@ add_library(refugio_dominio STATIC
     src/dominio/juego/Partida.cpp
     src/dominio/juego/PartidaSuperviviente.cpp
     src/dominio/juego/RegistroIa.cpp
+    src/dominio/juego/Tutorial.cpp
+    src/dominio/config/Configuracion.cpp
+    src/dominio/persistencia/Crc32.cpp
+    src/dominio/persistencia/PartidaGuardada.cpp
 )
 target_include_directories(refugio_dominio PUBLIC src)
 refugio_configurar_objetivo(refugio_dominio)
 
 # ---------------------------------------------------------------------------
-# Adaptadores de archivo sin raylib: registro de IA en logs/ (RF-072, RF-073)
+# Adaptadores de archivo sin raylib: registro de IA en logs/ (RF-072, RF-073), partidas en
+# saves/ y configuración en config/ (RF-090 a RF-093)
 # ---------------------------------------------------------------------------
-add_library(refugio_archivo STATIC src/adaptadores/archivo/RegistroArchivo.cpp)
+add_library(refugio_archivo STATIC src/adaptadores/archivo/RegistroArchivo.cpp
+                                   src/adaptadores/archivo/ArchivosLocales.cpp)
 target_link_libraries(refugio_archivo PUBLIC refugio_dominio)
 refugio_configurar_objetivo(refugio_archivo)
 
@@ -88,6 +94,11 @@ target_link_libraries(refugio_cli PUBLIC refugio_dominio)
 target_compile_definitions(refugio_cli PRIVATE REFUGIO_COMMIT="${REFUGIO_COMMIT}" REFUGIO_OPCIONES="${REFUGIO_OPCIONES}")
 refugio_configurar_objetivo(refugio_cli)
 
+# Menú de pausa (HU-19): lógica sin raylib para poder probarla.
+add_library(refugio_menu STATIC src/app/MenuPausa.cpp)
+target_link_libraries(refugio_menu PUBLIC refugio_dominio)
+refugio_configurar_objetivo(refugio_menu)
+
 add_executable(refugio_bench src/app/main_bench.cpp)
 target_link_libraries(refugio_bench PRIVATE refugio_cli)
 refugio_configurar_objetivo(refugio_bench)
@@ -97,12 +108,13 @@ refugio_configurar_objetivo(refugio_bench)
 # ---------------------------------------------------------------------------
 if(REFUGIO_BUILD_GAME)
     add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp
-                                           src/adaptadores/raylib/VistaPartida.cpp)
+                                           src/adaptadores/raylib/VistaPartida.cpp
+                                           src/adaptadores/raylib/Sonidos.cpp)
     target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 
     add_executable(refugio src/app/main_juego.cpp)
-    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli)
+    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli refugio_menu)
     refugio_configurar_objetivo(refugio)
 endif()
 

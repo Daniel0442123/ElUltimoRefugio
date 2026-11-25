@@ -5,8 +5,12 @@
 /// Solo lee la Partida; no la modifica. Los textos se formatean en búferes de pila para que el
 /// dibujo tampoco asigne memoria por frame (RNF-006).
 
+#include <raylib.h>
+
 #include "adaptadores/raylib/VistaDepuracion.hpp"
+#include "dominio/config/Configuracion.hpp"
 #include "dominio/juego/Partida.hpp"
+#include "dominio/juego/Tutorial.hpp"
 
 namespace refugio::adaptadores {
 
@@ -27,7 +31,13 @@ void dibujarConsolaIa(const juego::Partida& p, ModoConsola modo, int x, int y, i
 /// registro de transiciones de la FSM (RF-016, RF-070, RF-072). Con un agente seleccionado, la
 /// mitad inferior pasa a ser su monitor: estado, objetivo, percepción, ruta, algoritmo,
 /// heurística, costo, nodos expandidos, tiempo de búsqueda y su historial de planes (RF-070).
-void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fps);
+/// La ayuda del final del panel usa las teclas de @p controles (RNF-012).
+void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fps, const config::Controles& controles);
+
+/// Indicación actual del tutorial (RF-017) centrada arriba del mapa, con su barra de progreso y
+/// el botón «Saltar tutorial». Devuelve el rectángulo del botón para que el juego compruebe el
+/// clic (vacío si no hay tutorial activo).
+Rectangle dibujarTutorial(const juego::Tutorial& t, const config::Controles& controles, int anchoMapa);
 
 /// Mensaje de victoria o derrota sobre el mapa.
 void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa);

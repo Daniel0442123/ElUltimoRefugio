@@ -87,21 +87,30 @@ void barra(int x, int y, int ancho, int alto, float fraccion, Color relleno) {
                   relleno);
     DrawRectangleLines(x, y, ancho, alto, {90, 92, 100, 255});
 }
-void dibujarAyuda(int x, int alto) {
-    int yc = alto - 128;
-    DrawText("WASD/flechas: mover", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Shift: correr  Ctrl: sigilo", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("E: recoger / activar radio", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Q: senuelo al cursor  B: barricada", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("F1: depuracion  R: reiniciar  F4: modo", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("Clic: monitor  N: nodos  L: registro", x, yc, 13, LIGHTGRAY);
-    yc += 16;
-    DrawText("F2: algoritmo  F3: comparar  Tab: lab", x, yc, 13, LIGHTGRAY);
+void dibujarAyuda(int x, int alto, const config::Controles& k) {
+    using config::Accion;
+    // textoTecla devuelve cadenas cortas (optimización de cadenas pequeñas): no asigna memoria.
+    const auto t = [&k](Accion a) { return config::textoTecla(k.tecla(a)); };
+    char l[8][96];
+    std::snprintf(l[0], sizeof(l[0]), "%s%s%s%s/flechas: mover", t(Accion::Arriba).c_str(), t(Accion::Izquierda).c_str(),
+                  t(Accion::Abajo).c_str(), t(Accion::Derecha).c_str());
+    std::snprintf(l[1], sizeof(l[1]), "%s: correr  %s: sigilo", t(Accion::Correr).c_str(), t(Accion::Sigilo).c_str());
+    std::snprintf(l[2], sizeof(l[2]), "%s: recoger / activar radio", t(Accion::Interactuar).c_str());
+    std::snprintf(l[3], sizeof(l[3]), "%s: señuelo al cursor  %s: barricada", t(Accion::Senuelo).c_str(),
+                  t(Accion::Barricada).c_str());
+    std::snprintf(l[4], sizeof(l[4]), "%s: depuración  %s: reiniciar  %s: modo", t(Accion::Depuracion).c_str(),
+                  t(Accion::NuevaPartida).c_str(), t(Accion::ModoHorda).c_str());
+    std::snprintf(l[5], sizeof(l[5]), "Clic: monitor  %s: nodos  %s: registro", t(Accion::Nodos).c_str(),
+                  t(Accion::Consola).c_str());
+    std::snprintf(l[6], sizeof(l[6]), "%s: algoritmo  %s: comparar  %s: lab", t(Accion::Algoritmo).c_str(),
+                  t(Accion::Comparar).c_str(), t(Accion::Laboratorio).c_str());
+    std::snprintf(l[7], sizeof(l[7]), "Esc: menú  %s: guardar  %s: cargar", t(Accion::GuardadoRapido).c_str(),
+                  t(Accion::CargaRapida).c_str());
+    int yc = alto - 126;  // 8 líneas de 14 px: el mismo alto que las 7 de 16 px de antes
+    for (const auto& s : l) {
+        DrawText(s, x, yc, 12, LIGHTGRAY);
+        yc += 14;
+    }
 }
 
 /// Copia @p t en @p buf cambiando cada tabulador por dos espacios (raylib no dibuja tabuladores).
@@ -537,7 +546,7 @@ void dibujarPartida(const juego::Partida& p, const EstiloVista& e, bool depuraci
     if (m.recibioDanio) DrawCircleLinesV(cm, tc * 0.45f, RED);
 }
 
-void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fps) {
+void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fps, const config::Controles& controles) {
     char buf[128];
     const auto& m = p.mara();
     const auto& cfg = p.config();
@@ -615,7 +624,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
 
     if (p.seleccionado() >= 0) {
         dibujarMonitorAgente(p, x, y, alto - 150);
-        dibujarAyuda(x, alto);
+        dibujarAyuda(x, alto, controles);
         return;
     }
 
@@ -701,7 +710,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         y += 14;
     }
 
-    dibujarAyuda(x, alto);
+    dibujarAyuda(x, alto, controles);
 }
 
 void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa) {
@@ -715,6 +724,55 @@ void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa) {
     DrawText(titulo, (anchoMapa - w) / 2, altoMapa / 2 - 30, 32, gano ? SKYBLUE : RED);
     const char* sub = "R: jugar otra vez (nuevo mapa)";
     DrawText(sub, (anchoMapa - MeasureText(sub, 18)) / 2, altoMapa / 2 + 14, 18, RAYWHITE);
+}
+
+}  // namespace refugio::adaptadores
+
+namespace refugio::adaptadores {
+
+Rectangle dibujarTutorial(const juego::Tutorial& t, const config::Controles& k, int anchoMapa) {
+    if (!t.activo()) return {};
+    using config::Accion;
+    const auto tc = [&k](Accion a) { return config::textoTecla(k.tecla(a)); };
+    char titulo[48];
+    char texto[160];
+    switch (t.paso()) {
+        case juego::PasoTutorial::Mover:
+            std::snprintf(texto, sizeof(texto), "Muévete con %s %s %s %s (o las flechas)", tc(Accion::Arriba).c_str(),
+                          tc(Accion::Izquierda).c_str(), tc(Accion::Abajo).c_str(), tc(Accion::Derecha).c_str());
+            break;
+        case juego::PasoTutorial::Sigilo:
+            std::snprintf(texto, sizeof(texto), "Mantén %s y muévete en sigilo: lento, pero casi no haces ruido",
+                          tc(Accion::Sigilo).c_str());
+            break;
+        case juego::PasoTutorial::Correr:
+            std::snprintf(texto, sizeof(texto), "Mantén %s para correr: es rápido, pero los infectados te oyen de lejos",
+                          tc(Accion::Correr).c_str());
+            break;
+        case juego::PasoTutorial::Recoger:
+            std::snprintf(texto, sizeof(texto), "Acércate a un objeto (botiquín, bidón o batería) y pulsa %s para recogerlo",
+                          tc(Accion::Interactuar).c_str());
+            break;
+        case juego::PasoTutorial::Terminado: return {};
+    }
+    std::snprintf(titulo, sizeof(titulo), "Tutorial %d/%d", static_cast<int>(t.paso()) + 1, juego::kNumPasosTutorial);
+    const int ancho = std::max(MeasureText(texto, 18) + 32, 520);
+    const int x = (anchoMapa - ancho) / 2;
+    const int y = 10;
+    DrawRectangle(x, y, ancho, 78, Fade({16, 18, 24, 255}, 0.88f));
+    DrawRectangleLines(x, y, ancho, 78, GOLD);
+    DrawText(titulo, x + 16, y + 8, 16, GOLD);
+    DrawText(texto, x + 16, y + 30, 18, RAYWHITE);
+    if (t.paso() != juego::PasoTutorial::Recoger) barra(x + 16, y + 56, 200, 10, t.progreso(), {230, 190, 60, 255});
+    char boton[48];
+    std::snprintf(boton, sizeof(boton), "Saltar tutorial (%s)", tc(Accion::SaltarTutorial).c_str());
+    const int wb = MeasureText(boton, 14) + 16;
+    const Rectangle r{static_cast<float>(x + ancho - wb - 10), static_cast<float>(y + 50), static_cast<float>(wb), 22.0f};
+    const bool encima = CheckCollisionPointRec(GetMousePosition(), r);
+    DrawRectangleRec(r, encima ? Color{90, 80, 40, 255} : Color{50, 52, 58, 255});
+    DrawRectangleLinesEx(r, 1.0f, GOLD);
+    DrawText(boton, static_cast<int>(r.x) + 8, static_cast<int>(r.y) + 4, 14, RAYWHITE);
+    return r;
 }
 
 }  // namespace refugio::adaptadores
