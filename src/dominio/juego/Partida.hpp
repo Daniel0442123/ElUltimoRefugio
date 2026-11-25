@@ -27,6 +27,8 @@
 #include "dominio/navegacion/Quadtree.hpp"
 #include "dominio/navegacion/Steering.hpp"
 #include "dominio/nucleo/Pcg32.hpp"
+#include "dominio/superviviente/ArbolComportamiento.hpp"
+#include "dominio/superviviente/Superviviente.hpp"
 
 namespace refugio::juego {
 
@@ -102,6 +104,16 @@ struct ConfigPartida {
     bool tacticas{true};
     agentes::ParametrosTactica tactica{};
     float histeresisTactica{1.1f};  ///< Para cambiar de táctica la nueva debe puntuar 10 % más.
+    // Superviviente de la radio (HU-13, RF-060 a RF-064)
+    float velSuperviviente{2.5f};
+    float visionSuperviviente{8.0f};  ///< Ve a su alrededor (360°) con línea de visión.
+    float distanciaSegura{6.0f};      ///< Huye hasta no ver infectados más cerca que esto.
+    float reparacionPorSegundo{8.0f}; ///< RF-063
+    float puntosTablas{40.0f};        ///< Integridad que se repara con una carga de tablas.
+    float tRecogerTablas{1.0f};
+    float tArrancarTablas{15.0f};     ///< Sin almacén: arrancar tablas de muebles es lento.
+    float factorAyuda{1.5f};          ///< La instalación avanza un 50 % más rápido si ayuda.
+    superviviente::ParametrosUtilidad utilidad{};
 };
 
 struct Superviviente {
@@ -225,6 +237,59 @@ struct Infectado {
     mundo::Celda puntoCorte{};
 };
 
+/// Lo que hace el superviviente en cada paso de simulación; lo fija la hoja del árbol que corre.
+enum class Actividad : std::uint8_t { Ninguna, Mover, Recoger, Arrancar, Reparar, Ayudar, Vigilar, Huir };
+[[nodiscard]] std::string_view nombreActividad(Actividad a) noexcept;
+
+/// Por qué el superviviente genera un plan nuevo (RF-061, RF-064).
+enum class MotivoReplan : std::uint8_t { Inicio, CambioMeta, PlanCompletado, AccionFallida, PrecondicionRota, SinPlan };
+[[nodiscard]] std::string_view nombreMotivoReplan(MotivoReplan m) noexcept;
+
+/// Superviviente de la radio (HU-13): Utility elige la meta, GOAP planifica y un árbol ejecuta.
+struct SupervivienteRadio {
+    bool activo{false};
+    Vec2 pos{};
+    Vec2 orientacion{1.0f, 0.0f};
+    // Decisión (RF-060)
+    superviviente::Meta meta{superviviente::Meta::Vigilar};
+    std::array<float, superviviente::kNumMetas> utilidades{};
+    float distanciaAmenaza{1e9f};  ///< Al infectado visible más cercano.
+    Vec2 amenaza{};
+    // Plan (RF-061) y acción en curso
+    superviviente::PlanGoap plan{};
+    std::size_t paso{0};
+    bool replanificar{true};
+    MotivoReplan motivo{MotivoReplan::Inicio};
+    std::uint64_t tickFallo{0};
+    superviviente::Accion accionFallida{};
+    std::uint64_t planes{0};
+    // Ejecución (RF-062, RF-063)
+    Actividad actividad{Actividad::Ninguna};
+    float progreso{0.0f};  ///< Segundos recogiendo o arrancando tablas.
+    float tablas{0.0f};    ///< Integridad que aún puede reparar con lo que lleva.
+    bool reparo{false};    ///< Ya reparó algo en la acción en curso.
+    bool ayudando{false};  ///< En este paso ayuda a instalar.
+    bool almacenInaccesible{false};
+    std::uint64_t cambiosMapaAlmacen{0};
+    // Ruta A*
+    std::vector<mundo::Nodo> ruta;
+    std::size_t indiceRuta{0};
+    mundo::Celda destino{-1, -1};
+    std::uint64_t cambiosMapaRuta{0};
+    bool hayRuta{false};
+};
+
+/// RF-064: cada plan nuevo del superviviente, con su motivo.
+struct RegistroSuperviviente {
+    std::uint64_t tick{};
+    superviviente::Meta meta{};
+    MotivoReplan motivo{};
+    std::uint64_t tickFallo{};          ///< Solo para AccionFallida y PrecondicionRota.
+    superviviente::Accion accionFallida{};
+    std::uint8_t longitud{};
+    float costo{};
+};
+
 struct RegistroTransicion {
     std::uint64_t tick{};
     std::uint16_t agente{};
@@ -251,6 +316,8 @@ struct Escenario {
     std::vector<ObjetoMision> objetos;
     mundo::Celda radio{};  ///< La radio está en el refugio; su celda es también la puerta (RF-063).
     mundo::Celda extraccion{-1, -1};  ///< Zona de extracción; sin definir, el punto de partida de Mara.
+    Vec2 inicioSuperviviente{-1.0f, -1.0f};  ///< Sin definir (x < 0), no hay superviviente.
+    mundo::Celda almacen{-1, -1};            ///< Donde hay tablas; sin definir, solo puede arrancarlas.
 };
 
 /// Ciudad de generarMapa con Mara en una esquina, los objetos y la radio lejos de ella y
@@ -262,6 +329,7 @@ public:
     static constexpr std::size_t kCapacidadRegistro = 64;
     static constexpr std::size_t kMaxSenuelos = 4;
     static constexpr std::size_t kMaxBarricadas = 8;
+    static constexpr std::size_t kCapacidadRegistroSuperviviente = 16;
 
     Partida(Escenario escenario, const ConfigPartida& cfg = {}, std::uint64_t semilla = 42);
 
@@ -339,6 +407,14 @@ public:
     [[nodiscard]] const RegistroPlan& ultimoCambioPlan(std::size_t haceN) const noexcept;
     [[nodiscard]] std::uint64_t totalCambiosPlan() const noexcept { return totalCambiosPlan_; }
 
+    /// Superviviente de la radio (HU-13).
+    [[nodiscard]] const SupervivienteRadio& superviviente() const noexcept { return sup_; }
+    [[nodiscard]] mundo::Celda almacen() const noexcept { return almacen_; }
+    [[nodiscard]] std::size_t numRegistrosSuperviviente() const noexcept;
+    [[nodiscard]] const RegistroSuperviviente& ultimoRegistroSuperviviente(std::size_t haceN) const noexcept;
+    [[nodiscard]] std::uint64_t totalRegistrosSuperviviente() const noexcept { return totalRegistrosSup_; }
+    [[nodiscard]] const superviviente::ArbolComportamiento& arbolSuperviviente() const noexcept { return arbolSup_; }
+
     /// Contract Net (RF-049) y reparto de llegadas (RF-051).
     [[nodiscard]] std::uint64_t subastas() const noexcept { return subastas_; }
     [[nodiscard]] std::uint64_t adjudicaciones() const noexcept { return adjudicaciones_; }
@@ -378,6 +454,16 @@ private:
     [[nodiscard]] bool libre(Vec2 p) const noexcept;
     [[nodiscard]] float factorTerreno(Vec2 p) const noexcept;
     [[nodiscard]] bool celdaLibreAleatoriaCerca(mundo::Celda centro, float radio, mundo::Celda& salida);
+    // Superviviente (PartidaSuperviviente.cpp)
+    friend class HojasSuperviviente;
+    void construirArbolSuperviviente();
+    void decidirSuperviviente();
+    void planificarSuperviviente();
+    void ejecutarSuperviviente();
+    [[nodiscard]] superviviente::Hechos hechosSuperviviente() const noexcept;
+    [[nodiscard]] bool supEn(mundo::Celda c) const noexcept;
+    [[nodiscard]] superviviente::EstadoNodo avanzarSuperviviente(mundo::Celda destino);
+    void fallarPlanSuperviviente(MotivoReplan m, superviviente::Accion a) noexcept;
 
     ConfigPartida cfg_;
     float dt_;
@@ -458,6 +544,15 @@ private:
 
     std::array<RegistroPlan, kCapacidadRegistro> planes_{};
     std::uint64_t totalCambiosPlan_{0};
+
+    // Superviviente de la radio (HU-13)
+    SupervivienteRadio sup_;
+    mundo::Celda almacen_{-1, -1};
+    superviviente::PlanificadorGoap goap_;
+    superviviente::ArbolComportamiento arbolSup_;
+    std::array<superviviente::ArbolComportamiento::Id, superviviente::kNumAcciones> raizAccion_{};
+    std::array<RegistroSuperviviente, kCapacidadRegistroSuperviviente> registroSup_{};
+    std::uint64_t totalRegistrosSup_{0};
 
     std::array<RegistroTransicion, kCapacidadRegistro> registro_{};
     std::uint64_t totalTransiciones_{0};

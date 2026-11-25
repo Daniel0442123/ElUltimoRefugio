@@ -92,6 +92,16 @@ Escenario crearEscenarioAleatorio(int ancho, int alto, int numInfectados, std::u
                 e.extraccion = c;
             }
         }
+        // HU-13: el superviviente empieza en el refugio y el almacén de tablas queda a 5-10 celdas.
+        e.inicioSuperviviente = centroDe(e.radio);
+        for (int k = 0; k < 256; ++k) {
+            const Celda c = e.mapa.celda(region[rng.enteroMenorQue(static_cast<std::uint32_t>(region.size()))]);
+            const float d = distancia(centroDe(c), centroDe(e.radio));
+            if (d < 5.0f || d > 10.0f) continue;
+            if (std::any_of(e.objetos.begin(), e.objetos.end(), [&](const ObjetoMision& o) { return o.celda == c; })) continue;
+            e.almacen = c;
+            break;
+        }
         return e;
     }
     throw std::runtime_error("crearEscenarioAleatorio: no se encontró un mapa jugable");
@@ -114,6 +124,12 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     extraccion_ = esc.extraccion.x >= 0 ? esc.extraccion : celdaDe(esc.inicioMara);
     integridad_ = std::min(cfg_.integridadInicial, cfg_.integridadMax);
     mara_.barricadas = cfg_.barricadasIniciales;
+    // Superviviente de la radio (HU-13)
+    sup_.activo = esc.inicioSuperviviente.x >= 0.0f;
+    sup_.pos = esc.inicioSuperviviente;
+    almacen_ = esc.almacen.x >= 0 && mapa_.transitable(esc.almacen.x, esc.almacen.y) ? esc.almacen : Celda{-1, -1};
+    sup_.ruta.reserve(mapa_.numCeldas());
+    construirArbolSuperviviente();
     const auto ancho = static_cast<std::size_t>(mapa_.ancho());
     const auto alto = static_cast<std::size_t>(mapa_.alto());
     const std::size_t bloques = ((ancho + kBloqueVisitasU - 1) / kBloqueVisitasU) * ((alto + kBloqueVisitasU - 1) / kBloqueVisitasU);
@@ -216,6 +232,7 @@ void Partida::paso(const EntradaJugador& entrada) {
     golpeandoPuerta_ = 0;
     for (std::size_t i = 0; i < infectados_.size(); ++i) ejecutarInfectado(i);
     moverHorda();
+    ejecutarSuperviviente();
     interactuar(entrada);
     // RF-009 / RF-010: con la zona abierta, entrar en ella es la victoria; si no, se va cerrando.
     if (zonaAbierta()) {
@@ -314,7 +331,7 @@ void Partida::interactuar(const EntradaJugador& e) {
         if (ruidosPendientes_.size() < kMaxRuidosTick) ruidosPendientes_.push_back({centroDe(radio_), cfg_.ruidoInstalacion, false});
         desdeRuidoInstalacion_ = 0.0f;
     }
-    mara_.progresoInstalacion += dt_;
+    mara_.progresoInstalacion += dt_ * (sup_.ayudando ? cfg_.factorAyuda : 1.0f);  // HU-13: el superviviente ayuda
     if (mara_.progresoInstalacion >= cfg_.tInstalacion) {  // RF-007: RadioActivada -> RF-009
         mara_.progresoInstalacion = 0.0f;
         restanteExtraccion_ = cfg_.tExtraccion;
@@ -334,6 +351,7 @@ void Partida::tickIa() {
     repartirLlegadas();
     actualizarCampo();
     planificarRutas();
+    decidirSuperviviente();
     // Mapa de visitas propio (RF-045): cada agente marca el bloque en el que está.
     const int bloquesX = (mapa_.ancho() + kBloqueVisitas - 1) / kBloqueVisitas;
     for (auto& z : infectados_) {
@@ -707,7 +725,7 @@ bool Partida::colocarBarricadaEn(Celda c) {
         const float qy = std::clamp(p.y, static_cast<float>(c.y), static_cast<float>(c.y + 1));
         return distancia(p, {qx, qy}) < cfg_.radioCuerpo;
     };
-    if (toca(mara_.pos)) return false;
+    if (toca(mara_.pos) || (sup_.activo && toca(sup_.pos))) return false;
     for (const auto& z : infectados_)
         if (toca(z.pos)) return false;
     for (auto& b : barricadas_) {
