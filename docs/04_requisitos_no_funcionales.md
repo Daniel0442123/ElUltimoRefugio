@@ -46,6 +46,17 @@ Mediciones disponibles (contenedor de desarrollo, Xeon 2,3 GHz, 4 núcleos, GCC 
 
 Comando del benchmark: `refugio_bench --bench --tamanos 128,256 --densidad 0.25 --pares 20 --reps 5 --semilla 42`.
 
+FPS, tiempo de tick, CPU, memoria del juego y arranque (RNF-001, RNF-002, RNF-004, RNF-005, RNF-008) se miden
+con ventana con `python tools/rendimiento.py medir`, que ejecuta `refugio --medir-rendimiento`: 5 arranques y dos
+partidas jugadas solas con un guion fijo (10 y 100 infectados en el mapa del juego, 30 s de calentamiento y 5 min
+medidos, VSync). La CPU se lee con `GetProcessTimes` en Windows y `getrusage` en Linux, y la memoria con
+`GetProcessMemoryInfo` o `/proc/self/statm`. No usa Tracy ni `tools/fps_report.py` ni `tools/recursos.py`: el
+juego mide cada frame y cada segundo y la herramienta escribe el bloque siguiente.
+
+<!-- generado:rendimiento inicio -->
+Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el equipo de la sustentación).
+<!-- generado:rendimiento fin -->
+
 ## 2. Resumen por característica
 
 | Característica ISO 25010:2023 | RNF |

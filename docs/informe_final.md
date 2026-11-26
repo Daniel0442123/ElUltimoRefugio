@@ -375,14 +375,24 @@ victorias del guion fuera de [20 %, 40 %], con presión = 1 − t_contacto / 90 
 | RNF-019 Optimalidad de A\* | 0 discrepancias | 0 de 400 | Cumple |
 | RNF-020 Determinismo | misma huella | 10 de 10 pares idénticos hasta la detección; 600 ticks a cualquier velocidad dan la misma huella (CP-075) | Cumple |
 | RNF-027 Recursión acotada | profundidad ≤ límite declarado | 100 % de las llamadas, con estrés de hasta 2000 agentes en ASan (CP-127) | Cumple |
-| RNF-001 FPS | ≥ 60 en la carga nominal | el panel muestra 60 FPS en las capturas; sin medición formal | Sin medir |
-| RNF-004 CPU | ≤ 35 % de un núcleo | — | Sin medir |
-| RNF-008 Tiempo de arranque | — | — | Sin medir |
-| RNF-002 IA por tick bajo carga nominal | p95 ≤ 2 ms | 0,7 ms por tick con 100 solicitudes (CP-026), no en la carga nominal completa | Parcial |
 
 De los 32 RNF, 6 están verificados, 25 implementados con la medición incompleta y 1 pendiente (RNF-029,
-escalado de pantalla). FPS, CPU y arranque necesitan la versión con ventana en el equipo de la sustentación;
-el método está en `docs/04_requisitos_no_funcionales.md`.
+escalado de pantalla). FPS, tiempo de tick, CPU, memoria del juego y arranque se miden con ventana en el
+equipo de la sustentación (§9.1); el método está en `docs/04_requisitos_no_funcionales.md`.
+
+<!-- generado:rendimiento inicio -->
+### 9.1 Rendimiento con ventana en el equipo de la sustentación
+
+Pendiente de medir. En el equipo de la sustentación, con el juego compilado en Release:
+
+```bash
+python tools/rendimiento.py medir
+```
+
+El juego se abre, arranca 5 veces y juega solo dos partidas (10 y 100 infectados) durante unos 12 minutos;
+al terminar, la herramienta rellena esta sección, `docs/trazabilidad.csv` y las filas de estado de RNF-001,
+RNF-002, RNF-004, RNF-005 y RNF-008.
+<!-- generado:rendimiento fin -->
 
 ## 10. Calidad y pruebas
 
@@ -401,7 +411,7 @@ el método está en `docs/04_requisitos_no_funcionales.md`.
 | RF-006 Puerta metálica de la farmacia | No existe; la instalación de la radio sí hace ruido y cubre el papel de la escena 2. |
 | RF-015 Usar el medicamento | Es solo un objeto de misión; no cura. |
 | RF-048 Roles de infectado | Un solo prototipo; los «prototipos» explorador y perseguidor de `config/ia.json` no se leen. |
-| RNF-001, 004, 008 | FPS, CPU y arranque sin medir formalmente. |
+| RNF-001, 002, 004, 005, 008 | FPS, tick, CPU, memoria y arranque con ventana: ver §9.1 (`tools/rendimiento.py`). |
 | RNF-029 | Ventana fija de 1280 × 720, sin escalado. |
 | Concentración de la horda | La coordinación duplica las celdas sobrecargadas (§7). |
 | Aptitud del GA/SA | Sobreajusta al guion fijo; falta una restricción de velocidad o un oponente que esquive (§8). |

@@ -31,6 +31,10 @@
 /// Los textos usan Inter rasterizada al tamaño final en píxeles (adaptadores/raylib/Interfaz).
 /// --ventana AxB fija el tamaño (para capturas a otras resoluciones).
 ///
+/// --medir-rendimiento (RNF-001, RNF-002, RNF-004, RNF-005, RNF-008): la partida se juega sola con
+/// un guion fijo y se miden el arranque, cada frame, cada paso de simulación y, cada segundo, la
+/// CPU y la memoria del proceso (app::MedicionRendimiento). Ver tools/rendimiento.py.
+///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
 /// real del frame; el dibujo va aparte y no cambia el resultado de la simulación. La pausa, el
 /// paso a paso y la velocidad (juego::ControlSimulacion, RF-075) solo cambian ese acumulador.
@@ -39,11 +43,16 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdarg>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include "adaptadores/archivo/ArchivosLocales.hpp"
 #include "adaptadores/archivo/RegistroArchivo.hpp"
@@ -52,8 +61,10 @@
 #include "adaptadores/raylib/Sonidos.hpp"
 #include "adaptadores/raylib/VistaDepuracion.hpp"
 #include "adaptadores/raylib/VistaPartida.hpp"
+#include "adaptadores/sistema/RecursosProceso.hpp"
 #include "adaptadores/vista/Disposicion.hpp"
 #include "app/Cli.hpp"
+#include "app/MedicionRendimiento.hpp"
 #include "app/MenuPausa.hpp"
 #include "dominio/experimentos/GeneradorMapas.hpp"
 #include "dominio/juego/ControlSimulacion.hpp"
@@ -138,6 +149,30 @@ public:
         depuracion_ = depuracion;
         saltarTutorial();
     }
+    /// --medir-rendimiento: Mara sigue el guion fijo (app::entradaGuion) en vez del teclado, sin
+    /// tutorial y con @p infectados en la horda.
+    void prepararMedicion(int infectados) {
+        guion_ = true;
+        if (infectados != infectados_) {
+            infectados_ = infectados;
+            reiniciar(semilla_);
+        }
+        saltarTutorial();
+    }
+    /// La partida terminó (victoria o derrota): la medición empieza otra.
+    [[nodiscard]] bool terminada() const noexcept { return partida_->estado() != juego::EstadoPartida::EnCurso; }
+    void nuevaPartida() {
+        reiniciar(semilla_ + 1);
+        saltarTutorial();
+    }
+    /// Pasos de simulación de este frame y el más largo, en ms; los pone a cero.
+    std::pair<int, double> tomarPasos() noexcept {
+        const std::pair<int, double> r{pasosFrame_, msPasoMax_};
+        pasosFrame_ = 0;
+        msPasoMax_ = 0.0;
+        return r;
+    }
+    [[nodiscard]] double usBusquedaIa() const noexcept { return partida_->tiempoBusquedaUltimoTickIaUs(); }
     [[nodiscard]] bool menuAbierto() const noexcept { return menu_.abierto(); }
     [[nodiscard]] int tecla(Accion a) const noexcept { return config_.controles.tecla(a); }
     /// Reparto de la ventana de este frame (cambia al redimensionarla).
@@ -148,7 +183,7 @@ public:
         inicio.semilla = semilla;
         inicio.ancho = kColumnas;
         inicio.alto = kFilas;
-        inicio.infectados = kInfectados;
+        inicio.infectados = infectados_;
         inicio.ia = config_.ia;
         inicio.flowfieldUmbral = kUmbralCampoPrototipo;
         inicio.coordinado = coordinado_;
@@ -227,6 +262,7 @@ public:
         if (pulsada(Accion::Senuelo)) senueloPendiente_ = true;
         if (pulsada(Accion::Barricada)) barricadaPendiente_ = true;
         e.apuntar = {w.x / static_cast<float>(kCelda), w.y / static_cast<float>(kCelda)};
+        if (guion_) e = app::entradaGuion(partida_->tick(), 1.0 / static_cast<double>(partida_->dt()));
 
         // Paso fijo: el control recorta el frame a 0,25 s, aplica la velocidad y, en pausa, da
         // solo los pasos pedidos con F6 (RF-075).
@@ -365,7 +401,10 @@ private:
         int objetos = 0;
         for (const bool b : partida_->mara().inventario) objetos += b ? 1 : 0;
         // RF-090: cada paso queda grabado para poder guardar la partida en cualquier momento.
+        const auto t0 = std::chrono::steady_clock::now();
         partida_->paso(grabador_.registrar(e, *partida_));
+        msPasoMax_ = std::max(msPasoMax_, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        ++pasosFrame_;
         int ahora = 0;
         for (const bool b : partida_->mara().inventario) ahora += b ? 1 : 0;
         if (ahora > objetos) sonidos_.reproducir(adaptadores::Efecto::Recoger);
@@ -586,6 +625,10 @@ private:
     bool nodos_{true};
     adaptadores::ModoConsola consola_{adaptadores::ModoConsola::Oculta};
     juego::ControlSimulacion control_;  ///< HU-22: pausa, paso a paso y velocidad
+    int infectados_{kInfectados};
+    bool guion_{false};  ///< --medir-rendimiento
+    int pasosFrame_{0};
+    double msPasoMax_{0.0};
     bool depuracion_{false};
     bool zoom_{true};  ///< Z: cámara que sigue a Mara (por defecto) o el mapa completo
     Camera2D camara_{};
@@ -801,11 +844,42 @@ void alternarPantallaCompleta(bool& estabaMaximizada) {
         if (estabaMaximizada) MaximizeWindow();
     }
 }
+using Reloj = std::chrono::steady_clock;
+double msEntre(Reloj::time_point a, Reloj::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); }
+
+/// --medir-rendimiento: el registro de raylib dice qué GPU y qué OpenGL se usaron.
+std::string gGpu;
+std::string gOpenGl;
+void registroRaylib(int nivel, const char* texto, va_list args) {
+    char buf[512];
+    std::vsnprintf(buf, sizeof(buf), texto, args);
+    const std::string_view linea(buf);
+    const auto tomar = [&](std::string_view clave, std::string& destino) {
+        if (const auto i = linea.find(clave); i != std::string_view::npos && destino.empty())
+            destino = std::string(linea.substr(linea.find_first_not_of(' ', i + clave.size()) == std::string_view::npos
+                                                   ? linea.size()
+                                                   : linea.find_first_not_of(' ', i + clave.size())));
+    };
+    tomar("> Renderer:", gGpu);
+    tomar("> Version:", gOpenGl);
+    if (nivel >= LOG_WARNING) std::fprintf(stderr, "raylib: %s\n", buf);
+}
 }  // namespace
 
 int main(int argc, char** argv) {
+    const auto tMain = Reloj::now();
     int codigo = 0;
     if (app::ejecutarModoSinVentana(argc, argv, codigo)) return codigo;
+
+    std::optional<app::MedicionRendimiento> medicion;
+    try {
+        app::ConfigMedicion cfg;
+        if (app::leerConfigMedicion(argc, argv, cfg)) medicion.emplace(std::move(cfg));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "--medir-rendimiento: %s\n", e.what());
+        return 2;
+    }
+    if (medicion) SetTraceLogCallback(registroRaylib);
 
     // --captura <archivo.png> [--frames N] [--mapa] [--depuracion] [--ventana AxB]: juega N frames
     // sin entrada, guarda la pantalla y sale. Sirve para las capturas de docs/ y para revisar el
@@ -831,25 +905,43 @@ int main(int argc, char** argv) {
     }
     const bool tamFijo = anchoFijo >= kAnchoVentanaMin && altoFijo >= kAltoVentanaMin;
 
+    // RNF-008: cada fase del arranque, en ms desde la entrada a main.
+    const auto fase = [&](const char* nombre) {
+        if (medicion) medicion->fase(nombre, msEntre(tMain, Reloj::now()));
+    };
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(tamFijo ? anchoFijo : kAnchoVentana, tamFijo ? altoFijo : kAltoVentana, "El último refugio");
     SetWindowMinSize(kAnchoVentanaMin, kAltoVentanaMin);
     if (!tamFijo && captura.empty()) ventanaInicial();
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);  // Esc abre el menú de pausa; se sale desde el menú o cerrando la ventana
+    fase("ventana");
     InitAudioDevice();     // sin dispositivo de audio el juego sigue en silencio
+    fase("audio");
     adaptadores::cargarFuentes();
+    fase("fuentes");
 
     {
         const adaptadores::Sonidos sonidos;
+        fase("sonidos");
+        const auto tEscena = Reloj::now();
         EscenaPartida partida(42, adaptadores::leerConfigLocal(kCarpetaConfig), sonidos);  // RF-092
+        if (medicion) medicion->escena(msEntre(tEscena, Reloj::now()));
+        fase("escena");
         EscenaLaboratorio laboratorio;
+        fase("laboratorio");
         bool enLaboratorio = false;
         bool estabaMaximizada = false;
         if (!captura.empty()) partida.prepararCaptura(!capturaMapa, capturaDepuracion);
+        if (medicion) partida.prepararMedicion(medicion->config().infectados);
         int frame = 0;
+        // --medir-rendimiento: final del frame anterior y del primero.
+        Reloj::time_point tAnterior{};
+        Reloj::time_point tPrimero{};
+        long long framesMedicion = 0;
 
         while (!WindowShouldClose() && !partida.salir()) {
+            const auto tInicioFrame = Reloj::now();
             if (IsKeyPressed(config::tecla::kPantallaCompleta)) alternarPantallaCompleta(estabaMaximizada);
             // El reparto de la ventana se recalcula cada frame: sigue al redimensionarla.
             const auto disp = vista::calcularDisposicion(GetScreenWidth(), GetScreenHeight(), kAnchoMundo, kAltoMundo);
@@ -862,6 +954,14 @@ int main(int argc, char** argv) {
                 laboratorio.actualizar();
             else
                 partida.actualizar();
+            bool reinicio = false;
+            if (medicion && partida.terminada()) {  // la medición sigue con otra partida
+                const auto t = Reloj::now();
+                partida.nuevaPartida();
+                medicion->escena(msEntre(t, Reloj::now()));
+                reinicio = true;
+            }
+            const auto tDibujo = Reloj::now();
 
             BeginDrawing();
             ClearBackground({24, 26, 30, 255});
@@ -869,7 +969,34 @@ int main(int argc, char** argv) {
                 laboratorio.dibujar();
             else
                 partida.dibujar();
+            const auto tFinDibujo = Reloj::now();
             EndDrawing();
+            if (medicion) {
+                const auto ahora = Reloj::now();
+                const auto [pasos, msPaso] = partida.tomarPasos();
+                if (framesMedicion++ == 0) {
+                    const double proceso = adaptadores::segundosDesdeCreacionProceso();
+                    medicion->primerFrame(msEntre(tMain, ahora), proceso >= 0.0 ? proceso * 1000.0 : -1.0);
+                    tPrimero = ahora;
+                } else {
+                    app::MuestraFrame m;
+                    m.msFrame = msEntre(tAnterior, ahora);
+                    m.msActualizar = msEntre(tInicioFrame, tDibujo);
+                    m.msDibujar = msEntre(tDibujo, tFinDibujo);
+                    m.pasos = pasos;
+                    m.msPasoMax = msPaso;
+                    m.usBusquedaIa = partida.usBusquedaIa();
+                    m.reinicio = reinicio;
+                    medicion->frame(msEntre(tPrimero, ahora) / 1000.0, m);
+                }
+                tAnterior = ahora;
+                const double t = msEntre(tPrimero, ahora) / 1000.0;
+                if (medicion->tocaMuestra(t)) {
+                    const auto r = adaptadores::leerRecursosProceso();
+                    medicion->muestra(t, r.cpuSegundos, r.memoriaBytes, r.memoriaPicoBytes);
+                }
+                if (medicion->terminado(t)) break;
+            }
             if (!captura.empty() && ++frame >= framesCaptura) {
                 Image pantalla = LoadImageFromScreen();
                 const bool ok = ExportImage(pantalla, captura.c_str());
@@ -877,6 +1004,29 @@ int main(int argc, char** argv) {
                 std::fprintf(stderr, ok ? "captura: %s\n" : "captura: no se pudo escribir %s\n", captura.c_str());
                 codigo = ok ? 0 : 1;
                 break;
+            }
+        }
+        if (medicion) {
+            const int monitor = GetCurrentMonitor();
+            medicion->entorno("ventana", std::to_string(GetScreenWidth()) + "x" + std::to_string(GetScreenHeight()));
+            medicion->entorno("monitor_hz", std::to_string(GetMonitorRefreshRate(monitor)));
+            medicion->entorno("mapa", std::to_string(kColumnas) + "x" + std::to_string(kFilas));
+            medicion->entorno("vsync", "si");
+            medicion->entorno("fps_objetivo", "60");
+            medicion->entorno("gpu", gGpu.empty() ? "desconocida" : gGpu);
+            medicion->entorno("opengl", gOpenGl.empty() ? "desconocido" : gOpenGl);
+            medicion->entorno("audio", IsAudioDeviceReady() ? "si" : "no");
+            const bool completa = medicion->terminado(framesMedicion > 0 ? msEntre(tPrimero, tAnterior) / 1000.0 : 0.0);
+            try {
+                medicion->escribir(app::metadatosEquipo());
+                std::fputs(medicion->resumenTexto().c_str(), stdout);
+                if (!completa) {
+                    std::fprintf(stderr, "medicion: se cerro la ventana antes de terminar; los datos estan incompletos\n");
+                    codigo = 3;
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "medicion: %s\n", e.what());
+                codigo = 1;
             }
         }
     }
