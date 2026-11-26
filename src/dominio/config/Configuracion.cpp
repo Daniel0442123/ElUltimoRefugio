@@ -129,7 +129,7 @@ constexpr std::array<DatosAccion, kNumAcciones> kAcciones{{
 
 /// Teclas que reciben las acciones nuevas cuya tecla por defecto ya está ocupada (leerControles).
 constexpr int kTeclasDeReserva[] = {
-    tecla::kF1 + 9, tecla::kF1 + 10, tecla::kF1 + 11, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+    tecla::kF1 + 9, tecla::kF1 + 11, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
     'Z', 'X', 'C', 'V', 'F', 'G', 'H', 'J', 'K', 'M', 'O', 'I', 'U', 'Y'};
 
 }  // namespace
@@ -201,7 +201,8 @@ int teclaDesdeNombre(std::string_view nombre) {
 }
 
 bool teclaReservada(int codigo) noexcept {
-    return codigo == tecla::kEscape || codigo == tecla::kEnter || (codigo >= tecla::kDerecha && codigo <= tecla::kArriba);
+    return codigo == tecla::kEscape || codigo == tecla::kEnter || codigo == tecla::kPantallaCompleta ||
+           (codigo >= tecla::kDerecha && codigo <= tecla::kArriba);
 }
 
 bool teclaAsignable(int codigo) { return !teclaReservada(codigo) && !nombreTecla(codigo).empty(); }
@@ -246,7 +247,7 @@ Lectura<Controles> leerControles(std::string_view texto, std::string_view archiv
                                 "» no es una tecla conocida; se usa " + nombreTecla(leidas[i]));
         } else if (teclaReservada(codigo)) {
             l.errores.push_back(std::string(archivo) + ": «" + std::string(claveAccion(a)) +
-                                "» usa una tecla reservada para el menú; se usa " + nombreTecla(leidas[i]));
+                                "» usa una tecla reservada (menú o pantalla completa); se usa " + nombreTecla(leidas[i]));
         } else {
             leidas[i] = codigo;
         }

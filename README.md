@@ -15,7 +15,27 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.16.0)
+## Estado actual (0.17.0)
+
+**Ventana adaptable y tipografía legible** (ADR-0021).
+
+- **Cualquier pantalla**: la ventana se abre maximizada, se puede redimensionar, maximizar y
+  restaurar como cualquier programa, y **F11** alterna la pantalla completa (sin bordes, no cambia
+  la resolución del monitor). Tamaño mínimo 800 × 450.
+- **El HUD escala con la ventana**: la interfaz se diseña sobre 1280 × 720 unidades y cada frame se
+  calcula la escala (1,5 en 1920 × 1080, 3 en 3840 × 2160). En pantallas más anchas o más altas que
+  16:9 el espacio sobrante va al mapa y el panel lateral sigue pegado al borde derecho; el registro
+  de IA y los avisos se colocan sobre el borde inferior del mapa.
+- **El mapa llena su zona**: se amplía para caber entero (Z: mapa completo) o sigue a Mara con zoom
+  2× sobre ese tamaño. El arte pixel no cambia; si sobra espacio, el mapa queda centrado.
+- **Tipografía nueva**: los textos usan **Inter** (sans-serif, licencia SIL OFL 1.1, en
+  `assets/fuentes/`) en lugar de la fuente pixelada de raylib. Se incrusta en el ejecutable y se
+  rasteriza al tamaño final en píxeles, así se ve nítida a cualquier escala, e incluye tildes, ñ,
+  ¿, ¡, « y ». Los títulos van en negrita.
+- `refugio --captura archivo.png --ventana 1920x1080` guarda capturas a otras resoluciones.
+- La simulación, las partidas guardadas y los experimentos no cambian.
+
+### Versión 0.16.0
 
 **Arte pixel con linterna y sombras** (ADR-0017). El mundo deja de ser una rejilla de cuadros y
 círculos.

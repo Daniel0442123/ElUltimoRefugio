@@ -25,6 +25,7 @@ add_executable(refugio_tests
     unit/test_control_simulacion.cpp
     unit/test_planificador_rutas.cpp
     unit/test_escenario.cpp
+    unit/test_disposicion.cpp
     unit/contador_asignaciones.cpp
 )
 target_link_libraries(refugio_tests PRIVATE refugio_dominio refugio_archivo refugio_cli refugio_menu refugio_vista Catch2::Catch2WithMain)

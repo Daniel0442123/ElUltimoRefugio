@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.16.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.17.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -101,7 +101,7 @@ refugio_configurar_objetivo(refugio_cli)
 
 # Lectura visual del mapa para el arte pixel (edificios, aceras, rayos de luz): sin raylib para
 # poder probarla en CI.
-add_library(refugio_vista STATIC src/adaptadores/vista/Escenario.cpp)
+add_library(refugio_vista STATIC src/adaptadores/vista/Escenario.cpp src/adaptadores/vista/Disposicion.cpp)
 target_link_libraries(refugio_vista PUBLIC refugio_dominio)
 refugio_configurar_objetivo(refugio_vista)
 
@@ -118,10 +118,20 @@ refugio_configurar_objetivo(refugio_bench)
 # Juego (adaptadores raylib)
 # ---------------------------------------------------------------------------
 if(REFUGIO_BUILD_GAME)
+    # Tipografía de la interfaz: Inter (SIL OFL 1.1, assets/fuentes/OFL.txt), reducida a latín
+    # básico y Latin-1 (tildes, ñ, ¿, ¡, «») e incrustada en el ejecutable.
+    include(cmake/Embeber.cmake)
+    set(REFUGIO_FUENTES_CPP "${CMAKE_BINARY_DIR}/generado/FuentesEmbebidas.cpp")
+    refugio_embeber("${REFUGIO_FUENTES_CPP}" refugio::adaptadores::embebido
+        kInterMedium "${CMAKE_SOURCE_DIR}/assets/fuentes/Inter-Medium.ttf"
+        kInterBold   "${CMAKE_SOURCE_DIR}/assets/fuentes/Inter-Bold.ttf")
+
     add_library(refugio_adaptadores STATIC src/adaptadores/raylib/VistaDepuracion.cpp
                                            src/adaptadores/raylib/VistaPartida.cpp
                                            src/adaptadores/raylib/Sonidos.cpp
-                                           src/adaptadores/raylib/ArteMundo.cpp)
+                                           src/adaptadores/raylib/ArteMundo.cpp
+                                           src/adaptadores/raylib/Interfaz.cpp
+                                           "${REFUGIO_FUENTES_CPP}")
     target_link_libraries(refugio_adaptadores PUBLIC refugio_dominio refugio_archivo refugio_vista raylib)
     refugio_configurar_objetivo(refugio_adaptadores)
 

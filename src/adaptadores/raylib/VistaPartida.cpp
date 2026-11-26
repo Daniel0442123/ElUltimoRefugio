@@ -2,6 +2,8 @@
 
 #include <raylib.h>
 
+#include "adaptadores/raylib/Interfaz.hpp"
+
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -34,15 +36,15 @@ Vector2 centroCelda(mundo::Celda c, const EstiloVista& e) { return aPantalla(age
 
 /// Texto con sombra de 1 px para que se lea sobre el arte, con luz o sin ella.
 void textoConSombra(const char* t, int x, int y, int tam, Color c) {
-    DrawText(t, x + 1, y + 1, tam, {0, 0, 0, 200});
-    DrawText(t, x, y, tam, c);
+    dibujarTexto(t, x + 1, y + 1, tam, {0, 0, 0, 200});
+    dibujarTexto(t, x, y, tam, c);
 }
 
 const char* nombreObjeto(juego::TipoObjeto t) {
     switch (t) {
         case juego::TipoObjeto::Medicamento: return "Medicamentos";
         case juego::TipoObjeto::Combustible: return "Combustible";
-        case juego::TipoObjeto::Bateria: return "Bateria";
+        case juego::TipoObjeto::Bateria: return "Batería";
     }
     return "?";
 }
@@ -96,7 +98,7 @@ void dibujarAyuda(int x, int alto, const config::Controles& k) {
                   t(Accion::PasoSimulacion).c_str(), t(Accion::MasLento).c_str(), t(Accion::MasRapido).c_str());
     int yc = alto - 140;  // 9 líneas de 14 px
     for (const auto& s : l) {
-        DrawText(s, x, yc, 12, LIGHTGRAY);
+        dibujarTexto(s, x, yc, 12, LIGHTGRAY);
         yc += 14;
     }
 }
@@ -129,16 +131,16 @@ int dibujarTablaComparacion(const juego::Partida& p, int x, int y) {
     const auto& c = p.comparacion();
     const int c1 = x + 78;
     const int c2 = x + 156;
-    DrawText("F3", x, y, 12, GOLD);
-    DrawText("Dijkstra", c1, y, 12, kColorDijkstra);
-    DrawText("A*", c2, y, 12, kColorExpandido);
+    dibujarTexto("F3", x, y, 12, GOLD);
+    dibujarTexto("Dijkstra", c1, y, 12, kColorDijkstra);
+    dibujarTexto("A*", c2, y, 12, kColorExpandido);
     y += 14;
     const auto fila = [&](const char* nombre, const char* fmt, double a, double b) {
-        DrawText(nombre, x, y, 12, LIGHTGRAY);
+        dibujarTexto(nombre, x, y, 12, LIGHTGRAY);
         std::snprintf(buf, sizeof(buf), fmt, a);
-        DrawText(buf, c1, y, 12, RAYWHITE);
+        dibujarTexto(buf, c1, y, 12, RAYWHITE);
         std::snprintf(buf, sizeof(buf), fmt, b);
-        DrawText(buf, c2, y, 12, RAYWHITE);
+        dibujarTexto(buf, c2, y, 12, RAYWHITE);
         y += 14;
     };
     const auto& d = c.dijkstra;
@@ -149,10 +151,10 @@ int dibujarTablaComparacion(const juego::Partida& p, int x, int y) {
     fila("Tiempo us", "%.1f", d.tiempoUs, a.tiempoUs);
     fila("Memoria KB", "%.1f", static_cast<double>(d.memoriaBytes) / 1024.0, static_cast<double>(a.memoriaBytes) / 1024.0);
     std::snprintf(buf, sizeof(buf), "Mismo costo: %s (dif %.1e)", c.mismoCosto() ? "si" : "NO", c.diferenciaCosto());
-    DrawText(buf, x, y, 12, c.mismoCosto() ? Color{120, 220, 130, 255} : RED);
+    dibujarTexto(buf, x, y, 12, c.mismoCosto() ? Color{120, 220, 130, 255} : RED);
     y += 14;
     std::snprintf(buf, sizeof(buf), "A* expande %.0f%% menos", 100.0 * c.ahorroExpandidos());
-    DrawText(buf, x, y, 12, c.aEstrellaNoExpandeMas() ? Color{120, 220, 130, 255} : RED);
+    dibujarTexto(buf, x, y, 12, c.aEstrellaNoExpandeMas() ? Color{120, 220, 130, 255} : RED);
     y += 14;
     return y + 4;
 }
@@ -165,14 +167,14 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
     const auto& m = z.busqueda;
     const auto& pc = z.percibido;
     std::snprintf(buf, sizeof(buf), "Agente Z%zu", id);
-    DrawText(buf, x, y, 18, GOLD);
-    DrawText("clic fuera: soltar", x + 130, y + 5, 10, GRAY);
+    dibujarTexto(buf, x, y, 18, GOLD, Peso::Negrita);
+    dibujarTexto("clic fuera: soltar", x + 130, y + 5, 10, GRAY);
     y += 22;
     const auto est = agentes::nombreEstado(z.estado);
     DrawCircle(x + 5, y + 6, 5, colorEstado(z.estado));
     std::snprintf(buf, sizeof(buf), "Estado: %.*s (%.1f s)", static_cast<int>(est.size()), est.data(),
                   static_cast<double>(z.tiempoEnEstado));
-    DrawText(buf, x + 14, y, 13, RAYWHITE);
+    dibujarTexto(buf, x + 14, y, 13, RAYWHITE);
     y += 16;
     // Objetivo: la celda a la que va y por qué (tarea de Contract Net o táctica propia).
     const auto tac = agentes::nombreTactica(z.tactica);
@@ -186,12 +188,12 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
     } else {
         std::snprintf(buf, sizeof(buf), "Objetivo: ninguno");
     }
-    DrawText(buf, x, y, 12, RAYWHITE);
+    dibujarTexto(buf, x, y, 12, RAYWHITE);
     y += 15;
     // Percepción relevante del último ciclo de IA: vista, oído y mensajes.
     std::snprintf(buf, sizeof(buf), "Ve a Mara: %s (a %.1f)  ruidos: %u", pc.veAMara ? "si" : "no",
                   static_cast<double>(pc.distanciaMara), static_cast<unsigned>(pc.ruidosOidos));
-    DrawText(buf, x, y, 12, pc.veAMara ? ORANGE : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, pc.veAMara ? ORANGE : LIGHTGRAY);
     y += 15;
     if (pc.recibioAlerta)
         std::snprintf(buf, sizeof(buf), "Mensajes: alerta %.2f%s  memoria: %u", static_cast<double>(pc.confianzaAlerta),
@@ -199,19 +201,19 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
     else
         std::snprintf(buf, sizeof(buf), "Mensajes: %s  memoria: %u", pc.recibioTarea ? "tarea" : "ninguno",
                       static_cast<unsigned>(pc.evidencias));
-    DrawText(buf, x, y, 12, pc.recibioAlerta ? YELLOW : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, pc.recibioAlerta ? YELLOW : LIGHTGRAY);
     y += 18;
 
-    DrawText("Ultima busqueda", x, y, 15, GOLD);
+    dibujarTexto("Última búsqueda", x, y, 15, GOLD, Peso::Negrita);
     y += 18;
     if (z.usaCampo) {
         std::snprintf(buf, sizeof(buf), "Ahora sigue el flow field (%.0f us)", p.campo().tiempoUs());
-        DrawText(buf, x, y, 12, SKYBLUE);
+        dibujarTexto(buf, x, y, 12, SKYBLUE);
         y += 15;
     }
     const bool comparando = p.comparacion().valida && p.agenteComparado() == static_cast<int>(id);
     if (!m.valida) {
-        DrawText("Aun no ha planificado", x, y, 12, LIGHTGRAY);
+        dibujarTexto("Aún no ha planificado", x, y, 12, LIGHTGRAY);
         y += 15;
     } else if (comparando) {
         // HU-16: con F3 la tabla Dijkstra / A* sustituye a las métricas sueltas y al historial.
@@ -220,7 +222,7 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
         const auto alg = navegacion::nombreAlgoritmo(p.algoritmo());
         std::snprintf(buf, sizeof(buf), "(%d,%d) > (%d,%d)  activo F2: %.*s", co.x, co.y, cd.x, cd.y,
                       static_cast<int>(alg.size()), alg.data());
-        DrawText(buf, x, y, 12, LIGHTGRAY);
+        dibujarTexto(buf, x, y, 12, LIGHTGRAY);
         y += 16;
         dibujarTablaComparacion(p, x, y);
         return;
@@ -228,11 +230,11 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
         const auto alg = navegacion::nombreAlgoritmo(m.algoritmo);
         std::snprintf(buf, sizeof(buf), "%.*s  heuristica: %s", static_cast<int>(alg.size()), alg.data(),
                       m.algoritmo == navegacion::Algoritmo::AEstrella ? "octil" : "h = 0");
-        DrawText(buf, x, y, 13, kColorExpandido);
+        dibujarTexto(buf, x, y, 13, kColorExpandido);
         y += 16;
         std::snprintf(buf, sizeof(buf), "(%d,%d) > (%d,%d) hace %.1f s", m.origen.x, m.origen.y, m.destino.x, m.destino.y,
                       static_cast<double>(p.tick() - m.tick) * static_cast<double>(p.dt()));
-        DrawText(buf, x, y, 12, LIGHTGRAY);
+        dibujarTexto(buf, x, y, 12, LIGHTGRAY);
         y += 15;
         const std::size_t restantes = z.ruta.size() > z.indiceRuta ? z.ruta.size() - z.indiceRuta : 0;
         if (m.encontrada)
@@ -240,23 +242,23 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
                           static_cast<unsigned>(m.largoRuta), restantes);
         else
             std::snprintf(buf, sizeof(buf), "Sin ruta al objetivo");
-        DrawText(buf, x, y, 12, RAYWHITE);
+        dibujarTexto(buf, x, y, 12, RAYWHITE);
         y += 15;
         std::snprintf(buf, sizeof(buf), "Nodos expandidos: %u  generados: %u", m.expandidos, m.generados);
-        DrawText(buf, x, y, 12, RAYWHITE);
+        dibujarTexto(buf, x, y, 12, RAYWHITE);
         y += 15;
         std::snprintf(buf, sizeof(buf), "Tiempo: %.1f us  memoria: %.1f KB", m.tiempoUs,
                       static_cast<double>(m.memoriaBytes) / 1024.0);
-        DrawText(buf, x, y, 12, RAYWHITE);
+        dibujarTexto(buf, x, y, 12, RAYWHITE);
         y += 15;
         std::snprintf(buf, sizeof(buf), "Abierta max: %u   pintados: %zu", m.maxAbierta, p.expansionSeleccionado().size());
-        DrawText(buf, x, y, 12, LIGHTGRAY);
+        dibujarTexto(buf, x, y, 12, LIGHTGRAY);
         y += 15;
     }
     y += 4;
 
     // RF-072: historial del agente, mezclando transiciones y cambios de plan, el más reciente arriba.
-    DrawText("Historial del agente", x, y, 15, GOLD);
+    dibujarTexto("Historial del agente", x, y, 15, GOLD, Peso::Negrita);
     y += 18;
     std::array<EntradaHistorial, 12> h{};
     std::size_t nh = 0;
@@ -267,7 +269,7 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
         if (p.ultimoCambioPlan(i).agente == id) h[nh++] = {p.ultimoCambioPlan(i).tick, true, i};
     std::stable_sort(h.begin(), h.begin() + static_cast<std::ptrdiff_t>(nh),
                      [](const EntradaHistorial& a, const EntradaHistorial& b) { return a.tick > b.tick; });
-    if (nh == 0) DrawText("Sin cambios todavia", x, y, 12, GRAY);
+    if (nh == 0) dibujarTexto("Sin cambios todavía", x, y, 12, GRAY);
     for (std::size_t k = 0; k < nh && y + 13 <= limite; ++k) {
         const double t = static_cast<double>(h[k].tick) * static_cast<double>(p.dt());
         if (h[k].esPlan) {
@@ -275,7 +277,7 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
             const auto mo = juego::nombreMotivoPlan(c.motivo);
             std::snprintf(buf, sizeof(buf), "%5.1fs plan %.*s >(%d,%d) %.2f>%.2f", t, static_cast<int>(mo.size()), mo.data(),
                           c.nuevo.x, c.nuevo.y, static_cast<double>(c.valorAnterior), static_cast<double>(c.valorNuevo));
-            DrawText(buf, x, y, 11, k == 0 ? Color{255, 200, 120, 255} : Color{200, 160, 110, 255});
+            dibujarTexto(buf, x, y, 11, k == 0 ? Color{255, 200, 120, 255} : Color{200, 160, 110, 255});
         } else {
             const auto& tr = p.ultimaTransicion(h[k].indice);
             const auto a = agentes::nombreEstado(tr.desde);
@@ -283,7 +285,7 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
             const auto mo = agentes::nombreMotivo(tr.motivo);
             std::snprintf(buf, sizeof(buf), "%5.1fs %.*s>%.*s: %.*s", t, static_cast<int>(a.size()), a.data(),
                           static_cast<int>(b.size()), b.data(), static_cast<int>(mo.size()), mo.data());
-            DrawText(buf, x, y, 11, k == 0 ? RAYWHITE : GRAY);
+            dibujarTexto(buf, x, y, 11, k == 0 ? RAYWHITE : GRAY);
         }
         y += 13;
     }
@@ -312,9 +314,9 @@ void dibujarConsolaIa(const juego::Partida& p, ModoConsola modo, int x, int y, i
                                                          : "Registro de IA: todo (L: ocultar)";
     const auto& reg = p.registroIa();
     char buf[200];
-    std::snprintf(buf, sizeof(buf), "%s   %llu lineas en logs/ia_%llu.log", titulo,
+    std::snprintf(buf, sizeof(buf), "%s   %llu líneas en logs/ia_%llu.log", titulo,
                   static_cast<unsigned long long>(reg.total()), static_cast<unsigned long long>(p.semilla()));
-    DrawText(buf, x + 6, y + 4, 11, GOLD);
+    dibujarTexto(buf, x + 6, y + 4, 11, GOLD);
     // Las líneas que tocan, de la más reciente hacia atrás; se dibujan con la más nueva abajo.
     std::array<std::size_t, 32> elegidas{};
     std::size_t n = 0;
@@ -338,7 +340,7 @@ void dibujarConsolaIa(const juego::Partida& p, ModoConsola modo, int x, int y, i
                         : l.tipo == TipoEventoIa::Mensaje       ? Color{240, 230, 120, 255}
                         : l.tipo == TipoEventoIa::Superviviente ? kColorSuperviviente
                                                                 : LIGHTGRAY;
-        DrawText(salida, x + 6, yl, 11, k == 0 ? c : Fade(c, 0.8f));
+        dibujarTexto(salida, x + 6, yl, 11, k == 0 ? c : Fade(c, 0.8f));
         yl += kAltoLinea;
     }
 }
@@ -396,16 +398,16 @@ void dibujarPartida(const juego::Partida& p, const ArteMundo& arte, const Estilo
         DrawRing(cx, rx - 2.0f, rx, 0.0f, 360.0f, 48, {80, 220, 100, 255});
         char t[16];
         std::snprintf(t, sizeof(t), "%.0f s", static_cast<double>(p.restanteExtraccion()));
-        textoConSombra(t, static_cast<int>(cx.x) - MeasureText(t, 16) / 2, static_cast<int>(cx.y - rx) - 18, 16,
+        textoConSombra(t, static_cast<int>(cx.x) - medirTexto(t, 16) / 2, static_cast<int>(cx.y - rx) - 18, 16,
                        {120, 255, 140, 255});
     }
-    textoConSombra("EXT", static_cast<int>(cx.x) - MeasureText("EXT", 10) / 2, static_cast<int>(cx.y) - 5, 10,
+    textoConSombra("EXT", static_cast<int>(cx.x) - medirTexto("EXT", 10) / 2, static_cast<int>(cx.y) - 5, 10,
                    p.zonaAbierta() ? Color{120, 255, 140, 255} : Color{230, 190, 60, 255});
 
     // HU-13: rótulo del almacén de tablas.
     if (p.almacen().x >= 0) {
         const Vector2 ca = centroCelda(p.almacen(), e);
-        textoConSombra("ALM", static_cast<int>(ca.x) - MeasureText("ALM", 10) / 2, static_cast<int>(ca.y - tc * 0.5f) - 10, 10,
+        textoConSombra("ALM", static_cast<int>(ca.x) - medirTexto("ALM", 10) / 2, static_cast<int>(ca.y - tc * 0.5f) - 10, 10,
                        {220, 170, 110, 255});
     }
 
@@ -491,7 +493,7 @@ void dibujarPartida(const juego::Partida& p, const ArteMundo& arte, const Estilo
         }
         if (marca == nullptr) continue;
         const Vector2 c = aPantalla(z.pos, e);
-        textoConSombra(marca, static_cast<int>(c.x) - MeasureText(marca, 18) / 2, static_cast<int>(c.y - tc * 0.95f), 18,
+        textoConSombra(marca, static_cast<int>(c.x) - medirTexto(marca, 18) / 2, static_cast<int>(c.y - tc * 0.95f), 18,
                        colorEstado(z.estado));
     }
 
@@ -545,11 +547,11 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     char buf[128];
     const auto& m = p.mara();
     const auto& cfg = p.config();
-    DrawText("El ultimo refugio", x, y, 20, GOLD);
+    dibujarTexto("El último refugio", x, y, 20, GOLD, Peso::Negrita);
     y += 30;
 
     std::snprintf(buf, sizeof(buf), "Salud %.0f / %.0f", static_cast<double>(m.salud), static_cast<double>(cfg.saludMax));
-    DrawText(buf, x, y, 16, RAYWHITE);
+    dibujarTexto(buf, x, y, 16, RAYWHITE);
     y += 20;
     barra(x, y, 220, 12, m.salud / cfg.saludMax, m.salud > 30.0f ? Color{60, 190, 90, 255} : RED);
     y += 22;
@@ -558,32 +560,32 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
                        : m.modo == juego::ModoMovimiento::Correr ? "correr (ruido 6)"
                                                                  : "caminar (ruido 3)";
     std::snprintf(buf, sizeof(buf), "Modo: %s", modo);
-    DrawText(buf, x, y, 14, LIGHTGRAY);
+    dibujarTexto(buf, x, y, 14, LIGHTGRAY);
     y += 18;
-    std::snprintf(buf, sizeof(buf), "Senuelos (Q): %d   Barricadas (B): %d", m.senuelos, m.barricadas);
-    DrawText(buf, x, y, 14, LIGHTGRAY);
+    std::snprintf(buf, sizeof(buf), "Señuelos (Q): %d   Barricadas (B): %d", m.senuelos, m.barricadas);
+    dibujarTexto(buf, x, y, 14, LIGHTGRAY);
     y += 22;
 
-    DrawText("Objetivos", x, y, 18, GOLD);
+    dibujarTexto("Objetivos", x, y, 18, GOLD, Peso::Negrita);
     y += 22;
     for (int t = 0; t < juego::kNumTiposObjeto; ++t) {
         const bool tiene = m.inventario[static_cast<std::size_t>(t)];
         std::snprintf(buf, sizeof(buf), "[%c] %s", tiene ? 'x' : ' ', nombreObjeto(static_cast<juego::TipoObjeto>(t)));
-        DrawText(buf, x, y, 14, tiene ? Color{120, 220, 130, 255} : LIGHTGRAY);
+        dibujarTexto(buf, x, y, 14, tiene ? Color{120, 220, 130, 255} : LIGHTGRAY);
         y += 18;
     }
     if (p.zonaAbierta()) {
-        std::snprintf(buf, sizeof(buf), "Extraccion abierta: %.0f s", static_cast<double>(p.restanteExtraccion()));
-        DrawText(buf, x, y, 14, GREEN);
+        std::snprintf(buf, sizeof(buf), "Extracción abierta: %.0f s", static_cast<double>(p.restanteExtraccion()));
+        dibujarTexto(buf, x, y, 14, GREEN);
     } else if (p.activacionesRadio() > 0 && p.tieneTodosLosObjetos()) {
-        DrawText("Extraccion cerrada: activa otra vez", x, y, 14, ORANGE);
+        dibujarTexto("Extracción cerrada: activa otra vez", x, y, 14, ORANGE);
     } else {
-        DrawText(p.tieneTodosLosObjetos() ? "Ve a la radio y manten E" : "Despues: activar la radio", x, y, 14,
+        dibujarTexto(p.tieneTodosLosObjetos() ? "Ve a la radio y mantén E" : "Después: activar la radio", x, y, 14,
                  p.tieneTodosLosObjetos() ? SKYBLUE : GRAY);
     }
     y += 18;
     std::snprintf(buf, sizeof(buf), "Refugio %.0f", static_cast<double>(p.integridad()));
-    DrawText(buf, x, y, 14, p.golpeandoPuerta() > 0 ? RED : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 14, p.golpeandoPuerta() > 0 ? RED : LIGHTGRAY);
     barra(x + 90, y + 2, 130, 10, p.integridad() / cfg.integridadMax,
           p.integridad() > 30.0f ? Color{200, 160, 70, 255} : RED);
     y += 18;
@@ -597,7 +599,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         const auto act = juego::nombreActividad(s.actividad);
         std::snprintf(buf, sizeof(buf), "Superviviente: %.*s (%.*s)", static_cast<int>(meta.size()), meta.data(),
                       static_cast<int>(act.size()), act.data());
-        DrawText(buf, x, y, 12, kColorSuperviviente);
+        dibujarTexto(buf, x, y, 12, kColorSuperviviente);
         y += 14;
         int n = std::snprintf(buf, sizeof(buf), "Plan:");
         for (std::size_t i = 0; i < s.plan.longitud && n > 0 && static_cast<std::size_t>(n) < sizeof(buf); ++i) {
@@ -605,14 +607,14 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
             n += std::snprintf(buf + n, sizeof(buf) - static_cast<std::size_t>(n), i == s.paso ? "%s[%s]" : "%s%s",
                                i == 0 ? " " : " > ", a);
         }
-        DrawText(buf, x, y, 11, LIGHTGRAY);
+        dibujarTexto(buf, x, y, 11, LIGHTGRAY);
         y += 13;
         const auto& u = s.utilidades;
         const auto mo = p.numRegistrosSuperviviente() > 0 ? juego::nombreMotivoReplan(p.ultimoRegistroSuperviviente(0).motivo)
                                                           : std::string_view{"-"};
         std::snprintf(buf, sizeof(buf), "U R%.2f A%.2f S%.2f V%.2f  %.*s", static_cast<double>(u[0]), static_cast<double>(u[1]),
                       static_cast<double>(u[2]), static_cast<double>(u[3]), static_cast<int>(mo.size()), mo.data());
-        DrawText(buf, x, y, 11, GRAY);
+        dibujarTexto(buf, x, y, 11, GRAY);
         y += 13;
     }
     y += 6;
@@ -623,7 +625,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         return;
     }
 
-    DrawText("Infectados", x, y, 18, GOLD);
+    dibujarTexto("Infectados", x, y, 18, GOLD, Peso::Negrita);
     y += 22;
     std::array<int, agentes::kNumEstadosInfectado> cuenta{};
     for (const auto& z : p.infectados()) ++cuenta[static_cast<std::size_t>(z.estado)];
@@ -640,7 +642,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
         DrawCircle(cx + 6, cy + 7, 5, colorEstado(est));
         std::snprintf(buf, sizeof(buf), "%.*s: %d", static_cast<int>(nombre.size()), nombre.data(),
                       cuenta[static_cast<std::size_t>(s)]);
-        DrawText(buf, cx + 16, cy, 13, RAYWHITE);
+        dibujarTexto(buf, cx + 16, cy, 13, RAYWHITE);
     }
     y += filasEstados * 15 + 4;
     // RF-074: algoritmo activo de todos los agentes (F2).
@@ -648,42 +650,42 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     const int na = static_cast<int>(alg.size());
     std::snprintf(buf, sizeof(buf), "%.*s (F2): %u rutas, %u/%d nodos", na, alg.data(), p.busquedasUltimoTickIa(),
                   p.nodosUltimoTickIa(), cfg.presupuestoNodosTick);
-    DrawText(buf, x, y, 12, p.algoritmo() == navegacion::Algoritmo::AEstrella ? kColorExpandido : kColorDijkstra);
+    dibujarTexto(buf, x, y, 12, p.algoritmo() == navegacion::Algoritmo::AEstrella ? kColorExpandido : kColorDijkstra);
     y += 15;
     // HU-23 (RF-026): solicitudes en espera, si una búsqueda sigue a medias y la mayor espera.
     const auto& plan = p.planificador();
     std::snprintf(buf, sizeof(buf), "cola %zu%s  %.0f us  espera max %u  FPS %d", plan.pendientes(),
                   plan.metricas().enCurso ? "+1" : "", p.tiempoBusquedaUltimoTickIaUs(), p.esperaMaximaRuta(), fps);
-    DrawText(buf, x, y, 12, plan.metricas().enCurso || plan.pendientes() > 0 ? ORANGE : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, plan.metricas().enCurso || plan.pendientes() > 0 ? ORANGE : LIGHTGRAY);
     y += 15;
     if (p.campoActivo())
         std::snprintf(buf, sizeof(buf), "Flow field: %u agentes, %.0f us", p.agentesEnCampo(), p.campo().tiempoUs());
     else
         std::snprintf(buf, sizeof(buf), "Flow field: inactivo (umbral %d)", cfg.flowfieldUmbral);
-    DrawText(buf, x, y, 12, p.campoActivo() ? SKYBLUE : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, p.campoActivo() ? SKYBLUE : LIGHTGRAY);
     y += 15;
     // RF-056 (HU-18): F4 apaga y enciende la comunicación entre infectados.
-    DrawText(cfg.coordinado ? "Modo: coordinado (F4)" : "Modo: aislado (F4)", x, y, 14,
+    dibujarTexto(cfg.coordinado ? "Modo: coordinado (F4)" : "Modo: aislado (F4)", x, y, 14,
              cfg.coordinado ? YELLOW : Color{255, 140, 90, 255});
     y += 16;
     std::snprintf(buf, sizeof(buf), "alertas %llu  msj alerta %llu  msj total %llu",
                   static_cast<unsigned long long>(p.alertasEmitidas()),
                   static_cast<unsigned long long>(p.mensajesAlerta()),
                   static_cast<unsigned long long>(p.totalMensajes()));
-    DrawText(buf, x, y, 12, cfg.coordinado ? YELLOW : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, cfg.coordinado ? YELLOW : LIGHTGRAY);
     y += 15;
     std::snprintf(buf, sizeof(buf), "Contract Net: %llu subastas, %llu tareas",
                   static_cast<unsigned long long>(p.subastas()), static_cast<unsigned long long>(p.adjudicaciones()));
-    DrawText(buf, x, y, 12, cfg.coordinado && cfg.contractNet ? Color{60, 200, 210, 255} : LIGHTGRAY);
+    dibujarTexto(buf, x, y, 12, cfg.coordinado && cfg.contractNet ? Color{60, 200, 210, 255} : LIGHTGRAY);
     y += 15;
     // RF-054: cuántos infectados prefieren cada táctica ahora mismo.
     std::array<int, agentes::kNumTacticas> tacticas{};
     for (const auto& z : p.infectados()) ++tacticas[static_cast<std::size_t>(z.tactica)];
-    std::snprintf(buf, sizeof(buf), "Tacticas P / I / E: %d / %d / %d", tacticas[0], tacticas[1], tacticas[2]);
-    DrawText(buf, x, y, 12, cfg.tacticas ? LIGHTGRAY : GRAY);
+    std::snprintf(buf, sizeof(buf), "Tácticas P / I / E: %d / %d / %d", tacticas[0], tacticas[1], tacticas[2]);
+    dibujarTexto(buf, x, y, 12, cfg.tacticas ? LIGHTGRAY : GRAY);
     y += 16;
 
-    DrawText("Transiciones FSM", x, y, 16, GOLD);
+    dibujarTexto("Transiciones FSM", x, y, 16, GOLD, Peso::Negrita);
     y += 18;
     const std::size_t n = p.numTransiciones() < 2 ? p.numTransiciones() : 2;
     for (std::size_t i = 0; i < n; ++i) {
@@ -695,12 +697,12 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
                       static_cast<double>(t.tick) * static_cast<double>(p.dt()), static_cast<unsigned>(t.agente),
                       static_cast<int>(a.size()), a.data(), static_cast<int>(b.size()), b.data(),
                       static_cast<int>(mo.size()), mo.data());
-        DrawText(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
+        dibujarTexto(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
         y += 14;
     }
     y += 4;
     // RF-072: cambios de objetivo con sus utilidades (o costos de ruta, si es por una barricada).
-    DrawText("Cambios de plan", x, y, 16, GOLD);
+    dibujarTexto("Cambios de plan", x, y, 16, GOLD, Peso::Negrita);
     y += 18;
     const std::size_t np = p.numCambiosPlan() < 2 ? p.numCambiosPlan() : 2;
     for (std::size_t i = 0; i < np; ++i) {
@@ -710,7 +712,7 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
                       static_cast<double>(c.tick) * static_cast<double>(p.dt()), static_cast<unsigned>(c.agente),
                       static_cast<int>(mo.size()), mo.data(), c.nuevo.x, c.nuevo.y,
                       static_cast<double>(c.valorAnterior), static_cast<double>(c.valorNuevo));
-        DrawText(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
+        dibujarTexto(buf, x, y, 11, i == 0 ? RAYWHITE : GRAY);
         y += 14;
     }
 
@@ -721,13 +723,13 @@ void dibujarFinPartida(const juego::Partida& p, int anchoMapa, int altoMapa) {
     if (p.estado() == juego::EstadoPartida::EnCurso) return;
     DrawRectangle(0, 0, anchoMapa, altoMapa, Fade(BLACK, 0.55f));
     const bool gano = p.estado() == juego::EstadoPartida::Victoria;
-    const char* titulo = gano                                               ? "Mara llega a la extraccion: victoria"
+    const char* titulo = gano                                               ? "Mara llega a la extracción: victoria"
                          : p.motivoFin() == juego::MotivoFin::Refugio ? "Derrota: refugio inutilizado"
-                                                                      : "Derrota: Mara ha caido";
-    const int w = MeasureText(titulo, 32);
-    DrawText(titulo, (anchoMapa - w) / 2, altoMapa / 2 - 30, 32, gano ? SKYBLUE : RED);
+                                                                      : "Derrota: Mara ha caído";
+    const int w = medirTexto(titulo, 32, Peso::Negrita);
+    dibujarTexto(titulo, (anchoMapa - w) / 2, altoMapa / 2 - 30, 32, gano ? SKYBLUE : RED, Peso::Negrita);
     const char* sub = "R: jugar otra vez (nuevo mapa)";
-    DrawText(sub, (anchoMapa - MeasureText(sub, 18)) / 2, altoMapa / 2 + 14, 18, RAYWHITE);
+    dibujarTexto(sub, (anchoMapa - medirTexto(sub, 18)) / 2, altoMapa / 2 + 14, 18, RAYWHITE);
 }
 
 }  // namespace refugio::adaptadores
@@ -760,22 +762,22 @@ Rectangle dibujarTutorial(const juego::Tutorial& t, const config::Controles& k, 
         case juego::PasoTutorial::Terminado: return {};
     }
     std::snprintf(titulo, sizeof(titulo), "Tutorial %d/%d", static_cast<int>(t.paso()) + 1, juego::kNumPasosTutorial);
-    const int ancho = std::max(MeasureText(texto, 18) + 32, 520);
+    const int ancho = std::max(medirTexto(texto, 18) + 32, 520);
     const int x = (anchoMapa - ancho) / 2;
     const int y = 10;
     DrawRectangle(x, y, ancho, 78, Fade({16, 18, 24, 255}, 0.88f));
     DrawRectangleLines(x, y, ancho, 78, GOLD);
-    DrawText(titulo, x + 16, y + 8, 16, GOLD);
-    DrawText(texto, x + 16, y + 30, 18, RAYWHITE);
+    dibujarTexto(titulo, x + 16, y + 8, 16, GOLD, Peso::Negrita);
+    dibujarTexto(texto, x + 16, y + 30, 18, RAYWHITE);
     if (t.paso() != juego::PasoTutorial::Recoger) barra(x + 16, y + 56, 200, 10, t.progreso(), {230, 190, 60, 255});
     char boton[48];
     std::snprintf(boton, sizeof(boton), "Saltar tutorial (%s)", tc(Accion::SaltarTutorial).c_str());
-    const int wb = MeasureText(boton, 14) + 16;
+    const int wb = medirTexto(boton, 14) + 16;
     const Rectangle r{static_cast<float>(x + ancho - wb - 10), static_cast<float>(y + 50), static_cast<float>(wb), 22.0f};
-    const bool encima = CheckCollisionPointRec(GetMousePosition(), r);
+    const bool encima = CheckCollisionPointRec(ratonInterfaz(), r);  // r está en unidades de interfaz
     DrawRectangleRec(r, encima ? Color{90, 80, 40, 255} : Color{50, 52, 58, 255});
     DrawRectangleLinesEx(r, 1.0f, GOLD);
-    DrawText(boton, static_cast<int>(r.x) + 8, static_cast<int>(r.y) + 4, 14, RAYWHITE);
+    dibujarTexto(boton, static_cast<int>(r.x) + 8, static_cast<int>(r.y) + 4, 14, RAYWHITE);
     return r;
 }
 

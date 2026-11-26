@@ -57,6 +57,9 @@ TEST_CASE("Nombres de tecla de ida y vuelta", "[config]") {
     CHECK(config::teclaReservada(config::tecla::kEscape));
     CHECK(config::teclaReservada(config::tecla::kArriba));
     CHECK_FALSE(config::teclaAsignable(config::tecla::kEnter));
+    // F11 alterna la pantalla completa: tiene nombre, pero no se puede asignar a una acción.
+    CHECK(config::teclaReservada(config::tecla::kPantallaCompleta));
+    CHECK_FALSE(config::teclaAsignable(config::tecla::kPantallaCompleta));
     CHECK(config::textoTecla(config::tecla::kCtrlIzq) == "Ctrl");
 }
 
@@ -66,6 +69,7 @@ TEST_CASE("Reasignar una tecla usada intercambia las dos acciones", "[config][RN
     CHECK(c.tecla(Accion::Senuelo) == 'E');
     CHECK(c.tecla(Accion::Interactuar) == 'Q');
     CHECK_FALSE(c.asignar(Accion::Senuelo, config::tecla::kEscape));
+    CHECK_FALSE(c.asignar(Accion::Senuelo, config::tecla::kPantallaCompleta));
     CHECK(c.tecla(Accion::Senuelo) == 'E');
     CHECK(c.asignar(Accion::Arriba, 'I'));
     CHECK(c.tecla(Accion::Arriba) == 'I');
