@@ -6,8 +6,8 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.1.0 |
-| Fecha | 2026-11-21 |
+| Versión | 0.2.0 (estado real del software 0.16.0) |
+| Fecha | 2026-11-25 |
 | Estimación | Puntos de historia (Fibonacci: 1, 2, 3, 5, 8, 13). Una historia de 13 o más se divide. |
 | Prioridad | MoSCoW (`M`, `S`, `C`, `W`) |
 
@@ -34,33 +34,39 @@
 
 ## 3. Resumen del backlog
 
-| ID | Título | Épica | Prioridad | Puntos | Escena | RF principales |
-|---|---|---|---|---|---|---|
-| HU-01 | Moverse en sigilo | EP-01 | M | 3 | 1 | RF-002, RF-003, RF-004 |
-| HU-02 | Recoger objetos de misión | EP-01 | M | 3 | 2 | RF-005, RF-006, RF-015, RF-016 |
-| HU-03 | Activar la radio del refugio | EP-01 | M | 5 | 4 | RF-007, RF-008 |
-| HU-04 | Escapar por la extracción | EP-01 | M | 3 | 5 | RF-009, RF-010 |
-| HU-05 | Perder la partida | EP-01 | M | 2 | todas | RF-011, RF-012, RF-055, RF-063 |
-| HU-06 | Lanzar un señuelo sonoro | EP-01 | M | 3 | 4 | RF-013 |
-| HU-07 | Colocar una barricada | EP-01 | M | 3 | 4 | RF-014, RF-025 |
-| HU-08 | Infectados que exploran sin información global | EP-03 | M | 8 | 1 | RF-040 a RF-045, RF-048 |
-| HU-09 | Investigar ruidos y propagar alertas | EP-03 | M | 8 | 2 | RF-046, RF-047 |
-| HU-10 | Horda que reparte la aproximación | EP-03 | M | 8 | 3 | RF-049, RF-051, RF-029 |
-| HU-11 | Horda que reconsidera objetivos ante señuelos | EP-03 | M | 5 | 4 | RF-050, RF-052 |
-| HU-12 | Perseguir, explorar o interceptar según evidencias | EP-03 | M | 8 | 5 | RF-053, RF-054 |
-| HU-13 | Superviviente de la radio autónomo | EP-04 | S | 8 | 4 | RF-060 a RF-064 |
-| HU-14 | Panel de monitoreo del agente | EP-05 | M | 5 | todas | RF-070, RF-071, RF-023 |
-| HU-15 | Registro de planes y mensajes | EP-05 | M | 3 | todas | RF-072, RF-073 |
-| HU-16 | Comparar Dijkstra y A\* en vivo | EP-02 | M | 5 | todas | RF-020 a RF-024, RF-074 |
-| HU-17 | Benchmark reproducible de búsqueda | EP-06 | M | 8 | — | RF-080 a RF-083, RF-086 |
-| HU-18 | Comparar agentes aislados y coordinados | EP-06 | M | 5 | — | RF-056, RF-084 |
-| HU-19 | Guardar, cargar y configurar | EP-07 | S | 3 | — | RF-090 a RF-093 |
-| HU-20 | Tutorial de sigilo | EP-01 | S | 2 | 1 | RF-017 |
-| HU-21 | Optimizar parámetros de la IA | EP-06 | S | 8 | — | RF-085 |
-| HU-22 | Controlar la simulación para explicarla | EP-05 | S | 2 | todas | RF-075 |
-| HU-23 | Rutas para la horda sin congelar el juego | EP-02 | M | 5 | 3 | RF-026, RF-027, RF-028, RF-030 |
+| ID | Título | Épica | Prioridad | Puntos | Escena | RF principales | Estado | Versión |
+|---|---|---|---|---|---|---|---|---|
+| HU-01 | Moverse en sigilo | EP-01 | M | 3 | 1 | RF-002, RF-003, RF-004 | Terminada con pendientes | 0.2.0 |
+| HU-02 | Recoger objetos de misión | EP-01 | M | 3 | 2 | RF-005, RF-006, RF-015, RF-016 | Terminada con pendientes | 0.2.0 |
+| HU-03 | Activar la radio del refugio | EP-01 | M | 5 | 4 | RF-007, RF-008 | Terminada | 0.2.0 |
+| HU-04 | Escapar por la extracción | EP-01 | M | 3 | 5 | RF-009, RF-010 | Terminada | 0.7.0 |
+| HU-05 | Perder la partida | EP-01 | M | 2 | todas | RF-011, RF-012, RF-055, RF-063 | Terminada | 0.7.0 |
+| HU-06 | Lanzar un señuelo sonoro | EP-01 | M | 3 | 4 | RF-013 | Terminada | 0.5.0 |
+| HU-07 | Colocar una barricada | EP-01 | M | 3 | 4 | RF-014, RF-025 | Terminada | 0.5.0 |
+| HU-08 | Infectados que exploran sin información global | EP-03 | M | 8 | 1 | RF-040 a RF-045, RF-048 | Terminada con pendientes | 0.2.0 |
+| HU-09 | Investigar ruidos y propagar alertas | EP-03 | M | 8 | 2 | RF-046, RF-047 | Terminada | 0.3.0 |
+| HU-10 | Horda que reparte la aproximación | EP-03 | M | 8 | 3 | RF-049, RF-051, RF-029 | Terminada | 0.4.0 |
+| HU-11 | Horda que reconsidera objetivos ante señuelos | EP-03 | M | 5 | 4 | RF-050, RF-052 | Terminada | 0.5.0 |
+| HU-12 | Perseguir, explorar o interceptar según evidencias | EP-03 | M | 8 | 5 | RF-053, RF-054 | Terminada | 0.6.0 |
+| HU-13 | Superviviente de la radio autónomo | EP-04 | S | 8 | 4 | RF-060 a RF-064 | Terminada | 0.8.0 |
+| HU-14 | Panel de monitoreo del agente | EP-05 | M | 5 | todas | RF-070, RF-071, RF-023 | Terminada | 0.9.0 |
+| HU-15 | Registro de planes y mensajes | EP-05 | M | 3 | todas | RF-072, RF-073 | Terminada | 0.9.0 |
+| HU-16 | Comparar Dijkstra y A\* en vivo | EP-02 | M | 5 | todas | RF-020 a RF-024, RF-074 | Terminada | 0.10.0 |
+| HU-17 | Benchmark reproducible de búsqueda | EP-06 | M | 8 | — | RF-080 a RF-083, RF-086 | Terminada | 0.10.0 |
+| HU-18 | Comparar agentes aislados y coordinados | EP-06 | M | 5 | — | RF-056, RF-084 | Terminada | 0.11.0 |
+| HU-19 | Guardar, cargar y configurar | EP-07 | S | 3 | — | RF-090 a RF-093 | Terminada | 0.12.0 |
+| HU-20 | Tutorial de sigilo | EP-01 | S | 2 | 1 | RF-017 | Terminada | 0.12.0 |
+| HU-21 | Optimizar parámetros de la IA | EP-06 | S | 8 | — | RF-085 | Terminada | 0.13.0 |
+| HU-22 | Controlar la simulación para explicarla | EP-05 | S | 2 | todas | RF-075 | Terminada | 0.14.0 |
+| HU-23 | Rutas para la horda sin congelar el juego | EP-02 | M | 5 | 3 | RF-026, RF-027, RF-028, RF-030 | Terminada | 0.15.0 |
 
 Total estimado: 113 puntos. Las historias `M` suman 90 puntos y las `S` suman 23.
+
+**Estado en 0.16.0**: las 23 historias están terminadas, 3 de ellas con requisitos pendientes (HU-01, HU-02 y
+HU-08; ver la fila «Estado» de cada una y la [matriz](06_matriz_trazabilidad.md)). El juego tiene **un solo
+mapa** generado con semilla en lugar de cinco escenas separadas: la columna «Escena» indica en qué momento de la
+partida se ve cada comportamiento del storyboard (exploración al empezar, alertas al oír a Mara, la horda al
+perseguirla, el refugio al instalar la radio y la extracción al final).
 
 ---
 
@@ -77,6 +83,8 @@ Total estimado: 113 puntos. Las historias `M` suman 90 puntos y las `S` suman 23
 | RF | RF-002, RF-003, RF-004, RF-016 |
 | RNF | RNF-001, RNF-012 |
 | Pruebas | CP-002, CP-003, CP-004 |
+| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
+| Implementación | Modos 1,5 / 3 / 6 celdas/s con ruido 1 / 3 / 6 (Mayús corre, Ctrl sigilo). La ciudad se genera por código con semilla, no con Tiled (ADR-0019). |
 
 ```gherkin
 # language: es
@@ -117,6 +125,8 @@ Característica: Desplazamiento de Mara con distintos niveles de ruido
 | Fuente | STB §01, Escena 2 |
 | RF | RF-005, RF-006, RF-015, RF-016 |
 | Pruebas | CP-005, CP-006, CP-015 |
+| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
+| Implementación | Recoger a 1 celda (E). Pendiente: la puerta metálica de la farmacia (RF-006) y usar un medicamento para curarse (RF-015). |
 
 ```gherkin
 # language: es
@@ -159,6 +169,8 @@ Característica: Recolección de objetos
 | Fuente | STB §01, Escena 4 |
 | RF | RF-007, RF-008 |
 | Pruebas | CP-007, CP-008 |
+| Estado (0.16.0) | **Terminada** · versión 0.2.0 · PR #1 |
+| Implementación | Mantener E 8 s con los tres objetos; soltar o recibir daño reinicia. Instalar hace ruido de radio 4. El superviviente acelera la instalación un 50 % (0.8.0). |
 
 ```gherkin
 # language: es
@@ -197,6 +209,8 @@ Característica: Instalación de la batería en la radio
 | Fuente | STB §01, Escena 5 |
 | RF | RF-009, RF-010 |
 | Pruebas | CP-009, CP-010 |
+| Estado (0.16.0) | **Terminada** · versión 0.7.0 · PR #6 |
+| Implementación | La radio abre 60 s una zona de extracción en el otro extremo de la ciudad; si se cierra, se puede volver a activar. |
 
 ```gherkin
 # language: es
@@ -227,6 +241,8 @@ Característica: Extracción
 | Fuente | STB §01 Objetivo y desenlace |
 | RF | RF-011, RF-012, RF-055, RF-063 |
 | Pruebas | CP-011, CP-012, CP-055, CP-063 |
+| Estado (0.16.0) | **Terminada** · versión 0.7.0 · PR #6 |
+| Implementación | «Derrota: Mara ha caído» (10 de daño por segundo y atacante) y «Derrota: refugio inutilizado» (5 por segundo y atacante). |
 
 ```gherkin
 # language: es
@@ -258,6 +274,8 @@ Característica: Condiciones de derrota
 | Fuente | STB §03 Prueba de aceptación; Escena 4 |
 | RF | RF-013 |
 | Pruebas | CP-013, CP-201 |
+| Estado (0.16.0) | **Terminada** · versión 0.5.0 · PR #4 |
+| Implementación | Q lanza hacia el cursor; 2 señuelos, 8 celdas, 10 ruidos de radio 8. |
 
 ```gherkin
 # language: es
@@ -287,6 +305,8 @@ Característica: Señuelo sonoro
 | Fuente | STB §03 Prueba de aceptación |
 | RF | RF-014, RF-025 |
 | Pruebas | CP-014, CP-025, CP-201 |
+| Estado (0.16.0) | **Terminada** · versión 0.5.0 · PR #4 |
+| Implementación | B pone la barricada en la celda vecina hacia el cursor; 3 barricadas de 100 puntos. |
 
 ```gherkin
 # language: es
@@ -317,6 +337,8 @@ Característica: Barricadas
 | RF | RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-048 |
 | RNF | RNF-002, RNF-023 |
 | Pruebas | CP-040 a CP-045, CP-048 |
+| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
+| Implementación | FSM con 7 estados, visión por cono y Bresenham, oído con −2 celdas por pared, memoria de 16 evidencias y exploración por mapa de visitas propio. Pendiente: roles explorador y perseguidor (RF-048); hay un solo tipo de infectado. |
 
 ```gherkin
 # language: es
@@ -357,6 +379,8 @@ Característica: Exploración autónoma sin omnisciencia
 | RF | RF-043, RF-046, RF-047, RF-073 |
 | RNF | RNF-027 |
 | Pruebas | CP-046, CP-047, CP-073 |
+| Estado (0.16.0) | **Terminada** · versión 0.3.0 · PR #2 |
+| Implementación | Alertas recursivas (radio 5, 3 saltos, ×0,7) con conjunto de visitados. La puerta metálica no existe: el ruido viene de Mara, de los señuelos o de la radio. |
 
 ```gherkin
 # language: es
@@ -396,6 +420,8 @@ Característica: Investigación de ruidos y alertas recursivas
 | Fuente | STB Escena 3 |
 | RF | RF-049, RF-051, RF-029, RF-030 |
 | Pruebas | CP-049, CP-051, CP-029 |
+| Estado (0.16.0) | **Terminada** · versión 0.4.0 · PR #3 |
+| Implementación | Contract Net (interceptar, flanquear, perseguir), reparto voraz de 8 accesos con 2 por celda y steering con 6 fuerzas. |
 
 ```gherkin
 # language: es
@@ -425,6 +451,8 @@ Característica: Distribución de la aproximación
 | Fuente | STB Escena 4; STB §03 Prueba de aceptación |
 | RF | RF-043, RF-050, RF-052, RF-072 |
 | Pruebas | CP-050, CP-052, CP-201 |
+| Estado (0.16.0) | **Terminada** · versión 0.5.0 · PR #4 |
+| Implementación | Reevaluación por utilidad ante señuelos y respuesta a barricadas (rodeo o AtacarBarricada si cuesta más del doble). |
 
 ```gherkin
 # language: es
@@ -460,6 +488,8 @@ Característica: Reevaluación de objetivos
 | Fuente | STB Escena 5 |
 | RF | RF-053, RF-054, RF-049 |
 | Pruebas | CP-053, CP-054 |
+| Estado (0.16.0) | **Terminada** · versión 0.6.0 · PR #5 |
+| Implementación | Tácticas Perseguir, Interceptar y Explorar puntuadas con la mejor evidencia y 10 % de histéresis; punto de corte 2 a 6 s por delante de Mara. |
 
 ```gherkin
 # language: es
@@ -496,6 +526,8 @@ Característica: Elección de táctica
 | Fuente | STB §01 Personajes |
 | RF | RF-060, RF-061, RF-062, RF-063, RF-064 |
 | Pruebas | CP-060 a CP-064 |
+| Estado (0.16.0) | **Terminada** · versión 0.8.0 · PR #7 |
+| Implementación | Utility (4 metas, histéresis 0,1), GOAP regresivo (≤ 6 acciones) y árbol de comportamiento; repara 8 puntos/s. Los infectados no atacan al superviviente. |
 
 ```gherkin
 # language: es
@@ -532,6 +564,8 @@ Característica: Superviviente con utilidad, GOAP y árbol de comportamiento
 | RF | RF-023, RF-070, RF-071 |
 | RNF | RNF-013 |
 | Pruebas | CP-070, CP-071 |
+| Estado (0.16.0) | **Terminada** · versión 0.9.0 · PR #8 |
+| Implementación | Clic sobre un infectado: estado, objetivo, percepción, búsqueda y su historial. N muestra u oculta los nodos expandidos. No se dibuja la frontera. |
 
 ```gherkin
 # language: es
@@ -562,6 +596,8 @@ Característica: Panel de monitoreo
 | Fuente | GUIA §6 |
 | RF | RF-072, RF-073 |
 | Pruebas | CP-072, CP-073 |
+| Estado (0.16.0) | **Terminada** · versión 0.9.0 · PR #8 |
+| Implementación | L abre la consola; mismo registro en logs/ia_<semilla>.log con formato tick⇥tipo⇥agente⇥campos. |
 
 ```gherkin
 # language: es
@@ -590,6 +626,8 @@ Característica: Registro de eventos de IA
 | RF | RF-020, RF-021, RF-022, RF-023, RF-024, RF-074 |
 | RNF | RNF-003, RNF-019 |
 | Pruebas | CP-020 a CP-024, CP-074 |
+| Estado (0.16.0) | **Terminada** · versión 0.10.0 · PR #9 |
+| Implementación | F2 alterna el algoritmo de todos los agentes y F3 compara la última consulta del agente seleccionado. Tab abre el laboratorio de rutas. |
 
 ```gherkin
 # language: es
@@ -621,6 +659,8 @@ Característica: Comparación Dijkstra / A* en el juego
 | RF | RF-080, RF-081, RF-082, RF-083, RF-086 |
 | RNF | RNF-020, RNF-032 |
 | Pruebas | CP-080 a CP-083, CP-086 |
+| Estado (0.16.0) | **Terminada** · versión 0.10.0 · PR #9 |
+| Implementación | refugio --bench bench/config.json (800 filas), metadatos de equipo y compilación, verificación de optimalidad y escenario dinámico. |
 
 ```gherkin
 # language: es
@@ -656,6 +696,8 @@ Característica: Benchmark de búsqueda
 | Fuente | STB §03 |
 | RF | RF-056, RF-084 |
 | Pruebas | CP-056, CP-084 |
+| Estado (0.16.0) | **Terminada** · versión 0.11.0 · PR #10 |
+| Implementación | F4 en la partida y refugio --coord-exp 7 --reps 10 con guion fijo de Mara. |
 
 ```gherkin
 # language: es
@@ -686,6 +728,8 @@ Característica: Aislados frente a coordinados
 | RF | RF-090, RF-091, RF-092, RF-093 |
 | RNF | RNF-017, RNF-021 |
 | Pruebas | CP-090 a CP-093 |
+| Estado (0.16.0) | **Terminada** · versión 0.12.0 · PR #11 |
+| Implementación | Menú Esc, F5/F9, 3 ranuras. La partida se guarda como inicio + entradas (ADR-0016) y solo se carga con la misma versión. |
 
 ```gherkin
 # language: es
@@ -716,6 +760,8 @@ Característica: Persistencia local
 | RF | RF-017 |
 | RNF | RNF-011 |
 | Pruebas | CP-017, CP-111 |
+| Estado (0.16.0) | **Terminada** · versión 0.12.0 · PR #11 |
+| Implementación | Sale en la primera partida nueva (no hay escenas separadas); T lo salta. |
 
 ```gherkin
 # language: es
@@ -744,6 +790,8 @@ Característica: Tutorial
 | Fuente | Objetivo general (optimización) |
 | RF | RF-085, RF-086 |
 | Pruebas | CP-085 |
+| Estado (0.16.0) | **Terminada** · versión 0.13.0 · PR #12 |
+| Implementación | refugio --optimize ga|sa sobre 11 pesos; los resultados no se copian solos a config/ia.json. |
 
 ```gherkin
 # language: es
@@ -772,6 +820,8 @@ Característica: Optimización offline
 | Fuente | GUIA §8 Demostración en vivo |
 | RF | RF-075 |
 | Pruebas | CP-075 |
+| Estado (0.16.0) | **Terminada** · versión 0.14.0 · PR #13 |
+| Implementación | P pausa, F6 avanza un tick en pausa, F7 y F8 cambian la velocidad (0,25× a 4×). Todas reasignables. |
 
 ```gherkin
 # language: es
@@ -779,7 +829,7 @@ Característica: Control de la simulación
 
   Escenario: Paso a paso
     Dado la simulación en pausa
-    Cuando el evaluador pulsa "N"
+    Cuando el evaluador pulsa "F6"
     Entonces se ejecuta exactamente 1 tick de simulación
     Y el panel se actualiza
 
@@ -801,6 +851,8 @@ Característica: Control de la simulación
 | RF | RF-026, RF-027, RF-028, RF-030 |
 | RNF | RNF-001, RNF-002, RNF-030 |
 | Pruebas | CP-026, CP-027, CP-028, CP-030, CP-101 |
+| Estado (0.16.0) | **Terminada** · versión 0.15.0 · PR #13 |
+| Implementación | A* reanudable con presupuesto exacto de 4000 nodos por tick, cola por prioridad y antigüedad, y campo de flujo con 5 o más perseguidores. |
 
 ```gherkin
 # language: es
@@ -828,10 +880,15 @@ Característica: Planificación con presupuesto
 
 ## 5. Definición de terminado (DoD) para una historia
 
-1. Todos sus escenarios Gherkin pasan como pruebas automatizadas (Catch2 con escenarios `SCENARIO/GIVEN/WHEN/THEN`).
-2. Los RF y RNF enlazados están en estado `Implementado` y sus CP en `Aprobado`.
+1. Todos sus escenarios Gherkin pasan como pruebas automatizadas (`TEST_CASE` de Catch2 con el CP en el nombre y el RF o la HU como etiqueta).
+2. Los RF y RNF enlazados están en estado `Implementado` o `Verificado` y sus CP automatizados en `Pasa`
+   (`python tools/trazabilidad.py comprobar` sin errores).
 3. Sin errores de ASan/UBSan ni advertencias del compilador (`-Wall -Wextra -Werror`).
 4. Cobertura del dominio ≥ 80 % de líneas (RNF-024).
 5. Documentación Doxygen de la API pública tocada.
 6. Matriz de trazabilidad actualizada.
 7. Revisión de código por otro miembro del equipo.
+
+Cumplimiento real hasta 0.16.0: los puntos 1, 2, 3 y 6 se cumplen en todas las historias terminadas (CI con
+`-Werror`, ASan + UBSan y la comprobación de trazabilidad). Los puntos 4 y 5 no se miden: no hay trabajo de
+cobertura ni Doxygen (RNF-024, RNF-025). El punto 7 se hizo con la revisión del PR por Pedro antes de cada merge.

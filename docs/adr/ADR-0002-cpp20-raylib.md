@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Aceptada; raygui sustituido por [ADR-0020](ADR-0020-herramientas-reales.md) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RES-01, RES-02, RNF-001 a RNF-008, RNF-009, RNF-028 |

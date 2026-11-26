@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Sustituida por [ADR-0018](ADR-0018-estado-en-partida-sin-ecs.md) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RNF-002, RNF-005, RNF-006, RNF-030 |

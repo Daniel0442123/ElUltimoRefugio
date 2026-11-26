@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Aceptada; aplicada sin repartir la IA en 6 grupos ni interpolar el render (ver arc42 §6.1) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RNF-002, RNF-018, RNF-020, RF-040, RF-075 |
