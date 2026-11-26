@@ -110,6 +110,15 @@ add_library(refugio_menu STATIC src/app/MenuPausa.cpp)
 target_link_libraries(refugio_menu PUBLIC refugio_dominio)
 refugio_configurar_objetivo(refugio_menu)
 
+# Medición de rendimiento con ventana (RNF-001, RNF-002, RNF-004, RNF-005, RNF-008): estadísticas
+# y resultados sin raylib, y CPU y memoria del proceso leídas del sistema operativo.
+add_library(refugio_medicion STATIC src/app/MedicionRendimiento.cpp src/adaptadores/sistema/RecursosProceso.cpp)
+target_link_libraries(refugio_medicion PUBLIC refugio_dominio)
+if(WIN32)
+    target_link_libraries(refugio_medicion PUBLIC psapi)
+endif()
+refugio_configurar_objetivo(refugio_medicion)
+
 add_executable(refugio_bench src/app/main_bench.cpp)
 target_link_libraries(refugio_bench PRIVATE refugio_cli)
 refugio_configurar_objetivo(refugio_bench)
@@ -136,7 +145,7 @@ if(REFUGIO_BUILD_GAME)
     refugio_configurar_objetivo(refugio_adaptadores)
 
     add_executable(refugio src/app/main_juego.cpp)
-    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli refugio_menu)
+    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli refugio_menu refugio_medicion)
     refugio_configurar_objetivo(refugio)
 endif()
 
