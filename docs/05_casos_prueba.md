@@ -288,7 +288,7 @@ cita el CP en su nombre.
 | CP-125 | RNF-025 | Parcial | — | Solo compilación con -Werror. |
 | CP-126 | RNF-026 | Pendiente | — |  |
 | CP-127 | RNF-027 | Pasa | `test_propagador_alertas.cpp`: CP-127 Grafo completo de 200 agentes: profundidad acotada y sin duplicados<br>`test_quadtree.cpp`: CP-127 Quadtree con 10000 puntos coincidentes no supera la profundidad maxima<br>`test_superviviente.cpp`: CP-127 GOAP con 20 acciones no pasa de 6 acciones de profundidad<br>`test_superviviente.cpp`: CP-062 Los subarboles del superviviente caben en la profundidad maxima *(relacionada)* |  |
-| CP-128 | RNF-028 | Parcial | — | Sin .zip. |
+| CP-128 | RNF-028 | Parcial | `test_carpeta_ejecutable.cpp`: Version portable: abierta desde otra carpeta usa la del ejecutable *(relacionada)*<br>`test_carpeta_ejecutable.cpp`: Version portable: si la carpeta de trabajo tiene sus datos no se cambia *(relacionada)*<br>`test_carpeta_ejecutable.cpp`: Version portable: sin datos junto al ejecutable no se cambia *(relacionada)*<br>`test_carpeta_ejecutable.cpp`: Version portable: abierta en su propia carpeta no se cambia *(relacionada)*<br>`test_carpeta_ejecutable.cpp`: Version portable: la ruta del ejecutable en marcha existe *(relacionada)* | CI: el flujo Versión portable genera el .zip |
 | CP-129 | RNF-029 | Pendiente | — | RNF-029 pendiente. |
 | CP-130 | RNF-030 | Pendiente | `test_horda_coordinada.cpp`: CP-051 Doce perseguidores durante 10 s: max 2 por celda de llegada y 3 o mas accesos *(relacionada)* |  |
 | CP-131 | RNF-031 | Pendiente | — |  |

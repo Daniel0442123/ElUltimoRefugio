@@ -502,6 +502,34 @@ ctest --test-dir build -C Release --output-on-failure
 .\build\Release\refugio.exe
 ```
 
+### Versión portable (zip para cualquier PC con Windows)
+
+Un .zip que se descomprime y se juega, sin instalar Visual Studio, raylib ni el «Visual C++
+Redistributable» (RNF-028). En Windows (Git Bash, PowerShell o cmd), desde la raíz del repositorio:
+
+```bash
+cmake -S . -B build-portable -DREFUGIO_BUILD_TESTS=OFF -DREFUGIO_SIN_CONSOLA=ON
+cmake --build build-portable --config Release --target paquete
+```
+
+Deja `build-portable/paquete/ElUltimoRefugio-0.18.0-win64.zip` (y la misma carpeta sin comprimir
+al lado) con `refugio.exe`, `refugio_bench.exe`, `LEEME.txt`, `config/ia.json`, `maps/`, `bench/`,
+`opt/` y la licencia de la tipografía. Ocupa pocos MB.
+
+- Con MSVC todo el proyecto se enlaza con el runtime estático (`/MT`) y raylib va dentro del
+  ejecutable: `refugio.exe` solo usa DLL de Windows (OpenGL, GDI, winmm).
+- `REFUGIO_SIN_CONSOLA=ON` quita la ventana negra de consola del juego. `refugio_bench.exe` sigue
+  siendo de consola para los experimentos.
+- El juego busca sus datos junto al ejecutable: si se abre desde otra carpeta (un acceso directo,
+  una consola en otro sitio) y allí no hay `config/ia.json`, pasa a trabajar en la carpeta del
+  `.exe`, y `saves/`, `logs/` y `results/` se crean ahí. Lanzado desde la raíz del repositorio no
+  cambia nada.
+- El flujo de CI `Versión portable` genera el mismo zip en cada PR y en `main` (artefacto
+  descargable en la pestaña Actions) y, al subir una etiqueta `v0.18.0`, lo adjunta a una release.
+
+En Linux, `cmake --build build/release --target paquete` genera
+`ElUltimoRefugio-0.18.0-linux-x64.zip` igual.
+
 ### Controles
 
 Partida (escena inicial). Son las teclas por defecto; todas menos Esc, Enter y las flechas se
@@ -603,6 +631,7 @@ tablas de 05 y 06). `python tools/rendimiento.py informe` rehace la documentaci�
 | Flujo | Cuándo | Qué hace |
 |---|---|---|
 | `CI` | push a `main` y cada PR | Compila juego y pruebas en Linux (GCC, Clang) y Windows (MSVC); ASan + UBSan; comprueba que el dominio no dependa de raylib; humo de benchmark, estrés, aislados/coordinados y optimización |
+| `Versión portable` | push a `main`, cada PR y etiquetas `v*` | Compila `refugio.exe` sin consola y con runtime estático, comprueba que no necesita DLL de Visual C++, lo ejecuta desde otra carpeta y publica `ElUltimoRefugio-<versión>-win64` como artefacto (y como release con una etiqueta) |
 | `Rendimiento y estrés` | cada noche y manual (Actions → Run workflow) | Benchmark completo y estrés de recursión en Linux y Windows; tabla en el resumen del run y CSV como artefacto |
 
 ## Estructura

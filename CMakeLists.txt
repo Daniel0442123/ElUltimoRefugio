@@ -11,6 +11,14 @@ option(REFUGIO_BUILD_TESTS  "Compilar las pruebas con Catch2" ON)
 option(REFUGIO_WARNINGS_AS_ERRORS "Tratar advertencias como errores" ON)
 option(REFUGIO_SANITIZERS   "Compilar con AddressSanitizer y UBSan (GCC/Clang)" OFF)
 option(REFUGIO_COVERAGE     "Instrumentar para cobertura (GCC/Clang)" OFF)
+option(REFUGIO_SIN_CONSOLA  "Windows: refugio.exe sin ventana de consola (versión portable)" OFF)
+
+# Versión portable (tools/empaquetar.sh): con MSVC el runtime de C++ va dentro del ejecutable
+# (/MT), así refugio.exe no necesita el «Visual C++ Redistributable». Se fija antes de traer raylib
+# y Catch2 para que todo el programa use el mismo runtime; la política por defecto lo aplica
+# también a los subproyectos que piden una versión de CMake más antigua.
+set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_compile_definitions(REFUGIO_VERSION="${PROJECT_VERSION}")
 
@@ -120,8 +128,13 @@ if(WIN32)
 endif()
 refugio_configurar_objetivo(refugio_medicion)
 
+# Versión portable: los datos se buscan junto al ejecutable si no están en el directorio de trabajo.
+add_library(refugio_carpeta STATIC src/adaptadores/sistema/CarpetaEjecutable.cpp)
+target_include_directories(refugio_carpeta PUBLIC src)
+refugio_configurar_objetivo(refugio_carpeta)
+
 add_executable(refugio_bench src/app/main_bench.cpp)
-target_link_libraries(refugio_bench PRIVATE refugio_cli)
+target_link_libraries(refugio_bench PRIVATE refugio_cli refugio_carpeta)
 refugio_configurar_objetivo(refugio_bench)
 
 # ---------------------------------------------------------------------------
@@ -146,9 +159,15 @@ if(REFUGIO_BUILD_GAME)
     refugio_configurar_objetivo(refugio_adaptadores)
 
     add_executable(refugio src/app/main_juego.cpp)
-    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli refugio_menu refugio_medicion)
+    target_link_libraries(refugio PRIVATE refugio_adaptadores refugio_cli refugio_menu refugio_medicion refugio_carpeta)
     refugio_configurar_objetivo(refugio)
+    if(MSVC AND REFUGIO_SIN_CONSOLA)
+        # Subsistema de ventana con main() de siempre: al abrir el juego no aparece la consola.
+        target_link_options(refugio PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+    endif()
 endif()
+
+include(cmake/Empaquetar.cmake)
 
 # ---------------------------------------------------------------------------
 # Pruebas

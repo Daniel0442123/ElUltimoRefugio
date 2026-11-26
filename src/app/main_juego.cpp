@@ -63,6 +63,7 @@
 #include "adaptadores/raylib/Sonidos.hpp"
 #include "adaptadores/raylib/VistaDepuracion.hpp"
 #include "adaptadores/raylib/VistaPartida.hpp"
+#include "adaptadores/sistema/CarpetaEjecutable.hpp"
 #include "adaptadores/sistema/RecursosProceso.hpp"
 #include "adaptadores/vista/Disposicion.hpp"
 #include "app/Cli.hpp"
@@ -919,6 +920,9 @@ void registroRaylib(int nivel, const char* texto, va_list args) {
 
 int main(int argc, char** argv) {
     const auto tMain = Reloj::now();
+    // Versión portable: si se abre desde otra carpeta, config/, maps/, saves/ y logs/ son los que
+    // están junto al ejecutable.
+    adaptadores::usarCarpetaDelEjecutable();
     int codigo = 0;
     if (app::ejecutarModoSinVentana(argc, argv, codigo)) return codigo;
 

@@ -1,0 +1,38 @@
+El último refugio @PROJECT_VERSION@ (versión portable)
+=====================================================
+
+No hay que instalar nada. Descomprime el zip en cualquier carpeta (el Escritorio, una memoria USB)
+y abre refugio.exe con doble clic.
+
+  - Descomprime primero: si abres refugio.exe desde dentro del zip, Windows no le deja ver la
+    carpeta config/ y el juego arranca con los parámetros por defecto y sin guardar partidas.
+  - Si Windows SmartScreen avisa de «aplicación desconocida»: «Más información» > «Ejecutar de
+    todas formas». El ejecutable no está firmado.
+  - Necesita una tarjeta gráfica con OpenGL 3.3 (cualquier PC de los últimos 10 años).
+
+Teclas principales
+  WASD o flechas  mover            Shift  correr            Ctrl  sigilo
+  E               recoger / abrir una puerta / activar la radio
+  C               curarse con un medicamento
+  Q               señuelo hacia el cursor     B  barricada hacia el cursor
+  F1              ver la IA (percepción, rutas, conos de visión)
+  F4              horda aislada / coordinada  Tab  laboratorio Dijkstra / A*
+  Z               cámara                      F11  pantalla completa
+  Esc             menú: guardar, cargar, opciones, controles, salir
+Las teclas se cambian en Esc > Opciones > Controles.
+
+Mapa de Tiled de ejemplo (desde una consola en esta carpeta):
+  refugio.exe --mapa-tiled maps/puerto.json
+
+Experimentos sin ventana (desde una consola en esta carpeta):
+  refugio_bench.exe --ayuda
+  refugio_bench.exe --bench bench/config.json
+  refugio_bench.exe --coord-exp 7 --reps 10
+  refugio_bench.exe --optimize ga --config opt/ga.json
+
+Archivos
+  config/ia.json   parámetros de la IA de la horda
+  maps/            mapa de Tiled de ejemplo
+  bench/, opt/     configuraciones de los experimentos
+  saves/, logs/, results/ y config/juego.json, config/controles.json se crean aquí al jugar.
+  licencias/       licencia de la tipografía Inter (SIL OFL 1.1)

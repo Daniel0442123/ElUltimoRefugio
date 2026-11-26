@@ -125,7 +125,7 @@ Requirement,RNF-023,Modularidad del dominio,M,,CP-123,Verificado,0.1.0,tools/che
 Requirement,RNF-024,Capacidad de prueba,M,,CP-124,Implementado,0.1.0,"Suite de 172 pruebas en ≈ 1,4 s. Sin trabajo de cobertura."
 Requirement,RNF-025,Capacidad de análisis,M,,CP-125,Implementado,0.1.0,-Werror en CI; clang-tidy a mano. Sin lizard ni Doxygen.
 Requirement,RNF-026,Capacidad de modificación,M,,CP-126,Implementado,0.10.0,IBuscadorRuta permite añadir buscadores; el ejercicio no se ha hecho.
-Requirement,RNF-028,Instalabilidad,M,,CP-128,Implementado,0.1.0,Dos comandos de CMake con presets; no hay .zip portable.
+Requirement,RNF-028,Instalabilidad,M,,CP-128,Implementado,0.1.0,"Dos comandos de CMake con presets; zip portable con --target paquete (0.18.0, runtime /MT, datos junto al .exe)."
 Requirement,RNF-029,Adaptabilidad de pantalla,M,,CP-129,Aprobado,,Pendiente: ventana fija de 1280 × 720 sin escalado.
 Requirement,RNF-030,Escalabilidad,M,,CP-130,Implementado,0.15.0,100 infectados en 128² sin pasar el presupuesto (CP-026). Falta la serie hasta 200.
 Requirement,RNF-031,Fotosensibilidad,M,,CP-131,Implementado,0.7.0,Solo parpadea la integridad del refugio; sin análisis de destellos.
@@ -224,7 +224,7 @@ Test,CP-124,Cobertura,,RNF-024,,Pendiente,,Sin trabajo de cobertura.
 Test,CP-125,Análisis estático,,RNF-025,,Parcial,,Solo compilación con -Werror.
 Test,CP-126,Ejercicio de extensibilidad,,RNF-026,,Pendiente,,
 Test,CP-127,Pila de recursión,,RNF-027,,Pasa,,
-Test,CP-128,Instalabilidad,,RNF-028,,Parcial,,Sin .zip.
+Test,CP-128,Instalabilidad,,RNF-028,,Parcial,,CI: el flujo Versión portable genera el .zip, comprueba que no usa DLL de Visual C++ y lo ejecuta desde otra carpeta; falta la prueba manual en un equipo limpio.
 Test,CP-129,Resoluciones,,RNF-029,,Pendiente,,RNF-029 pendiente.
 Test,CP-130,Escalabilidad,,RNF-030,,Pendiente,,
 Test,CP-131,Fotosensibilidad,,RNF-031,,Pendiente,,
