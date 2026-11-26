@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ElUltimoRefugio VERSION 0.17.0 LANGUAGES CXX C)
+project(ElUltimoRefugio VERSION 0.18.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -70,6 +70,7 @@ add_library(refugio_dominio STATIC
     src/dominio/superviviente/Superviviente.cpp
     src/dominio/juego/Partida.cpp
     src/dominio/juego/PartidaSuperviviente.cpp
+    src/dominio/juego/MapaTiled.cpp
     src/dominio/juego/RegistroIa.cpp
     src/dominio/juego/Tutorial.cpp
     src/dominio/config/Configuracion.cpp

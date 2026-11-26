@@ -106,7 +106,7 @@ constexpr std::array<DatosAccion, kNumAcciones> kAcciones{{
     {"derecha", "Mover a la derecha", 'D'},
     {"correr", "Correr (mantener)", tecla::kShiftIzq},
     {"sigilo", "Sigilo (mantener)", tecla::kCtrlIzq},
-    {"interactuar", "Recoger / activar radio", 'E'},
+    {"interactuar", "Recoger / abrir puerta / activar radio", 'E'},
     {"senuelo", "Lanzar señuelo", 'Q'},
     {"barricada", "Poner barricada", 'B'},
     {"guardado_rapido", "Guardado rápido (ranura 1)", tecla::kF1 + 4},
@@ -125,6 +125,7 @@ constexpr std::array<DatosAccion, kNumAcciones> kAcciones{{
     {"mas_lento", "Simulación más lenta", tecla::kF1 + 6},
     {"mas_rapido", "Simulación más rápida", tecla::kF1 + 7},
     {"camara", "Cámara: seguir a Mara / mapa completo", 'Z'},
+    {"medicamento", "Usar medicamento (curarse)", 'C'},
 }};
 
 /// Teclas que reciben las acciones nuevas cuya tecla por defecto ya está ocupada (leerControles).
@@ -351,11 +352,13 @@ Lectura<ParametrosIa> leerParametrosIa(std::string_view texto, std::string_view 
         numero(*s, "sigilo", "ruido.sigilo", 0, 30, p.ruidoSigilo, l, archivo);
         numero(*s, "caminar", "ruido.caminar", 0, 30, p.ruidoCaminar, l, archivo);
         numero(*s, "correr", "ruido.correr", 0, 30, p.ruidoCorrer, l, archivo);
+        numero(*s, "puerta_metalica", "ruido.puerta_metalica", 0, 30, p.ruidoPuertaMetalica, l, archivo);
     }
     if (const auto* s = seccion(doc, "mision", l, archivo)) {
         numero(*s, "t_instalacion_s", "mision.t_instalacion_s", 0.1, 600, p.tInstalacion, l, archivo);
         numero(*s, "t_extraccion_s", "mision.t_extraccion_s", 1, 3600, p.tExtraccion, l, archivo);
         numero(*s, "salud_max", "mision.salud_max", 1, 10000, p.saludMax, l, archivo);
+        numero(*s, "cura_medicamento", "mision.cura_medicamento", 0, 10000, p.curaMedicamento, l, archivo);
         numero(*s, "integridad_refugio_max", "mision.integridad_refugio_max", 1, 10000, p.integridadMax, l, archivo);
     }
     if (const auto* s = seccion(doc, "senuelo", l, archivo)) {
@@ -378,6 +381,21 @@ Lectura<ParametrosIa> leerParametrosIa(std::string_view texto, std::string_view 
     if (const auto* s = seccion(doc, "navegacion", l, archivo)) {
         entero(*s, "presupuesto_nodos_tick", "navegacion.presupuesto_nodos_tick", 100, 1000000, p.presupuestoNodosTick, l, archivo);
         numero(*s, "factor_desvio_barricada", "navegacion.factor_desvio_barricada", 1, 100, p.factorDesvioBarricada, l, archivo);
+    }
+    // RF-048: prototipos de infectado. Va antes de «pesos», que reemplaza al perseguidor si lo trae.
+    if (const auto* s = seccion(doc, "prototipos", l, archivo)) {
+        if (const auto* e = seccion(*s, "explorador", l, archivo)) {
+            numero(*e, "vision_radio", "prototipos.explorador.vision_radio", 0.5, 30, p.exploradorVisionRadio, l, archivo);
+            numero(*e, "vision_angulo", "prototipos.explorador.vision_angulo", 1, 360, p.exploradorVisionAngulo, l, archivo);
+            numero(*e, "velocidad", "prototipos.explorador.velocidad", 0.1, 20, p.exploradorVelocidad, l, archivo);
+        }
+        if (const auto* e = seccion(*s, "perseguidor", l, archivo)) {
+            numero(*e, "vision_radio", "prototipos.perseguidor.vision_radio", 0.5, 30, p.pesos.visionRadio, l, archivo);
+            numero(*e, "vision_angulo", "prototipos.perseguidor.vision_angulo", 1, 360, p.perseguidorVisionAngulo, l, archivo);
+            numero(*e, "velocidad", "prototipos.perseguidor.velocidad", 0.1, 20, p.pesos.velPerseguir, l, archivo);
+            numero(*e, "danio_por_segundo", "prototipos.perseguidor.danio_por_segundo", 0, 1000, p.pesos.danioPorSegundo, l,
+                   archivo);
+        }
     }
     if (const auto* s = seccion(doc, "pesos", l, archivo)) {
         for (const auto& c : camposPesos()) {
@@ -411,6 +429,12 @@ void aplicar(const ParametrosIa& p, juego::ConfigPartida& cfg) {
     cfg.ruidoCaminar = p.ruidoCaminar;
     cfg.ruidoCorrer = p.ruidoCorrer;
     cfg.tInstalacion = p.tInstalacion;
+    cfg.curaMedicamento = p.curaMedicamento;
+    cfg.ruidoPuertaMetalica = p.ruidoPuertaMetalica;
+    cfg.explorador.visionRadio = p.exploradorVisionRadio;
+    cfg.explorador.visionAngulo = p.exploradorVisionAngulo;
+    cfg.explorador.velocidad = p.exploradorVelocidad;
+    cfg.visionAngulo = p.perseguidorVisionAngulo;
     cfg.tExtraccion = p.tExtraccion;
     cfg.saludMax = p.saludMax;
     cfg.integridadMax = p.integridadMax;

@@ -15,7 +15,34 @@ Proyecto final de **Algoritmos Computacionales** (Fundación Universitaria de Po
 | Pruebas | Catch2 v3, CTest, ASan/UBSan |
 | Arquitectura | Hexagonal (dominio de IA puro) + ECS + bus de eventos — ver [docs/07_arquitectura_arc42.md](docs/07_arquitectura_arc42.md) |
 
-## Estado actual (0.17.0)
+## Estado actual (0.18.0)
+
+**Los cuatro requisitos que faltaban**: mapas de Tiled, puerta metálica, medicamento para curarse y
+roles de la horda. Con ellos los 68 RF están implementados.
+
+- **Mapas de Tiled** (RF-001): `./build/release/refugio --mapa-tiled maps/puerto.json` (desde la raíz del repositorio) juega en un mapa hecho en
+  Tiled 1.10 (JSON, capas en CSV) en lugar de la ciudad generada. Capas `suelo`, `colision`, `costo`
+  (escombros, m = 1 a 10) y de objetos `objetos` (medicamento, combustible, bateria, radio, almacen,
+  puerta), `spawns` (mara, superviviente, infectado con la propiedad `rol`) y `zonas` (extraccion).
+  Un mapa inválido no detiene el juego: se avisa con la capa y el objeto que fallan y se juega en la
+  ciudad generada. `maps/puerto.json` es un mapa de ejemplo que se abre y se edita en Tiled
+  (`tools/crear_mapa_tiled.py` lo genera desde un dibujo en texto). Las partidas en un mapa de Tiled
+  se guardan con el mapa dentro (formato de partida 3).
+- **Puerta metálica** (RF-006): cierra un hueco de muro o una calle estrecha. Mara la abre con **E**
+  y el chirrido es un ruido de radio 10 (`ruido.puerta_metalica`) que atrae a la horda; los
+  infectados no saben abrirlas. La ciudad generada trae hasta dos.
+- **Medicamento para curarse** (RF-015): **C** usa un medicamento y suma 35 de salud
+  (`mision.cura_medicamento`) sin pasar de 100. Uno queda siempre reservado para la radio; la ciudad
+  generada trae dos de más y el panel dice cuántos se pueden usar.
+- **Roles de la horda** (RF-048): uno de cada tres infectados es **explorador** (visión 7 celdas y
+  110°, 2 celdas/s, más pálido y con ojos amarillos) y el resto **perseguidor** (visión 90°, ojos
+  rojos). Se leen de `prototipos` en `config/ia.json`; la sección `pesos` sigue mandando sobre el
+  radio y la velocidad del perseguidor (6 celdas y 3,4 celdas/s, ajustados para que sea jugable).
+  F1 dibuja el cono de cada rol y el monitor del agente dice su rol.
+- Las partidas guardadas con 0.13.0 a 0.17.0 se siguen leyendo, pero como la ciudad generada cambió
+  (puertas, medicamentos y roles) el juego avisa de que son de otra versión.
+
+### Versión 0.17.0
 
 **Ventana adaptable y tipografía legible** (ADR-0021).
 
@@ -484,7 +511,8 @@ pueden cambiar en Esc > Opciones > Controles:
 |---|---|
 | WASD / flechas | Mover a Mara |
 | Shift / Ctrl (mantener) | Correr (más ruido) / sigilo (casi sin ruido) |
-| E (mantener) | Recoger un objeto a 1 celda; en la radio y con los tres objetos, activarla (8 s) y abrir la extracción 60 s |
+| E (mantener) | Recoger un objeto a 1 celda; abrir una puerta metálica de al lado (hace ruido); en la radio y con los tres objetos, activarla (8 s) y abrir la extracción 60 s |
+| C | Usar un medicamento: +35 de salud (siempre queda uno para la radio) |
 | Q | Lanzar un señuelo hacia el cursor (8 celdas como máximo) |
 | B | Poner una barricada en la celda de al lado, hacia el cursor |
 | Esc | Menú de pausa: guardar, cargar, opciones (volumen, tutorial, controles) y salir |
@@ -565,7 +593,7 @@ src/dominio/       Lógica pura (sin raylib): núcleo, mundo, navegación, agent
                    juego (partida, tutorial), coordinación, superviviente (Utility, GOAP, árbol),
                    experimentos, config (JSON de opciones, controles e IA), persistencia (partidas), puertos
 src/adaptadores/   raylib (arte pixel y luz, vistas y sonidos), vista (lectura visual del mapa, sin raylib) y archivo (registro de IA en logs/, partidas en saves/,
-                   configuración en config/); luego Tiled y raygui
+                   configuración en config/)
 src/app/           main del juego, menú de pausa, main del benchmark y CLI
 tests/             Pruebas Catch2 (los nombres empiezan por el ID del caso de prueba, p. ej. CP-047)
 config/            Parámetros de IA (ia.json); el juego crea juego.json y controles.json

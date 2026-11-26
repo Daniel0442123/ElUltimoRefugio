@@ -595,6 +595,7 @@ void ArteMundo::dibujarActores(const juego::Partida& p, const EstiloVista& e) co
         if (b.activa) sprite(kBarricada, centroCelda(b.celda, e), tc, 0.0f);
     for (const auto& sn : p.senuelos())
         if (sn.activo) sprite(kSenuelo, centroCelda(sn.celda, e), tc * 0.8f, 0.0f);
+    dibujarPuertas(p, e);
 
     const auto fotograma = [this](std::size_t i, float largoPaso) {
         return i < recorrido_.size() ? static_cast<int>(recorrido_[i] / largoPaso) % 2 : 0;
@@ -603,7 +604,10 @@ void ArteMundo::dibujarActores(const juego::Partida& p, const EstiloVista& e) co
     for (std::size_t i = 0; i < zs.size(); ++i) {
         const auto& z = zs[i];
         const int v = static_cast<int>(i % kVariantesZombi);
-        sprite(kZombi + 2 * v + fotograma(i, 0.3f), aPantalla(z.pos, e), tc * 1.05f, grados(z.orientacion));
+        // RF-048: el explorador es más pálido y algo más pequeño; el perseguidor, el sprite tal cual.
+        const bool explorador = z.rol == juego::RolInfectado::Explorador;
+        sprite(kZombi + 2 * v + fotograma(i, 0.3f), aPantalla(z.pos, e), tc * (explorador ? 0.95f : 1.05f),
+               grados(z.orientacion), explorador ? Color{200, 222, 255, 255} : WHITE);
     }
     if (const auto& s = p.superviviente(); s.activo)
         sprite(kSuperviviente + fotograma(zs.size() + 1, 0.3f), aPantalla(s.pos, e), tc, grados(s.orientacion));
@@ -611,6 +615,52 @@ void ArteMundo::dibujarActores(const juego::Partida& p, const EstiloVista& e) co
     const float lado = m.modo == juego::ModoMovimiento::Sigilo ? tc * 0.9f : tc;
     sprite(kMara + fotograma(zs.size(), m.modo == juego::ModoMovimiento::Correr ? 0.4f : 0.28f), aPantalla(m.pos, e),
            lado, grados(m.orientacion));
+}
+
+// RF-006: puerta metálica. Cerrada es una plancha de acero remachada que tapa el hueco del muro;
+// abierta, la hoja queda pegada a un lado y se ve el suelo. El paso va en el sentido en que la
+// celda tiene vecinos transitables (izquierda-derecha o arriba-abajo).
+void ArteMundo::dibujarPuertas(const juego::Partida& p, const EstiloVista& e) const {
+    const float tc = static_cast<float>(e.tamCelda);
+    const float px = tc / static_cast<float>(kPx);
+    const auto& g = p.mapa();
+    constexpr Color kAcero{104, 112, 124, 255};
+    constexpr Color kAceroOscuro{58, 63, 72, 255};
+    constexpr Color kAceroClaro{150, 158, 170, 255};
+    constexpr Color kRemache{185, 190, 198, 255};
+    for (const auto& pu : p.puertas()) {
+        const float x = static_cast<float>(e.origenX) + static_cast<float>(pu.celda.x) * tc;
+        const float y = static_cast<float>(e.origenY) + static_cast<float>(pu.celda.y) * tc;
+        const bool pasoHorizontal = g.transitable(pu.celda.x - 1, pu.celda.y) || g.transitable(pu.celda.x + 1, pu.celda.y);
+        if (!pu.abierta) {
+            DrawRectangleRec({x, y, tc, tc}, kAceroOscuro);
+            DrawRectangleRec({x + px, y + px, tc - 2 * px, tc - 2 * px}, kAcero);
+            for (int k = 1; k < 4; ++k) {  // nervios de la plancha, perpendiculares al paso
+                const float o = static_cast<float>(k) * 4.0f * px;
+                if (pasoHorizontal) DrawRectangleRec({x + o, y + 2 * px, px, tc - 4 * px}, kAceroOscuro);
+                else DrawRectangleRec({x + 2 * px, y + o, tc - 4 * px, px}, kAceroOscuro);
+            }
+            DrawRectangleRec({x + px, y + px, tc - 2 * px, px}, kAceroClaro);  // brillo del canto
+            for (const float cx : {2.5f, 13.5f})
+                for (const float cy : {2.5f, 13.5f})
+                    DrawRectangleRec({x + (cx - 0.5f) * px, y + (cy - 0.5f) * px, px, px}, kRemache);
+            // Asa o cerrojo en el centro: es lo que Mara acciona.
+            DrawRectangleRec({x + 7 * px, y + 7 * px, 2 * px, 2 * px}, {210, 170, 60, 255});
+        } else {
+            // Hoja abierta: una franja junto a la jamba, con el marco en los dos lados del muro.
+            if (pasoHorizontal) {
+                DrawRectangleRec({x, y, tc, 2 * px}, kAceroOscuro);
+                DrawRectangleRec({x, y + tc - 2 * px, tc, 2 * px}, kAceroOscuro);
+                DrawRectangleRec({x + px, y + 2 * px, 3 * px, tc - 4 * px}, kAcero);
+                DrawRectangleRec({x + px, y + 2 * px, px, tc - 4 * px}, kAceroClaro);
+            } else {
+                DrawRectangleRec({x, y, 2 * px, tc}, kAceroOscuro);
+                DrawRectangleRec({x + tc - 2 * px, y, 2 * px, tc}, kAceroOscuro);
+                DrawRectangleRec({x + 2 * px, y + px, tc - 4 * px, 3 * px}, kAcero);
+                DrawRectangleRec({x + 2 * px, y + px, tc - 4 * px, px}, kAceroClaro);
+            }
+        }
+    }
 }
 
 void ArteMundo::dibujarLuz(const EstiloVista& e) const {
@@ -643,7 +693,9 @@ void ArteMundo::dibujarEmisivos(const juego::Partida& p, const EstiloVista& e) c
             for (const float lado : {-1.0f, 1.0f}) {
                 const float ex = c.x + ox * 2.2f * px - oy * lado * 1.1f * px;
                 const float ey = c.y + oy * 2.2f * px + ox * lado * 1.1f * px;
-                DrawRectangleRec({ex - px * 0.5f, ey - px * 0.5f, px, px}, {255, 60, 40, 210});
+                // RF-048: ojos amarillos el explorador, rojos el perseguidor.
+                DrawRectangleRec({ex - px * 0.5f, ey - px * 0.5f, px, px},
+                                 z.rol == juego::RolInfectado::Explorador ? Color{255, 220, 70, 220} : Color{255, 60, 40, 210});
             }
         }
         const Vector2 r = centroCelda(p.radio(), e);

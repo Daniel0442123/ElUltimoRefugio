@@ -719,7 +719,7 @@ Deuda técnica en 0.16.0:
 | ID | Deuda | Efecto | Prioridad |
 |---|---|---|---|
 | DT-01 | Sin medición de FPS, tiempo de tick completo, CPU ni arranque (Tracy y scripts de `tools/`) | RNF-001, RNF-002, RNF-004, RNF-008 sin verificar | Alta para el informe final |
-| DT-02 | RF-001, RF-006, RF-015 y RF-048 sin implementar | HU-01, HU-02 y HU-08 con pendientes | Media |
+| DT-02 | ~~RF-001, RF-006, RF-015 y RF-048 sin implementar~~ Resuelta en 0.18.0 | — | — |
 | DT-03 | `Partida.cpp` concentra la horda, las herramientas de Mara y el ciclo de IA (≈ 1350 líneas) | Más difícil de leer y de extender (RNF-026) | Media |
 | DT-04 | Sin cobertura, MinGW ni libFuzzer en CI | RNF-009, RNF-016 y RNF-024 parciales | Baja |
 | DT-05 | Ventana fija sin escalado y sin `.zip` portable | RNF-028 y RNF-029 | Baja |

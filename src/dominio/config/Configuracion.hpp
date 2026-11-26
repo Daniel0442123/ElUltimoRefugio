@@ -71,8 +71,9 @@ enum class Accion : std::uint8_t {
     MasLento,
     MasRapido,
     Camara,  ///< Cámara que sigue a Mara con zoom o mapa completo
+    Medicamento,  ///< RF-015: usar un medicamento para curarse
 };
-inline constexpr std::size_t kNumAcciones = 25;
+inline constexpr std::size_t kNumAcciones = 26;
 
 /// Clave en controles.json («arriba», «guardado_rapido», …).
 [[nodiscard]] std::string_view claveAccion(Accion a) noexcept;
@@ -117,7 +118,7 @@ inline constexpr int kAltDer = 346;
 /// Una tecla por acción, sin repetir.
 class Controles {
 public:
-    Controles();  ///< Los valores por defecto (WASD, Shift, Ctrl, E, Q, B, F5, F9, T, F1-F4, N, L, R, Tab, P, F6-F8).
+    Controles();  ///< Los valores por defecto (WASD, Shift, Ctrl, E, Q, B, F5, F9, T, F1-F4, N, L, R, Tab, P, F6-F8, Z, C).
     [[nodiscard]] int tecla(Accion a) const noexcept { return teclas_[static_cast<std::size_t>(a)]; }
     /// Asigna @p codigo a @p a. Si otra acción ya la usaba, intercambian sus teclas para que no
     /// queden repetidas. Devuelve false (sin cambiar nada) si la tecla no es asignable.
@@ -164,15 +165,21 @@ inline constexpr std::size_t kNumPesos = 11;
 /// Los 11 campos, en el orden en que se guardan en la partida y se optimizan.
 [[nodiscard]] const std::array<CampoPesos, kNumPesos>& camposPesos() noexcept;
 
-/// Parámetros de config/ia.json que usa la partida. Los «prototipos» de infectado aún no se leen:
-/// la partida usa su perseguidor ajustado (ConfigPartida) con la sección «pesos». Los valores por
-/// defecto son los de ConfigPartida, así que aplicar los parámetros por defecto no cambia nada.
+/// Parámetros de config/ia.json que usa la partida. Los valores por defecto son los de
+/// ConfigPartida, así que aplicar los parámetros por defecto no cambia nada.
+///
+/// RF-048: «prototipos.explorador» da los campos explorador*; «prototipos.perseguidor» da
+/// perseguidorVisionAngulo y, en pesos, visionRadio, velPerseguir («velocidad») y danioPorSegundo.
+/// La sección «pesos» se lee después: si trae «infectados», sus valores (ajustados por RF-085)
+/// reemplazan los del prototipo perseguidor, como dice el comentario de ia.json.
 struct ParametrosIa {
     int tickSimHz{60};
     int tickIaHz{10};
     float velSigilo{1.5f}, velCaminar{3.0f}, velCorrer{6.0f};
     float ruidoSigilo{1.0f}, ruidoCaminar{3.0f}, ruidoCorrer{6.0f};
     float tInstalacion{8.0f};
+    float curaMedicamento{35.0f};      ///< RF-015, «mision.cura_medicamento»
+    float ruidoPuertaMetalica{10.0f};  ///< RF-006, «ruido.puerta_metalica»
     float tExtraccion{60.0f};
     float saludMax{100.0f};
     float integridadMax{100.0f};
@@ -185,6 +192,11 @@ struct ParametrosIa {
     int flowfieldUmbral{8};
     int presupuestoNodosTick{4000};
     float factorDesvioBarricada{2.0f};
+    // RF-048: prototipos de infectado
+    float exploradorVisionRadio{7.0f};
+    float exploradorVisionAngulo{110.0f};
+    float exploradorVelocidad{2.0f};
+    float perseguidorVisionAngulo{110.0f};
     PesosIa pesos{};
     friend bool operator==(const ParametrosIa&, const ParametrosIa&) = default;
 };

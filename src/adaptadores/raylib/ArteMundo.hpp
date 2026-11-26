@@ -35,7 +35,7 @@ public:
 
     /// Suelo, edificios y manchas, a escala de @p e.
     void dibujarFondo(const EstiloVista& e) const;
-    /// Objetos, almacén, radio, barricadas, señuelos, infectados, superviviente y Mara.
+    /// Objetos, almacén, radio, barricadas, señuelos, puertas, infectados, superviviente y Mara.
     void dibujarActores(const juego::Partida& p, const EstiloVista& e) const;
     /// Oscuridad: multiplica lo dibujado por la luz (no hace nada si preparar() fue sin luz).
     void dibujarLuz(const EstiloVista& e) const;
@@ -56,6 +56,7 @@ private:
     void rehacerFondo(const juego::Partida& p);
     void pintarLuz(const juego::Partida& p);
     void sprite(int indice, Vector2 centro, float lado, float grados, Color tinte = WHITE) const;
+    void dibujarPuertas(const juego::Partida& p, const EstiloVista& e) const;
 
     Texture2D atlas_{};
     Texture2D fondo_{};

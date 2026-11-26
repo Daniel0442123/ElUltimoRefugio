@@ -149,7 +149,7 @@ Fuera del alcance (versión 1.0):
 |---|---|---|
 | RES-01 | Lenguaje **C++20** (compatible con C++17 en el dominio), compilado con CMake. | Acuerdo del equipo (ADR-0002) |
 | RES-02 | Biblioteca gráfica **raylib 5** y **raygui** para la interfaz. *(0.16.0: raylib 5.5; raygui no se usa, ADR-0020.)* | ADR-0002 |
-| RES-03 | Mapas creados en **Tiled** y exportados a JSON, leídos con **nlohmann/json**. *(0.16.0: sustituida; mapas generados por código y lector JSON propio, ADR-0019.)* | ADR-0013 |
+| RES-03 | Mapas creados en **Tiled** y exportados a JSON, leídos con **nlohmann/json**. *(0.16.0: sustituida; mapas generados por código y lector JSON propio, ADR-0019. 0.18.0: también se cargan mapas de Tiled con ese lector, RF-001.)* | ADR-0013 |
 | RES-04 | Pixel art de **32 × 32 px** por tile. *(0.16.0: sprites de 16 × 16 px dibujados al doble en celdas de 32 px, generados por código, ADR-0017.)* | Acuerdo del equipo |
 | RES-05 | Sin backend, sin nube y sin conexiones de red. | NEG-07 |
 | RES-06 | El dominio de IA no puede depender de raylib (arquitectura hexagonal). | ADR-0003 |

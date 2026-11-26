@@ -412,7 +412,7 @@ TEST_CASE("ia.json: la seccion pesos se lee, se valida y se aplica", "[optimizac
 }
 
 // ----------------------------------------------------------------------- Persistencia
-TEST_CASE("Partida guardada conserva los pesos y lee el formato 1", "[optimizacion][persistencia][RF-091]") {
+TEST_CASE("Partida guardada conserva los pesos y lee los formatos 1 y 2", "[optimizacion][persistencia][RF-091]") {
     persistencia::InicioPartida in;
     in.semilla = 3;
     in.ia.pesos = pesosDistintos();
@@ -426,34 +426,43 @@ TEST_CASE("Partida guardada conserva los pesos y lee el formato 1", "[optimizaci
     }
     CHECK(p->config().velPerseguir == 2.8f);
     const auto bytes = persistencia::codificar(persistencia::instantanea(g, *p));
-    CHECK((bytes[4] | (bytes[5] << 8)) == 2);
+    CHECK((bytes[4] | (bytes[5] << 8)) == 3);
     const auto r = persistencia::cargar({bytes.data(), bytes.size()});
     REQUIRE(r.valida());
     CHECK(r.partida->config().velPerseguir == 2.8f);
     CHECK(persistencia::huellaPartida(*r.partida) == persistencia::huellaPartida(*p));
 
-    // Formato 1 (0.12.0): igual pero sin los 11 pesos; se carga con los pesos por defecto.
+    // Formatos antiguos: el 2 (0.13.0 a 0.17.0) no lleva los 6 f32 de RF-006/015/048 ni el mapa de
+    // Tiled (un varint de 1 byte a 0); el 1 (0.12.0), además, tampoco los 11 pesos. Se cargan con
+    // los valores por defecto de lo que falta.
     persistencia::InicioPartida in1 = in;
     in1.ia.pesos = {};
     auto p1 = persistencia::crearPartida(in1);
     persistencia::GrabadorPartida g1(in1);
     for (int i = 0; i < 60; ++i) p1->paso(g1.registrar(juego::EntradaJugador{}, *p1));
-    auto v2 = persistencia::codificar(persistencia::instantanea(g1, *p1));
-    const std::size_t lv = v2[persistencia::kTamCabecera];
+    auto v3 = persistencia::codificar(persistencia::instantanea(g1, *p1));
+    const std::size_t lv = v3[persistencia::kTamCabecera];
     // carga: versión del juego, semilla, 4 u16, 2 u8, 2 u16 + 18 f32 + 4 u32 de ia; luego los pesos.
     const std::size_t inicioPesos = persistencia::kTamCabecera + 1 + lv + 8 + 8 + 2 + 4 + 18 * 4 + 4 * 4;
-    std::vector<std::uint8_t> v1(v2.begin(), v2.begin() + static_cast<std::ptrdiff_t>(inicioPesos));
-    v1.insert(v1.end(), v2.begin() + static_cast<std::ptrdiff_t>(inicioPesos + config::kNumPesos * 4), v2.end());
-    v1[4] = 1;
-    v1[5] = 0;
-    const auto largo = static_cast<std::uint32_t>(v1.size() - persistencia::kTamCabecera);
-    for (int i = 0; i < 4; ++i) v1[8 + i] = static_cast<std::uint8_t>(largo >> (8 * i));
-    const auto crc = persistencia::crc32({v1.data() + persistencia::kTamCabecera, v1.size() - persistencia::kTamCabecera});
-    for (int i = 0; i < 4; ++i) v1[12 + i] = static_cast<std::uint8_t>(crc >> (8 * i));
-    const auto d = persistencia::decodificar({v1.data(), v1.size()});
-    REQUIRE(d.valida());
-    CHECK(d.datos.inicio.ia.pesos == config::PesosIa{});
-    const auto c1 = persistencia::cargar({v1.data(), v1.size()});
-    REQUIRE(c1.valida());
-    CHECK(persistencia::huellaPartida(*c1.partida) == persistencia::huellaPartida(*p1));
+    const std::size_t inicioV3 = inicioPesos + config::kNumPesos * 4;
+    for (const std::uint8_t version : {std::uint8_t{2}, std::uint8_t{1}}) {
+        const std::size_t corte = version == 2 ? inicioV3 : inicioPesos;
+        std::vector<std::uint8_t> vieja(v3.begin(), v3.begin() + static_cast<std::ptrdiff_t>(corte));
+        vieja.insert(vieja.end(), v3.begin() + static_cast<std::ptrdiff_t>(inicioV3 + 6 * 4 + 1), v3.end());
+        vieja[4] = version;
+        vieja[5] = 0;
+        const auto largo = static_cast<std::uint32_t>(vieja.size() - persistencia::kTamCabecera);
+        for (int i = 0; i < 4; ++i) vieja[8 + i] = static_cast<std::uint8_t>(largo >> (8 * i));
+        const auto crc = persistencia::crc32({vieja.data() + persistencia::kTamCabecera, vieja.size() - persistencia::kTamCabecera});
+        for (int i = 0; i < 4; ++i) vieja[12 + i] = static_cast<std::uint8_t>(crc >> (8 * i));
+        INFO("formato " << static_cast<int>(version));
+        const auto d = persistencia::decodificar({vieja.data(), vieja.size()});
+        REQUIRE(d.valida());
+        CHECK(d.datos.inicio.ia.pesos == config::PesosIa{});
+        CHECK(d.datos.inicio.ia.curaMedicamento == config::ParametrosIa{}.curaMedicamento);
+        CHECK(d.datos.inicio.mapaTiled.empty());
+        const auto c = persistencia::cargar({vieja.data(), vieja.size()});
+        REQUIRE(c.valida());
+        CHECK(persistencia::huellaPartida(*c.partida) == persistencia::huellaPartida(*p1));
+    }
 }

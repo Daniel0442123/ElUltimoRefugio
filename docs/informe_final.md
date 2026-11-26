@@ -1,7 +1,8 @@
 # El último refugio · Informe final
 
 **Algoritmos Computacionales · Fundación Universitaria de Popayán**
-Proyecto final 2: *apocalipsis zombi y coordinación*. Versión del juego **0.16.0** (commit `9469143`).
+Proyecto final 2: *apocalipsis zombi y coordinación*. Versión del juego **0.16.0** (commit `9469143`) para
+las mediciones; la versión **0.18.0** completa los cuatro requisitos que quedaban pendientes (§2.1).
 Fecha del informe: 26 de noviembre de 2026.
 
 ## Resumen
@@ -22,7 +23,7 @@ Los resultados principales, medidos para este informe con la versión 0.16.0, so
 | Escenario dinámico (barricada en la ruta) | 400 de 400 recorridos replanifican y llegan | §6.3 |
 | Horda coordinada frente a aislada (10 pares) | rodea a Mara con 7,5 infectados frente a 5,3 (p = 0,02) | §7 |
 | Optimización GA / SA | aptitud 0,42 → 1,41 (GA) y 1,36 (SA); pesos no adoptados | §8 |
-| Pruebas automáticas | 172 de 172 pasan (Catch2 + CTest) | §10 |
+| Pruebas automáticas | 192 de 192 pasan en 0.18.0 (Catch2 + CTest) | §10 |
 | Memoria del benchmark (RSS pico) | 13,1 MB (umbral 64 MB) | §9 |
 
 ![Ciudad de noche en 0.16.0: linterna de Mara con sombras, horda y refugio.](informe/capturas/arte_mapa_0.16.0.png)
@@ -62,6 +63,21 @@ aislado/coordinado, **L** registro de IA, **P/F6/F7/F8** pausa, paso a paso y ve
 laboratorio. La lista completa está en el `README.md`.
 
 ![Modo depuración (F1) sobre el arte: estados por color, conos de visión y panel de la horda.](informe/capturas/arte_depuracion_0.16.0.png)
+
+### 2.1 Novedades de 0.18.0: los cuatro RF pendientes
+
+| RF | Qué hace | Cómo se ve en la demostración |
+|---|---|---|
+| RF-001 Mapas de Tiled | `refugio --mapa-tiled maps/puerto.json` carga un mapa de Tiled 1.10 (capas `suelo`, `colision`, `costo`, `objetos`, `spawns`, `zonas`) y construye el mismo escenario que el generador (ADR-0019). Un mapa inválido da un error con la capa y el objeto, y se juega en la ciudad generada. | El puerto de ejemplo: 8 puertas, 7 infectados con su rol y el refugio en el centro. |
+| RF-006 Puerta metálica | Cierra un hueco de muro o una calle estrecha; Mara la abre con E y el chirrido es un ruido de radio 10 que la horda oye y va a investigar. Los infectados no abren puertas. | Plancha de acero remachada; con F1 se ve el radio del ruido y a la horda cambiar a Investigar. |
+| RF-015 Medicamento | C suma 35 de salud sin pasar de 100; siempre queda un medicamento para la radio. La ciudad generada trae dos de más. | El panel dice «+N para curarse». |
+| RF-048 Roles | Explorador (visión 7 celdas y 110°, 2 celdas/s) y perseguidor (visión 90°, el más rápido), leídos de `prototipos` en `config/ia.json`. Uno de cada tres es explorador. | Exploradores más pálidos con ojos amarillos; F1 dibuja el cono de cada rol y el monitor dice el rol. |
+
+![Mapa de Tiled de ejemplo (maps/puerto.json) con F1: puertas metálicas cerradas, exploradores y perseguidores con su cono.](informe/capturas/tiled_puerto_0.18.0.png)
+
+Las cifras de §6 a §8 se midieron con 0.16.0, antes de estos cambios. Los roles y las puertas cambian la
+horda de la ciudad generada, así que repetir el experimento de §7 y la optimización de §8 con 0.18.0 daría
+números algo distintos (el benchmark de §6 no cambia: usa sus propios mapas y no tiene infectados).
 
 ## 3. Arquitectura de agentes
 
@@ -386,10 +402,10 @@ el método está en `docs/04_requisitos_no_funcionales.md`.
 
 ## 10. Calidad y pruebas
 
-* **172 pruebas automáticas** (Catch2 v3 + CTest), todas en verde en esta versión; además se ejecutan con
+* **192 pruebas automáticas** (Catch2 v3 + CTest) en 0.18.0, todas en verde (172 en 0.16.0); además se ejecutan con
   AddressSanitizer y UBSan (preset `asan`) y en integración continua.
-* **Trazabilidad**: 23 historias de usuario, 68 RF (59 verificados, 5 implementados, 4 pendientes), 32 RNF y
-  104 casos de prueba (65 pasan, 19 parciales, 20 pendientes), enlazados en
+* **Trazabilidad** (0.18.0): 23 historias de usuario terminadas, 68 RF (63 verificados y 5 implementados, ninguno
+  pendiente), 32 RNF y 104 casos de prueba (69 pasan, 19 parciales, 16 pendientes), enlazados en
   `docs/06_matriz_trazabilidad.md` y `docs/trazabilidad.csv` (generada con `tools/trazabilidad.py`).
 * **Decisiones**: 20 ADR en `docs/adr/`.
 
@@ -397,10 +413,7 @@ el método está en `docs/04_requisitos_no_funcionales.md`.
 
 | Pendiente | Situación |
 |---|---|
-| RF-001 Cargar mapas de Tiled | La ciudad se genera por código con semilla (ADR-0019); no hay cargador de Tiled. |
-| RF-006 Puerta metálica de la farmacia | No existe; la instalación de la radio sí hace ruido y cubre el papel de la escena 2. |
-| RF-015 Usar el medicamento | Es solo un objeto de misión; no cura. |
-| RF-048 Roles de infectado | Un solo prototipo; los «prototipos» explorador y perseguidor de `config/ia.json` no se leen. |
+| RF-001, RF-006, RF-015 y RF-048 | Hechos en 0.18.0 (§2.1). Queda: el perseguidor usa los 6 celdas y 3,4 celdas/s de `pesos`, no los 5 y 4 del prototipo, para que la horda sea jugable. |
 | RNF-001, 004, 008 | FPS, CPU y arranque sin medir formalmente. |
 | RNF-029 | Ventana fija de 1280 × 720, sin escalado. |
 | Concentración de la horda | La coordinación duplica las celdas sobrecargadas (§7). |

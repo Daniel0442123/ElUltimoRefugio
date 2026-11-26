@@ -103,7 +103,7 @@ TEST_CASE("CP-112 todas las acciones se reasignan desde el menu", "[menu][CP-112
     REQUIRE(m.lineas().size() == config::kNumAcciones + 2);
     // Se asigna a cada acción una tecla F o un número distinto: 100 % reasignables.
     const int nuevas[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Z', 'X',
-                          'C', 'V', 'G', 'H', 'J', 'K', 'U', 'Y', 'I', 'M', 'F', 'O', tecla::kF1 + 9};
+                          'C', 'V', 'G', 'H', 'J', 'K', 'U', 'Y', 'I', 'M', 'F', 'O', 'R', tecla::kF1 + 9};
     static_assert(std::size(nuevas) == config::kNumAcciones);
     for (std::size_t i = 0; i < config::kNumAcciones; ++i) {
         REQUIRE(m.cursor() == static_cast<int>(i));
@@ -115,14 +115,14 @@ TEST_CASE("CP-112 todas las acciones se reasignan desde el menu", "[menu][CP-112
     }
     // Tecla reservada: no cambia y avisa. Esc cancela.
     REQUIRE(m.cursor() == static_cast<int>(config::kNumAcciones));  // «Restaurar»
-    m.pulsar(tecla::kArriba, false);  // última acción (Camara)
+    m.pulsar(tecla::kArriba, false);  // última acción (Medicamento)
     m.pulsar(tecla::kEnter, false);
     CHECK(m.pulsar(tecla::kArriba, false).tipo == Tipo::Ninguna);
     CHECK(m.mensajeEsError());
-    CHECK(m.controles().tecla(config::Accion::Camara) == tecla::kF1 + 9);
+    CHECK(m.controles().tecla(config::Accion::Medicamento) == tecla::kF1 + 9);
     m.pulsar(tecla::kEnter, false);
     CHECK(m.pulsar(tecla::kEscape, false).tipo == Tipo::Ninguna);
-    CHECK(m.controles().tecla(config::Accion::Camara) == tecla::kF1 + 9);
+    CHECK(m.controles().tecla(config::Accion::Medicamento) == tecla::kF1 + 9);
     // Restaurar por defecto.
     m.pulsar(tecla::kAbajo, false);
     CHECK(m.pulsar(tecla::kEnter, false).tipo == Tipo::OpcionesCambiadas);

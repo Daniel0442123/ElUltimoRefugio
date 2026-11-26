@@ -6,7 +6,8 @@
 /// radio mientras los infectados exploran, la oyen, la persiguen con A* y la atacan. Teclas por
 /// defecto (todas reasignables en Esc > Opciones > Controles, que las guarda en
 /// config/controles.json):
-///   WASD (o flechas) = mover, Shift = correr, Ctrl = sigilo, E = recoger / activar la radio,
+///   WASD (o flechas) = mover, Shift = correr, Ctrl = sigilo, E = recoger / abrir una puerta
+///   metálica / activar la radio, C = usar un medicamento para curarse (RF-015),
 ///   Q = señuelo hacia el cursor, B = barricada en la celda de al lado hacia el cursor,
 ///   F1 = depuración, F4 = modo aislado / coordinado de la horda (HU-18), clic izquierdo sobre
 ///   un infectado = monitor del agente (HU-14), N = nodos expandidos, L = consola del registro
@@ -21,6 +22,7 @@
 /// Escena «Laboratorio»: clic izquierdo = origen, clic derecho = destino, B = barricada,
 ///   F2 = alternar algoritmo, F3 = comparar ambos, R = nuevo mapa, Tab = volver a la partida.
 /// Con --bench, --estres-recursion, --coord-exp u --optimize se ejecuta sin ventana.
+/// --mapa-tiled <archivo.json> juega en un mapa de Tiled (RF-001) en vez de la ciudad generada.
 ///
 /// Arte: adaptadores::ArteMundo dibuja calles, edificios, sprites y la luz de la linterna; F1
 /// quita la oscuridad para ver la información de la IA. La cámara solo cambia el dibujo.
@@ -57,6 +59,7 @@
 #include "app/MenuPausa.hpp"
 #include "dominio/experimentos/GeneradorMapas.hpp"
 #include "dominio/juego/ControlSimulacion.hpp"
+#include "dominio/juego/MapaTiled.hpp"
 #include "dominio/juego/Partida.hpp"
 #include "dominio/juego/Tutorial.hpp"
 #include "dominio/navegacion/Comparacion.hpp"
@@ -119,12 +122,46 @@ struct Aviso {
 };
 
 // ------------------------------------------------------------------------------- Partida
+/// RF-001: mapa de Tiled ya leído y validado (texto y tamaño), o vacío para la ciudad generada.
+struct MapaElegido {
+    std::string texto;
+    int ancho{kColumnas};
+    int alto{kFilas};
+    int infectados{kInfectados};
+    std::string error;  ///< Si el archivo no valía: se juega en la ciudad generada y se avisa.
+};
+
+MapaElegido leerMapaElegido(const std::string& ruta) {
+    MapaElegido m;
+    if (ruta.empty()) return m;
+    const auto l = adaptadores::leerArchivo(ruta, persistencia::kMaxBytesMapaTiled);
+    if (!l.existe || !l.error.empty()) {
+        m.error = "No se pudo leer el mapa " + ruta;
+        return m;
+    }
+    const auto r = juego::leerMapaTiled(l.datos, ruta);
+    if (!r.valido()) {
+        m.error = r.error;
+        return m;
+    }
+    m.texto = l.datos;
+    m.ancho = r.escenario.mapa.ancho();
+    m.alto = r.escenario.mapa.alto();
+    m.infectados = static_cast<int>(r.escenario.infectados.size());
+    return m;
+}
+
 class EscenaPartida {
 public:
-    EscenaPartida(std::uint64_t semilla, adaptadores::ConfigLocal cfg, const adaptadores::Sonidos& sonidos)
-        : config_(std::move(cfg)), menu_(config_.opciones, config_.controles), sonidos_(sonidos) {
+    EscenaPartida(std::uint64_t semilla, adaptadores::ConfigLocal cfg, const adaptadores::Sonidos& sonidos,
+                  MapaElegido mapa = {})
+        : config_(std::move(cfg)), menu_(config_.opciones, config_.controles), sonidos_(sonidos), mapa_(std::move(mapa)) {
         sonidos_.volumen(config_.opciones.volumen);
         reiniciar(semilla);
+        if (!mapa_.error.empty()) {  // RNF-016: un mapa inválido no detiene el juego
+            std::fprintf(stderr, "mapa: %s\n", mapa_.error.c_str());
+            avisar(mapa_.error + " (se juega en la ciudad generada)", true, 10.0f);
+        }
         if (!config_.errores.empty()) {  // RF-093: se avisa y se sigue con los valores por defecto
             for (const auto& e : config_.errores) std::fprintf(stderr, "config: %s\n", e.c_str());
             avisar(config_.errores.front() + (config_.errores.size() > 1 ? " (y más: ver la consola)" : ""), true, 8.0f);
@@ -142,13 +179,17 @@ public:
     [[nodiscard]] int tecla(Accion a) const noexcept { return config_.controles.tecla(a); }
     /// Reparto de la ventana de este frame (cambia al redimensionarla).
     void disponer(const vista::Disposicion& d) noexcept { disp_ = d; }
+    /// Tamaño del mundo en píxeles: el del mapa de Tiled o el de la ciudad generada.
+    [[nodiscard]] float anchoMundo() const noexcept { return static_cast<float>(partida_->mapa().ancho() * kCelda); }
+    [[nodiscard]] float altoMundo() const noexcept { return static_cast<float>(partida_->mapa().alto() * kCelda); }
 
     void reiniciar(std::uint64_t semilla) {
         persistencia::InicioPartida inicio;
         inicio.semilla = semilla;
-        inicio.ancho = kColumnas;
-        inicio.alto = kFilas;
-        inicio.infectados = kInfectados;
+        inicio.ancho = mapa_.ancho;
+        inicio.alto = mapa_.alto;
+        inicio.infectados = mapa_.infectados;
+        inicio.mapaTiled = mapa_.texto;  // RF-001: vacío, ciudad generada con la semilla
         inicio.ia = config_.ia;
         inicio.flowfieldUmbral = kUmbralCampoPrototipo;
         inicio.coordinado = coordinado_;
@@ -226,6 +267,7 @@ public:
         // hasta el siguiente paso de simulación y se usan una sola vez.
         if (pulsada(Accion::Senuelo)) senueloPendiente_ = true;
         if (pulsada(Accion::Barricada)) barricadaPendiente_ = true;
+        if (pulsada(Accion::Medicamento)) medicamentoPendiente_ = true;  // RF-015
         e.apuntar = {w.x / static_cast<float>(kCelda), w.y / static_cast<float>(kCelda)};
 
         // Paso fijo: el control recorta el frame a 0,25 s, aplica la velocidad y, en pausa, da
@@ -234,7 +276,8 @@ public:
         for (int k = 0; k < pasos; ++k) {
             e.lanzarSenuelo = senueloPendiente_;
             e.colocarBarricada = barricadaPendiente_;
-            senueloPendiente_ = barricadaPendiente_ = false;
+            e.usarMedicamento = medicamentoPendiente_;
+            senueloPendiente_ = barricadaPendiente_ = medicamentoPendiente_ = false;
             pasoSimulacion(e);
         }
         // En vivo: la tabla se rehace cuando el agente seleccionado planifica una ruta nueva.
@@ -304,7 +347,7 @@ private:
         camara_.offset = {v.x + v.ancho / 2.0f, v.y + v.alto / 2.0f};
         const vista::Punto mara{partida_->mara().pos.x * static_cast<float>(kCelda),
                                 partida_->mara().pos.y * static_cast<float>(kCelda)};
-        const auto meta = vista::encuadrar(mara, camara_.zoom, v.ancho, v.alto, kAnchoMundo, kAltoMundo);
+        const auto meta = vista::encuadrar(mara, camara_.zoom, v.ancho, v.alto, anchoMundo(), altoMundo());
         const float salto = std::hypot(meta.x - camara_.target.x, meta.y - camara_.target.y);
         const float k = salto > static_cast<float>(4 * kCelda) ? 1.0f : std::fmin(1.0f, GetFrameTime() * 6.0f);
         camara_.target = {camara_.target.x + (meta.x - camara_.target.x) * k, camara_.target.y + (meta.y - camara_.target.y) * k};
@@ -313,7 +356,7 @@ private:
     /// Parte de la ventana (en píxeles) donde se ve el mapa con la cámara actual.
     [[nodiscard]] vista::Rect mapaVisible() const {
         const Vector2 a = GetWorldToScreen2D({0.0f, 0.0f}, camara_);
-        const Vector2 b = GetWorldToScreen2D({kAnchoMundo, kAltoMundo}, camara_);
+        const Vector2 b = GetWorldToScreen2D({anchoMundo(), altoMundo()}, camara_);
         const auto& v = disp_.mapaPx;
         const float x0 = std::max(a.x, v.x);
         const float y0 = std::max(a.y, v.y);
@@ -356,12 +399,14 @@ private:
         control_ = juego::ControlSimulacion(static_cast<double>(partida_->dt()));
         control_.fijarIndiceVelocidad(previo.indiceVelocidad());
         control_.pausar(previo.pausada());
-        senueloPendiente_ = barricadaPendiente_ = false;
+        senueloPendiente_ = barricadaPendiente_ = medicamentoPendiente_ = false;
     }
 
     void pasoSimulacion(const juego::EntradaJugador& e) {
         const int senuelos = partida_->mara().senuelos;
         const int barricadas = partida_->mara().barricadas;
+        const int curas = partida_->medicamentosUsados();
+        const int puertas = partida_->puertasAbiertas();
         int objetos = 0;
         for (const bool b : partida_->mara().inventario) objetos += b ? 1 : 0;
         // RF-090: cada paso queda grabado para poder guardar la partida en cualquier momento.
@@ -371,6 +416,8 @@ private:
         if (ahora > objetos) sonidos_.reproducir(adaptadores::Efecto::Recoger);
         if (partida_->mara().senuelos < senuelos) sonidos_.reproducir(adaptadores::Efecto::Senuelo);
         if (partida_->mara().barricadas < barricadas) sonidos_.reproducir(adaptadores::Efecto::Barricada);
+        if (partida_->medicamentosUsados() > curas) sonidos_.reproducir(adaptadores::Efecto::Recoger);
+        if (partida_->puertasAbiertas() > puertas) sonidos_.reproducir(adaptadores::Efecto::Barricada);
         if (tutorial_.activo()) {
             const int antes = tutorial_.completados();
             tutorial_.observar(*partida_);
@@ -572,6 +619,7 @@ private:
     adaptadores::ConfigLocal config_;
     app::MenuPausa menu_;
     const adaptadores::Sonidos& sonidos_;
+    MapaElegido mapa_;  ///< RF-001
     std::unique_ptr<adaptadores::RegistroArchivo> registro_;
     std::unique_ptr<juego::Partida> partida_;
     persistencia::GrabadorPartida grabador_;
@@ -593,6 +641,7 @@ private:
     bool coordinado_{true};
     bool senueloPendiente_{false};
     bool barricadaPendiente_{false};
+    bool medicamentoPendiente_{false};  ///< RF-015
     // HU-16: comparación en vivo con F3.
     static constexpr std::uint64_t kSinConsulta = ~std::uint64_t{0};
     bool comparar_{false};
@@ -816,12 +865,14 @@ int main(int argc, char** argv) {
     bool capturaDepuracion = false;
     int anchoFijo = 0;
     int altoFijo = 0;
+    std::string rutaMapa;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--captura" && i + 1 < argc) captura = argv[++i];
         else if (a == "--frames" && i + 1 < argc) framesCaptura = std::max(1, std::atoi(argv[++i]));
         else if (a == "--mapa") capturaMapa = true;
         else if (a == "--depuracion") capturaDepuracion = true;
+        else if (a == "--mapa-tiled" && i + 1 < argc) rutaMapa = argv[++i];  // RF-001
         else if (a == "--ventana" && i + 1 < argc) {  // AxB, p. ej. 1920x1080
             const std::string v = argv[++i];
             const auto x = v.find('x');
@@ -842,7 +893,8 @@ int main(int argc, char** argv) {
 
     {
         const adaptadores::Sonidos sonidos;
-        EscenaPartida partida(42, adaptadores::leerConfigLocal(kCarpetaConfig), sonidos);  // RF-092
+        EscenaPartida partida(42, adaptadores::leerConfigLocal(kCarpetaConfig), sonidos,
+                              leerMapaElegido(rutaMapa));  // RF-092, RF-001
         EscenaLaboratorio laboratorio;
         bool enLaboratorio = false;
         bool estabaMaximizada = false;
@@ -852,9 +904,12 @@ int main(int argc, char** argv) {
         while (!WindowShouldClose() && !partida.salir()) {
             if (IsKeyPressed(config::tecla::kPantallaCompleta)) alternarPantallaCompleta(estabaMaximizada);
             // El reparto de la ventana se recalcula cada frame: sigue al redimensionarla.
+            // La partida puede jugarse en un mapa de Tiled de otro tamaño (RF-001); el laboratorio no.
             const auto disp = vista::calcularDisposicion(GetScreenWidth(), GetScreenHeight(), kAnchoMundo, kAltoMundo);
-            adaptadores::fijarEscalaInterfaz(disp.escala);
-            partida.disponer(disp);
+            const auto dispPartida =
+                vista::calcularDisposicion(GetScreenWidth(), GetScreenHeight(), partida.anchoMundo(), partida.altoMundo());
+            adaptadores::fijarEscalaInterfaz(enLaboratorio ? disp.escala : dispPartida.escala);
+            partida.disponer(dispPartida);
             laboratorio.disponer(disp);
 
             if (!partida.menuAbierto() && IsKeyPressed(partida.tecla(Accion::Laboratorio))) enLaboratorio = !enLaboratorio;

@@ -24,11 +24,11 @@ verificación está incompleta, y **Aprobado** si sigue pendiente de implementar
 | RF con al menos un CP | 68/68 | 100 % |
 | RNF con al menos un CP | 32/32 | 100 % |
 | HU terminadas (con o sin pendientes) | 23/23 | 100 % |
-| RF verificados / implementados / pendientes | 59 / 5 / 4 de 68 | 68 / 0 / 0 |
+| RF verificados / implementados / pendientes | 63 / 5 / 0 de 68 | 68 / 0 / 0 |
 | RNF verificados / implementados / pendientes | 6 / 25 / 1 de 32 | 32 / 0 / 0 |
-| CP que pasan / parciales / pendientes | 65 / 19 / 20 de 104 | 104 / 0 / 0 |
-| CP con alguna prueba automatizada o trabajo de CI | 80/104 | ≥ 80 % |
-| Pruebas automatizadas (TEST_CASE) | 172 | — |
+| CP que pasan / parciales / pendientes | 69 / 19 / 16 de 104 | 104 / 0 / 0 |
+| CP con alguna prueba automatizada o trabajo de CI | 84/104 | ≥ 80 % |
+| Pruebas automatizadas (TEST_CASE) | 192 | — |
 <!-- generado:cobertura fin -->
 
 Los RNF no enlazados con un RF concreto (RNF-009, RNF-010, RNF-022, RNF-024, RNF-028, RNF-031) son
@@ -74,14 +74,14 @@ La versión es la del juego en que la historia quedó terminada (ver el historia
 <!-- generado:hu inicio -->
 | HU | Título | Estado | Versión | RF | RNF relacionados | Casos de prueba |
 |---|---|---|---|---|---|---|
-| HU-01 | Moverse en sigilo | Terminada con pendientes | 0.2.0 | RF-001, RF-002, RF-003, RF-004, RF-016 | RNF-001, RNF-008, RNF-012, RNF-013, RNF-015, RNF-016, RNF-020, RNF-029 | CP-001, CP-002, CP-003, CP-004, CP-016, CP-101, CP-108, CP-112, CP-113, CP-115, CP-116, CP-120, CP-129, CP-202 |
-| HU-02 | Recoger objetos de misión | Terminada con pendientes | 0.2.0 | RF-005, RF-006, RF-015, RF-016 | RNF-012, RNF-013, RNF-020, RNF-029 | CP-005, CP-006, CP-015, CP-016, CP-112, CP-113, CP-120, CP-129, CP-202 |
+| HU-01 | Moverse en sigilo | Terminada | 0.2.0 | RF-001, RF-002, RF-003, RF-004, RF-016 | RNF-001, RNF-008, RNF-012, RNF-013, RNF-015, RNF-016, RNF-020, RNF-029 | CP-001, CP-002, CP-003, CP-004, CP-016, CP-101, CP-108, CP-112, CP-113, CP-115, CP-116, CP-120, CP-129, CP-202 |
+| HU-02 | Recoger objetos de misión | Terminada | 0.2.0 | RF-005, RF-006, RF-015, RF-016 | RNF-012, RNF-013, RNF-020, RNF-029 | CP-005, CP-006, CP-015, CP-016, CP-112, CP-113, CP-120, CP-129, CP-202 |
 | HU-03 | Activar la radio del refugio | Terminada | 0.2.0 | RF-007, RF-008 | RNF-014 | CP-007, CP-008, CP-114, CP-202 |
 | HU-04 | Escapar por la extracción | Terminada | 0.7.0 | RF-009, RF-010 | RNF-013, RNF-020 | CP-009, CP-010, CP-113, CP-120, CP-202 |
 | HU-05 | Perder la partida | Terminada | 0.7.0 | RF-011, RF-012, RF-055, RF-063 | RNF-020 | CP-011, CP-012, CP-055, CP-063, CP-120, CP-202 |
 | HU-06 | Lanzar un señuelo sonoro | Terminada | 0.5.0 | RF-013 | RNF-014 | CP-013, CP-114, CP-201, CP-202 |
 | HU-07 | Colocar una barricada | Terminada | 0.5.0 | RF-014, RF-025, RF-052 | RNF-002, RNF-014 | CP-014, CP-025, CP-052, CP-102, CP-114, CP-201, CP-202 |
-| HU-08 | Infectados que exploran sin información global | Terminada con pendientes | 0.2.0 | RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-048 | RNF-002, RNF-005, RNF-006, RNF-023, RNF-025, RNF-026 | CP-040, CP-041, CP-042, CP-043, CP-044, CP-045, CP-048, CP-102, CP-105, CP-106, CP-123, CP-125, CP-126, CP-201, CP-204 |
+| HU-08 | Infectados que exploran sin información global | Terminada | 0.2.0 | RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-048 | RNF-002, RNF-005, RNF-006, RNF-023, RNF-025, RNF-026 | CP-040, CP-041, CP-042, CP-043, CP-044, CP-045, CP-048, CP-102, CP-105, CP-106, CP-123, CP-125, CP-126, CP-201, CP-204 |
 | HU-09 | Investigar ruidos y propagar alertas | Terminada | 0.3.0 | RF-042, RF-043, RF-046, RF-047, RF-073 | RNF-002, RNF-005, RNF-006, RNF-007, RNF-018, RNF-027 | CP-042, CP-043, CP-046, CP-047, CP-073, CP-102, CP-105, CP-106, CP-107, CP-118, CP-127, CP-203, CP-204 |
 | HU-10 | Horda que reparte la aproximación | Terminada | 0.4.0 | RF-029, RF-030, RF-049, RF-051 | RNF-002, RNF-027, RNF-030 | CP-029, CP-030, CP-049, CP-051, CP-102, CP-127, CP-130, CP-204 |
 | HU-11 | Horda que reconsidera objetivos ante señuelos | Terminada | 0.5.0 | RF-025, RF-043, RF-050, RF-052, RF-072 | RNF-002, RNF-005, RNF-006, RNF-007, RNF-018 | CP-025, CP-043, CP-050, CP-052, CP-072, CP-102, CP-105, CP-106, CP-107, CP-118, CP-201, CP-203, CP-204 |
@@ -104,12 +104,12 @@ La versión es la del juego en que la historia quedó terminada (ver el historia
 <!-- generado:rf inicio -->
 | RF | Título | Prio. | HU | RNF | CP | Estado | Versión | Notas |
 |---|---|---|---|---|---|---|---|---|
-| RF-001 | Cargar mapa de Tiled | M | HU-01 | RNF-008, RNF-016 | CP-001, CP-202 | Aprobado | — | Pendiente: la ciudad se genera por código con semilla; no hay cargador de Tiled (ADR-0019). |
+| RF-001 | Cargar mapa de Tiled | M | HU-01 | RNF-008, RNF-016 | CP-001, CP-202 | Verificado | 0.18.0 | Lector propio de Tiled JSON (juego::leerMapaTiled), --mapa-tiled y maps/puerto.json (ADR-0019). La ciudad generada sigue siendo la opción por defecto. |
 | RF-002 | Modos de movimiento de Mara | M | HU-01 | RNF-001, RNF-012 | CP-002, CP-202 | Verificado | 0.2.0 |  |
 | RF-003 | Ruido por movimiento | M | HU-01 | RNF-020 | CP-003, CP-202 | Verificado | 0.2.0 |  |
 | RF-004 | Colisiones | M | HU-01 | RNF-015 | CP-004, CP-202 | Verificado | 0.2.0 |  |
 | RF-005 | Recoger objeto | M | HU-02 | RNF-012 | CP-005, CP-202 | Verificado | 0.2.0 |  |
-| RF-006 | Puerta metálica | M | HU-02 | RNF-020 | CP-006, CP-202 | Aprobado | — | Pendiente: no hay puerta metálica. Instalar la radio sí hace ruido (radio 4). |
+| RF-006 | Puerta metálica | M | HU-02 | RNF-020 | CP-006, CP-202 | Verificado | 0.18.0 | Puertas en huecos de muro o calles estrechas de la ciudad generada y en la capa «objetos» de Tiled; Mara las abre con E; la horda no. |
 | RF-007 | Instalar batería y activar radio | M | HU-03 | RNF-014 | CP-007, CP-202 | Verificado | 0.2.0 |  |
 | RF-008 | Interrupción de la instalación | M | HU-03 | RNF-014 | CP-008, CP-202 | Implementado | 0.2.0 | CP-008 solo comprueba soltar la tecla; el daño también interrumpe pero no tiene prueba. |
 | RF-009 | Ventana de extracción | M | HU-04 | RNF-013 | CP-009, CP-202 | Verificado | 0.7.0 | La zona se marca en el mapa y el panel muestra el tiempo restante. |
@@ -118,7 +118,7 @@ La versión es la del juego en que la historia quedó terminada (ver el historia
 | RF-012 | Derrota por refugio | M | HU-05 | RNF-020 | CP-012, CP-202 | Verificado | 0.7.0 |  |
 | RF-013 | Señuelo sonoro | M | HU-06 | RNF-014 | CP-013, CP-201, CP-202 | Verificado | 0.5.0 |  |
 | RF-014 | Barricada | M | HU-07 | RNF-014 | CP-014, CP-201, CP-202 | Verificado | 0.5.0 |  |
-| RF-015 | Usar medicamento | S | HU-02 | RNF-012 | CP-015, CP-202 | Aprobado | — | Pendiente: el medicamento es solo objeto de misión; no se puede usar para curarse. |
+| RF-015 | Usar medicamento | S | HU-02 | RNF-012 | CP-015, CP-202 | Verificado | 0.18.0 | Tecla C. Uno de los medicamentos queda reservado para la radio; la ciudad generada trae dos de más. |
 | RF-016 | HUD de objetivos | M | HU-01, HU-02 | RNF-013, RNF-029 | CP-016, CP-202 | Implementado | 0.2.0 | El panel lateral hace de HUD. CP-016 es manual (capturas en capturas/). |
 | RF-017 | Tutorial | S | HU-20 | RNF-011 | CP-017, CP-202 | Verificado | 0.12.0 | En la primera partida nueva (no hay escenas separadas). |
 | RF-020 | Grafo de costos | M | HU-16 | RNF-005, RNF-019 | CP-020 | Verificado | 0.1.0 |  |
@@ -141,7 +141,7 @@ La versión es la del juego en que la historia quedó terminada (ver el historia
 | RF-045 | Exploración sin información global | M | HU-08 | RNF-005 | CP-045, CP-204 | Implementado | 0.2.0 | CP-045 comprueba celdas libres, no la cobertura del 30 %. |
 | RF-046 | Investigar ruido | M | HU-09 | RNF-002, RNF-018 | CP-046, CP-204 | Verificado | 0.2.0 |  |
 | RF-047 | Propagación recursiva acotada de alertas | M | HU-09 | RNF-018, RNF-027 | CP-047, CP-204 | Verificado | 0.3.0 |  |
-| RF-048 | Roles de infectado | M | HU-08 | RNF-026 | CP-048 | Aprobado | — | Pendiente: un solo prototipo de infectado; los «prototipos» de config/ia.json no se leen. |
+| RF-048 | Roles de infectado | M | HU-08 | RNF-026 | CP-048 | Verificado | 0.18.0 | Uno de cada tres infectados es explorador. La sección «pesos» de ia.json (RF-085) reemplaza radio y velocidad del perseguidor (6 y 3,4). Los dos roles alertan (RF-047). |
 | RF-049 | Coordinación con Contract Net | M | HU-10, HU-12 | RNF-002 | CP-049 | Verificado | 0.4.0 |  |
 | RF-050 | Reevaluación ante señuelos | M | HU-11 | RNF-002, RNF-018 | CP-050, CP-201, CP-204 | Verificado | 0.5.0 |  |
 | RF-051 | Distribución de la aproximación | M | HU-10 | RNF-030 | CP-051, CP-204 | Verificado | 0.4.0 | Voraz por costo; sin Húngaro. |

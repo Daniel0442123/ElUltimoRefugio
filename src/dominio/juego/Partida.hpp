@@ -9,6 +9,7 @@
 /// Todo el estado se reserva al construir la partida; paso() no asigna memoria (RNF-006,
 /// comprobado por CP-106). El dominio no conoce raylib: la entrada llega como EntradaJugador.
 
+#include <algorithm>
 #include <array>
 #include <string_view>
 #include <cstdint>
@@ -45,6 +46,17 @@ enum class EstadoPartida : std::uint8_t { EnCurso, Victoria, Derrota };
 enum class MotivoFin : std::uint8_t { Ninguno, Extraccion, Salud, Refugio };
 enum class TipoObjeto : std::uint8_t { Medicamento, Combustible, Bateria };
 inline constexpr int kNumTiposObjeto = 3;
+/// RF-048: rol de cada infectado, según su prototipo de config/ia.json.
+enum class RolInfectado : std::uint8_t { Perseguidor, Explorador };
+[[nodiscard]] std::string_view nombreRol(RolInfectado r) noexcept;
+
+/// RF-048: prototipo «explorador» (visión amplia, lento). El «perseguidor» son los campos
+/// visionRadio, visionAngulo, velPerseguir y danioPorSegundo de ConfigPartida.
+struct PrototipoExplorador {
+    float visionRadio{7.0f};
+    float visionAngulo{110.0f};
+    float velocidad{2.0f};  ///< Celdas/s al perseguir.
+};
 
 /// Parámetros (valores iniciales de config/ia.json).
 struct ConfigPartida {
@@ -58,6 +70,8 @@ struct ConfigPartida {
     float radioCuerpo{0.3f};   ///< Celdas.
     float alcanceInteraccion{1.0f};
     float tInstalacion{8.0f};  ///< Segundos manteniendo interactuar en la radio (RF-007).
+    float curaMedicamento{35.0f};      ///< RF-015: CURA_MEDICAMENTO, puntos de salud.
+    float ruidoPuertaMetalica{10.0f};  ///< RF-006: RUIDO_PUERTA_METALICA, celdas.
     // Extracción y refugio (RF-009, RF-010, RF-012, RF-063)
     float tExtraccion{60.0f};     ///< T_EXTRACCION: segundos que la zona sigue abierta.
     float radioExtraccion{1.5f};  ///< Celdas alrededor del centro de la zona.
@@ -73,6 +87,7 @@ struct ConfigPartida {
     float velExplorar{1.4f};
     float velPerseguir{3.4f};
     float danioPorSegundo{10.0f};
+    PrototipoExplorador explorador{};  ///< RF-048
     float periodoReplan{0.3f};   ///< Segundos mínimos entre dos rutas del mismo agente al perseguir.
     float radioExplorar{10.0f};
     int presupuestoNodosTick{4000};  ///< RF-026: nodos expandidos por tick de IA como máximo.
@@ -127,6 +142,7 @@ struct Superviviente {
     ModoMovimiento modo{ModoMovimiento::Caminar};
     float salud{100.0f};
     std::array<bool, kNumTiposObjeto> inventario{};
+    int medicamentos{0};  ///< RF-015: uno queda reservado para la radio; los demás curan.
     float progresoInstalacion{0.0f};
     bool recibioDanio{false};  ///< En este paso; interrumpe la instalación (RF-008).
     int senuelos{0};
@@ -224,7 +240,15 @@ struct ObjetoMision {
     bool recogido{false};
 };
 
+/// RF-006: puerta metálica. Cerrada bloquea su celda; Mara la abre con interactuar y hace ruido.
+/// Los infectados no saben abrirlas. Una vez abierta se queda abierta.
+struct PuertaMetalica {
+    mundo::Celda celda{};
+    bool abierta{false};
+};
+
 struct Infectado {
+    RolInfectado rol{RolInfectado::Perseguidor};  ///< RF-048
     Vec2 pos{};
     Vec2 orientacion{1.0f, 0.0f};
     EstadoInfectado estado{EstadoInfectado::Explorar};
@@ -360,6 +384,7 @@ struct EntradaJugador {
     bool interactuar{false};  ///< Mantenido.
     bool lanzarSenuelo{false};     ///< Pulsación (RF-013).
     bool colocarBarricada{false};  ///< Pulsación (RF-014).
+    bool usarMedicamento{false};   ///< Pulsación (RF-015).
     Vec2 apuntar{};                ///< Punto del mundo: destino del señuelo y lado de la barricada.
 };
 
@@ -368,7 +393,11 @@ struct Escenario {
     mundo::GrafoRejilla mapa{1, 1};
     Vec2 inicioMara{};
     std::vector<Vec2> infectados;
+    /// RF-048: rol de cada infectado; si falta (vector más corto), Perseguidor.
+    std::vector<RolInfectado> roles;
     std::vector<ObjetoMision> objetos;
+    /// RF-006: celdas de puerta metálica (cerradas al empezar: la partida las bloquea).
+    std::vector<mundo::Celda> puertas;
     mundo::Celda radio{};  ///< La radio está en el refugio; su celda es también la puerta (RF-063).
     mundo::Celda extraccion{-1, -1};  ///< Zona de extracción; sin definir, el punto de partida de Mara.
     Vec2 inicioSuperviviente{-1.0f, -1.0f};  ///< Sin definir (x < 0), no hay superviviente.
@@ -377,6 +406,8 @@ struct Escenario {
 
 /// Ciudad de generarMapa con Mara en una esquina, los objetos y la radio lejos de ella y
 /// @p numInfectados infectados repartidos a no menos de 12 celdas de Mara. Determinista.
+/// Uno de cada tres infectados es explorador (RF-048); hay dos medicamentos de más para curarse
+/// (RF-015) y hasta dos puertas metálicas en huecos de muro (RF-006).
 [[nodiscard]] Escenario crearEscenarioAleatorio(int ancho, int alto, int numInfectados, std::uint64_t semilla);
 
 class Partida {
@@ -386,6 +417,7 @@ public:
     static constexpr std::size_t kMaxBarricadas = 8;
     static constexpr std::size_t kCapacidadRegistroSuperviviente = 16;
     static constexpr std::size_t kCapacidadMensajes = 256;
+    static constexpr std::size_t kMaxPuertas = 16;
 
     Partida(Escenario escenario, const ConfigPartida& cfg = {}, std::uint64_t semilla = 42);
 
@@ -414,6 +446,23 @@ public:
     [[nodiscard]] const ConfigPartida& config() const noexcept { return cfg_; }
     [[nodiscard]] float dt() const noexcept { return dt_; }
     [[nodiscard]] bool tieneTodosLosObjetos() const noexcept;
+
+    /// RF-006: puertas metálicas y cuántas se han abierto.
+    [[nodiscard]] const std::vector<PuertaMetalica>& puertas() const noexcept { return puertas_; }
+    [[nodiscard]] int puertasAbiertas() const noexcept { return puertasAbiertas_; }
+    /// RF-015: medicamentos que Mara puede usar ahora (los que tiene menos el de la radio).
+    [[nodiscard]] int medicamentosUsables() const noexcept { return std::max(0, mara_.medicamentos - 1); }
+    [[nodiscard]] int medicamentosUsados() const noexcept { return medicamentosUsados_; }
+    /// RF-048: parámetros del rol del infectado.
+    [[nodiscard]] float visionRadio(const Infectado& z) const noexcept {
+        return z.rol == RolInfectado::Explorador ? cfg_.explorador.visionRadio : cfg_.visionRadio;
+    }
+    [[nodiscard]] float visionAngulo(const Infectado& z) const noexcept {
+        return z.rol == RolInfectado::Explorador ? cfg_.explorador.visionAngulo : cfg_.visionAngulo;
+    }
+    [[nodiscard]] float velPerseguir(const Infectado& z) const noexcept {
+        return z.rol == RolInfectado::Explorador ? cfg_.explorador.velocidad : cfg_.velPerseguir;
+    }
 
     /// Últimas transiciones de la FSM (anillo; la más reciente en ultimaTransicion(0)).
     [[nodiscard]] std::size_t numTransiciones() const noexcept;
@@ -540,6 +589,7 @@ private:
     void ejecutarInfectado(std::size_t i);
     void moverHorda();
     void accionesMara(const EntradaJugador& e);
+    bool abrirPuertaCercana();
     void terminar(EstadoPartida e, MotivoFin m) noexcept;
     void actualizarSenuelos();
     [[nodiscard]] mundo::Celda destinoSenuelo(Vec2 apuntar) const noexcept;
@@ -594,6 +644,9 @@ private:
     mundo::Celda extraccion_{};
     float restanteExtraccion_{0.0f};
     int activacionesRadio_{0};
+    std::vector<PuertaMetalica> puertas_;
+    int puertasAbiertas_{0};
+    int medicamentosUsados_{0};
     float desdeRuidoInstalacion_{0.0f};
     float integridad_{100.0f};
     int golpeandoPuerta_{0};
