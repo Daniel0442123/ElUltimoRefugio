@@ -1,0 +1,85 @@
+name: Versión portable
+
+# Genera ElUltimoRefugio-<versión>-win64 (refugio.exe sin consola, runtime de MSVC estático y los
+# datos del juego), comprueba que no depende de DLL de Visual C++, lo ejecuta desde otra carpeta y
+# lo publica como artefacto. Al subir una etiqueta v* (p. ej. v0.18.0) adjunta el .zip a una
+# release de GitHub (RNF-028, CP-128).
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Zip portable Windows
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar
+        run: cmake -S . -B build-portable -DREFUGIO_BUILD_TESTS=OFF -DREFUGIO_SIN_CONSOLA=ON
+
+      - name: Compilar y empaquetar
+        run: cmake --build build-portable --config Release --target paquete --parallel
+
+      - name: Sin DLL de Visual C++ (runtime /MT)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * -find "VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          $carpeta = Get-ChildItem build-portable/paquete -Directory | Select-Object -First 1
+          $mal = $false
+          foreach ($exe in Get-ChildItem $carpeta.FullName -Filter *.exe) {
+            $deps = & $dumpbin /nologo /dependents $exe.FullName | Where-Object { $_ -match '\.dll' } | ForEach-Object { $_.Trim() }
+            Write-Host "$($exe.Name): $($deps -join ', ')"
+            if ($deps -match 'VCRUNTIME|MSVCP|api-ms-win-crt|ucrtbase|raylib') { $mal = $true }
+          }
+          if ($mal) { Write-Error "El ejecutable necesita DLL de Visual C++ o de raylib"; exit 1 }
+
+      - name: Ejecutar desde otra carpeta
+        shell: bash
+        run: |
+          zip=$(ls build-portable/paquete/*.zip)
+          prueba="$RUNNER_TEMP/prueba"
+          rm -rf "$prueba" && mkdir -p "$prueba/otra"
+          7z x -y -o"$prueba" "$zip" > /dev/null
+          dir=$(ls -d "$prueba"/ElUltimoRefugio-*)
+          cd "$prueba/otra"
+          "$dir/refugio_bench.exe" --coord-exp 7 --reps 1 --segundos 5
+          "$dir/refugio.exe" --coord-exp 8 --reps 1 --segundos 5 --salida results/humo_juego.csv
+          ls "$dir/results"
+          test -n "$(ls "$dir"/results/coord_*.csv)"
+          test -f "$dir/results/humo_juego.csv"
+          test -z "$(ls -A "$prueba/otra")"
+
+      - name: Nombre del paquete
+        id: nombre
+        shell: bash
+        run: |
+          zip=$(ls build-portable/paquete/*.zip)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "carpeta=${zip%.zip}" >> "$GITHUB_OUTPUT"
+          echo "nombre=$(basename "${zip%.zip}")" >> "$GITHUB_OUTPUT"
+
+      # La descarga del artefacto ya es un .zip con el contenido de la carpeta portable.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.nombre.outputs.nombre }}
+          path: ${{ steps.nombre.outputs.carpeta }}
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.nombre.outputs.zip }}
+          generate_release_notes: true

@@ -27,8 +27,8 @@ verificación está incompleta, y **Aprobado** si sigue pendiente de implementar
 | RF verificados / implementados / pendientes | 63 / 5 / 0 de 68 | 68 / 0 / 0 |
 | RNF verificados / implementados / pendientes | 10 / 21 / 1 de 32 | 32 / 0 / 0 |
 | CP que pasan / parciales / pendientes | 73 / 18 / 13 de 104 | 104 / 0 / 0 |
-| CP con alguna prueba automatizada, trabajo de CI o medición | 88/104 | ≥ 80 % |
-| Pruebas automatizadas (TEST_CASE) | 198 | — |
+| CP con alguna prueba automatizada, trabajo de CI o medición | 89/104 | ≥ 80 % |
+| Pruebas automatizadas (TEST_CASE) | 203 | — |
 <!-- generado:cobertura fin -->
 
 Los RNF no enlazados con un RF concreto (RNF-009, RNF-010, RNF-022, RNF-024, RNF-028, RNF-031) son
@@ -247,7 +247,7 @@ sirven para ver el orden de magnitud y se repetirán en CM-01 para el informe fi
 | RNF-025 | Capacidad de análisis | CP-125 | Implementado | -Werror en CI; clang-tidy a mano. Sin lizard ni Doxygen. |
 | RNF-026 | Capacidad de modificación | CP-126 | Implementado | IBuscadorRuta permite añadir buscadores; el ejercicio no se ha hecho. |
 | RNF-027 | Capacidad: profundidad de recursión acotada | CP-127 | Verificado | CP-127 y estrés de recursión en CI (hasta 2000 agentes con ASan). |
-| RNF-028 | Instalabilidad | CP-128 | Implementado | Dos comandos de CMake con presets; no hay .zip portable. |
+| RNF-028 | Instalabilidad | CP-128 | Implementado | Dos comandos de CMake con presets; zip portable con --target paquete (0.18.0, runtime /MT, datos junto al .exe). |
 | RNF-029 | Adaptabilidad de pantalla | CP-129 | Aprobado | Pendiente: ventana fija de 1280 × 720 sin escalado. |
 | RNF-030 | Escalabilidad | CP-130 | Implementado | 100 infectados en 128² sin pasar el presupuesto (CP-026). Falta la serie hasta 200. |
 | RNF-031 | Fotosensibilidad | CP-131 | Implementado | Solo parpadea la integridad del refugio; sin análisis de destellos. |

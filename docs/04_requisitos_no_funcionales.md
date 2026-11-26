@@ -459,7 +459,7 @@ Mediciones con ventana (`tools/rendimiento.py`, 2026-11-26, 12th Gen Intel(R) Co
 | Método | Trabajo de CI cronometrado; prueba manual del `.zip` en un equipo limpio |
 | Prioridad / fuente | M · StR-15, StR-19 |
 | Verificación | P · CP-128 |
-| Estado (0.16.0) | **Implementado en 0.1.0**. Dos comandos de CMake con presets; no hay .zip portable. |
+| Estado (0.18.0) | **Implementado en 0.1.0**. Dos comandos de CMake con presets. Desde 0.18.0, `cmake --build build-portable --config Release --target paquete` genera `ElUltimoRefugio-0.18.0-win64.zip` (runtime de MSVC estático, sin consola, datos junto al `.exe`); el flujo de CI `Versión portable` lo comprueba y lo publica. Falta la prueba en un equipo limpio. |
 
 ### RNF-029 · Adaptabilidad de pantalla
 | Atributo | Valor |
