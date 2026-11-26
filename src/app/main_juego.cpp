@@ -822,8 +822,12 @@ int main(int argc, char** argv) {
         else if (a == "--frames" && i + 1 < argc) framesCaptura = std::max(1, std::atoi(argv[++i]));
         else if (a == "--mapa") capturaMapa = true;
         else if (a == "--depuracion") capturaDepuracion = true;
-        else if (a == "--ventana" && i + 1 < argc &&
-                 std::sscanf(argv[++i], "%dx%d", &anchoFijo, &altoFijo) != 2) anchoFijo = altoFijo = 0;
+        else if (a == "--ventana" && i + 1 < argc) {  // AxB, p. ej. 1920x1080
+            const std::string v = argv[++i];
+            const auto x = v.find('x');
+            anchoFijo = x == std::string::npos ? 0 : std::atoi(v.substr(0, x).c_str());
+            altoFijo = x == std::string::npos ? 0 : std::atoi(v.substr(x + 1).c_str());
+        }
     }
     const bool tamFijo = anchoFijo >= kAnchoVentanaMin && altoFijo >= kAltoVentanaMin;
 
