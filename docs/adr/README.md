@@ -22,7 +22,7 @@
 | [ADR-0016](ADR-0016-guardado-por-repeticion.md) | Guardar la partida como inicio + entradas y repetirla al cargar | Aceptada | RF-090, RF-091, RF-093, RNF-007, RNF-017, RNF-021 |
 | [ADR-0017](ADR-0017-arte-pixel-iluminacion.md) | Arte pixel generado por código con luz 2D y sombras | Aceptada | RF-016, RF-071, RNF-006, RNF-012 |
 | [ADR-0018](ADR-0018-estado-en-partida-sin-ecs.md) | Estado de la simulación en `Partida` con arreglos por tipo, sin ECS | Aceptada; sustituye a ADR-0004 | RF-040, RF-041, RNF-002, RNF-005, RNF-006, RNF-020, RNF-030 |
-| [ADR-0019](ADR-0019-mapas-generados.md) | Mapas generados por código con semilla y lector JSON propio | Aceptada; sustituye a ADR-0013 | RF-001, RF-031, RF-080, RF-086, RES-03, RNF-016 |
+| [ADR-0019](ADR-0019-mapas-generados.md) | Mapas generados por código con semilla, mapas de Tiled opcionales (0.18.0) y lector JSON propio | Aceptada; sustituye a ADR-0013 | RF-001, RF-006, RF-031, RF-048, RF-080, RF-086, RES-03, IS-01, RNF-016 |
 | [ADR-0020](ADR-0020-herramientas-reales.md) | Ajustar la interfaz y la estrategia de calidad a las herramientas usadas | Aceptada; modifica ADR-0002 y ADR-0014 | RES-02, RES-10, RNF-001 a RNF-005, RNF-009, RNF-016, RNF-024, RNF-025 |
 | [ADR-0021](ADR-0021-ventana-adaptable-tipografia.md) | Ventana adaptable con interfaz escalada y tipografía Inter incrustada | Aceptada; modifica ADR-0017 | RF-016, RF-070, RNF-012 |
 

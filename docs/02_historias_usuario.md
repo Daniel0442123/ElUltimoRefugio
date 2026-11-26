@@ -36,14 +36,14 @@
 
 | ID | Título | Épica | Prioridad | Puntos | Escena | RF principales | Estado | Versión |
 |---|---|---|---|---|---|---|---|---|
-| HU-01 | Moverse en sigilo | EP-01 | M | 3 | 1 | RF-002, RF-003, RF-004 | Terminada con pendientes | 0.2.0 |
-| HU-02 | Recoger objetos de misión | EP-01 | M | 3 | 2 | RF-005, RF-006, RF-015, RF-016 | Terminada con pendientes | 0.2.0 |
+| HU-01 | Moverse en sigilo | EP-01 | M | 3 | 1 | RF-002, RF-003, RF-004 | Terminada | 0.2.0 |
+| HU-02 | Recoger objetos de misión | EP-01 | M | 3 | 2 | RF-005, RF-006, RF-015, RF-016 | Terminada | 0.2.0 |
 | HU-03 | Activar la radio del refugio | EP-01 | M | 5 | 4 | RF-007, RF-008 | Terminada | 0.2.0 |
 | HU-04 | Escapar por la extracción | EP-01 | M | 3 | 5 | RF-009, RF-010 | Terminada | 0.7.0 |
 | HU-05 | Perder la partida | EP-01 | M | 2 | todas | RF-011, RF-012, RF-055, RF-063 | Terminada | 0.7.0 |
 | HU-06 | Lanzar un señuelo sonoro | EP-01 | M | 3 | 4 | RF-013 | Terminada | 0.5.0 |
 | HU-07 | Colocar una barricada | EP-01 | M | 3 | 4 | RF-014, RF-025 | Terminada | 0.5.0 |
-| HU-08 | Infectados que exploran sin información global | EP-03 | M | 8 | 1 | RF-040 a RF-045, RF-048 | Terminada con pendientes | 0.2.0 |
+| HU-08 | Infectados que exploran sin información global | EP-03 | M | 8 | 1 | RF-040 a RF-045, RF-048 | Terminada | 0.2.0 |
 | HU-09 | Investigar ruidos y propagar alertas | EP-03 | M | 8 | 2 | RF-046, RF-047 | Terminada | 0.3.0 |
 | HU-10 | Horda que reparte la aproximación | EP-03 | M | 8 | 3 | RF-049, RF-051, RF-029 | Terminada | 0.4.0 |
 | HU-11 | Horda que reconsidera objetivos ante señuelos | EP-03 | M | 5 | 4 | RF-050, RF-052 | Terminada | 0.5.0 |
@@ -62,9 +62,9 @@
 
 Total estimado: 113 puntos. Las historias `M` suman 90 puntos y las `S` suman 23.
 
-**Estado en 0.16.0**: las 23 historias están terminadas, 3 de ellas con requisitos pendientes (HU-01, HU-02 y
-HU-08; ver la fila «Estado» de cada una y la [matriz](06_matriz_trazabilidad.md)). El juego tiene **un solo
-mapa** generado con semilla en lugar de cinco escenas separadas: la columna «Escena» indica en qué momento de la
+**Estado en 0.18.0**: las 23 historias están terminadas, sin requisitos pendientes (HU-01, HU-02 y HU-08
+cerraron los suyos en 0.18.0; ver la [matriz](06_matriz_trazabilidad.md)). El juego tiene **un mapa**
+generado con semilla (o uno de Tiled con `--mapa-tiled`, RF-001) en lugar de cinco escenas separadas: la columna «Escena» indica en qué momento de la
 partida se ve cada comportamiento del storyboard (exploración al empezar, alertas al oír a Mara, la horda al
 perseguirla, el refugio al instalar la radio y la extracción al final).
 
@@ -83,8 +83,8 @@ perseguirla, el refugio al instalar la radio y la extracción al final).
 | RF | RF-002, RF-003, RF-004, RF-016 |
 | RNF | RNF-001, RNF-012 |
 | Pruebas | CP-002, CP-003, CP-004 |
-| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
-| Implementación | Modos 1,5 / 3 / 6 celdas/s con ruido 1 / 3 / 6 (Mayús corre, Ctrl sigilo). La ciudad se genera por código con semilla, no con Tiled (ADR-0019). |
+| Estado (0.18.0) | **Terminada** · versión 0.2.0 · PR #1; pendientes cerrados en 0.18.0 |
+| Implementación | Modos 1,5 / 3 / 6 celdas/s con ruido 1 / 3 / 6 (Mayús corre, Ctrl sigilo). La ciudad se genera por código con semilla o se carga de un mapa de Tiled con `--mapa-tiled` (RF-001, ADR-0019). |
 
 ```gherkin
 # language: es
@@ -125,8 +125,8 @@ Característica: Desplazamiento de Mara con distintos niveles de ruido
 | Fuente | STB §01, Escena 2 |
 | RF | RF-005, RF-006, RF-015, RF-016 |
 | Pruebas | CP-005, CP-006, CP-015 |
-| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
-| Implementación | Recoger a 1 celda (E). Pendiente: la puerta metálica de la farmacia (RF-006) y usar un medicamento para curarse (RF-015). |
+| Estado (0.18.0) | **Terminada** · versión 0.2.0 · PR #1; pendientes cerrados en 0.18.0 |
+| Implementación | Recoger a 1 celda (E). E abre también las puertas metálicas, que hacen ruido (RF-006), y C usa un medicamento para curarse, dejando siempre uno para la radio (RF-015). |
 
 ```gherkin
 # language: es
@@ -337,8 +337,8 @@ Característica: Barricadas
 | RF | RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-048 |
 | RNF | RNF-002, RNF-023 |
 | Pruebas | CP-040 a CP-045, CP-048 |
-| Estado (0.16.0) | **Terminada con pendientes** · versión 0.2.0 · PR #1 |
-| Implementación | FSM con 7 estados, visión por cono y Bresenham, oído con −2 celdas por pared, memoria de 16 evidencias y exploración por mapa de visitas propio. Pendiente: roles explorador y perseguidor (RF-048); hay un solo tipo de infectado. |
+| Estado (0.18.0) | **Terminada** · versión 0.2.0 · PR #1; pendientes cerrados en 0.18.0 |
+| Implementación | FSM con 7 estados, visión por cono y Bresenham, oído con −2 celdas por pared, memoria de 16 evidencias y exploración por mapa de visitas propio. Roles explorador y perseguidor según `prototipos` de `config/ia.json` (RF-048, 0.18.0). |
 
 ```gherkin
 # language: es

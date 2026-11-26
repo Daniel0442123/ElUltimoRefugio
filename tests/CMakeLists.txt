@@ -26,6 +26,8 @@ add_executable(refugio_tests
     unit/test_planificador_rutas.cpp
     unit/test_escenario.cpp
     unit/test_disposicion.cpp
+    unit/test_puertas_curas_roles.cpp
+    unit/test_mapa_tiled.cpp
     unit/test_medicion_rendimiento.cpp
     unit/contador_asignaciones.cpp
 )

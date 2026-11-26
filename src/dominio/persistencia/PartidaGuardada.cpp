@@ -3,8 +3,10 @@
 #include <bit>
 #include <cmath>
 #include <exception>
+#include <stdexcept>
 #include <utility>
 
+#include "dominio/juego/MapaTiled.hpp"
 #include "dominio/persistencia/Crc32.hpp"
 
 #ifndef REFUGIO_VERSION
@@ -26,7 +28,8 @@ constexpr std::uint8_t kBitSenuelo = 1u << 1;
 constexpr std::uint8_t kBitBarricada = 1u << 2;
 constexpr std::uint8_t kBitDijkstra = 1u << 3;
 constexpr std::uint8_t kBitCoordinado = 1u << 4;
-constexpr std::uint8_t kBitsConocidos = 0x1F;
+constexpr std::uint8_t kBitMedicamento = 1u << 5;  // formato 3 (RF-015)
+constexpr std::uint8_t kBitsConocidos = 0x3F;
 constexpr float kMaxApuntar = 4096.0f;
 
 // ------------------------------------------------------------------------- Escritura
@@ -135,6 +138,10 @@ void escribirIa(Escritor& w, const config::ParametrosIa& p) {
         w.u32(static_cast<std::uint32_t>(v));
     // Formato 2 (0.13.0): los pesos de la sección «pesos» de ia.json (HU-21).
     for (const auto& c : config::camposPesos()) w.f32(p.pesos.*c.campo);
+    // Formato 3 (0.18.0): RF-015, RF-006 y RF-048.
+    for (const float v : {p.curaMedicamento, p.ruidoPuertaMetalica, p.exploradorVisionRadio, p.exploradorVisionAngulo,
+                          p.exploradorVelocidad, p.perseguidorVisionAngulo})
+        w.f32(v);
 }
 
 /// @p version del formato: el 1 no lleva pesos y se carga con los pesos por defecto, que son los
@@ -154,6 +161,12 @@ config::ParametrosIa leerIa(Lector& r, std::uint16_t version) {
     }
     if (version >= 2)
         for (const auto& c : config::camposPesos()) p.pesos.*c.campo = r.f32();
+    // Antes del 3 no había medicamentos de cura, puertas ni roles: los valores por defecto no
+    // cambian nada en esas partidas.
+    if (version >= 3)
+        for (float* v : {&p.curaMedicamento, &p.ruidoPuertaMetalica, &p.exploradorVisionRadio, &p.exploradorVisionAngulo,
+                         &p.exploradorVelocidad, &p.perseguidorVisionAngulo})
+            *v = r.f32();
     return p;
 }
 
@@ -177,6 +190,11 @@ juego::ConfigPartida configDe(const InicioPartida& inicio) {
 }
 
 std::unique_ptr<Partida> crearPartida(const InicioPartida& inicio) {
+    if (!inicio.mapaTiled.empty()) {  // RF-001
+        auto mapa = juego::leerMapaTiled(inicio.mapaTiled);
+        if (!mapa.valido()) throw std::runtime_error(mapa.error);
+        return std::make_unique<Partida>(std::move(mapa.escenario), configDe(inicio), inicio.semilla);
+    }
     return std::make_unique<Partida>(
         juego::crearEscenarioAleatorio(inicio.ancho, inicio.alto, inicio.infectados, inicio.semilla), configDe(inicio),
         inicio.semilla);
@@ -188,7 +206,7 @@ bool iguales(const EntradaTick& a, const EntradaTick& b) noexcept {
     const auto& y = b.entrada;
     return bits(x.ejeX) == bits(y.ejeX) && bits(x.ejeY) == bits(y.ejeY) && x.modo == y.modo &&
            x.interactuar == y.interactuar && x.lanzarSenuelo == y.lanzarSenuelo &&
-           x.colocarBarricada == y.colocarBarricada && bits(x.apuntar.x) == bits(y.apuntar.x) &&
+           x.colocarBarricada == y.colocarBarricada && x.usarMedicamento == y.usarMedicamento && bits(x.apuntar.x) == bits(y.apuntar.x) &&
            bits(x.apuntar.y) == bits(y.apuntar.y) && a.algoritmo == b.algoritmo && a.coordinado == b.coordinado;
 }
 
@@ -206,6 +224,8 @@ std::uint64_t huellaPartida(const Partida& p) noexcept {
     f.mezclar(m.senuelos);
     f.mezclar(m.barricadas);
     for (const bool b : m.inventario) f.mezclar(b);
+    f.mezclar(m.medicamentos);
+    for (const auto& pu : p.puertas()) f.mezclar(pu.abierta);
     f.mezclar(p.integridad());
     f.mezclar(p.restanteExtraccion());
     f.mezclar(p.activacionesRadio());
@@ -291,6 +311,10 @@ std::vector<std::uint8_t> codificar(const PartidaGuardada& g) {
     c.u8(in.algoritmo == navegacion::Algoritmo::Dijkstra ? 0 : 1);
     c.u8(in.coordinado ? 1 : 0);
     escribirIa(c, in.ia);
+    // Formato 3: el mapa de Tiled (longitud y bytes; 0 si la ciudad es generada).
+    const std::size_t lm = std::min(in.mapaTiled.size(), kMaxBytesMapaTiled);
+    c.varint(static_cast<std::uint32_t>(lm));
+    c.b.insert(c.b.end(), in.mapaTiled.begin(), in.mapaTiled.begin() + static_cast<std::ptrdiff_t>(lm));
     c.u32(g.ticks);
     c.u64(g.huella);
     c.u32(static_cast<std::uint32_t>(g.tramos.size()));
@@ -302,6 +326,7 @@ std::vector<std::uint8_t> codificar(const PartidaGuardada& g) {
         if (e.colocarBarricada) bits |= kBitBarricada;
         if (t.tick.algoritmo == navegacion::Algoritmo::Dijkstra) bits |= kBitDijkstra;
         if (t.tick.coordinado) bits |= kBitCoordinado;
+        if (e.usarMedicamento) bits |= kBitMedicamento;
         c.u8(bits);
         c.u8(static_cast<std::uint8_t>(e.modo));
         c.f32(e.ejeX);
@@ -372,11 +397,20 @@ ResultadoLecturaPartida decodificar(std::span<const std::uint8_t> bytes) {
     const std::uint8_t alg = r.u8();
     const std::uint8_t coord = r.u8();
     in.ia = leerIa(r, version);
+    if (version >= 3) {
+        const std::uint32_t lm = r.varint();
+        if (!r.ok || lm > kMaxBytesMapaTiled || lm > r.restantes())
+            return fallo(ErrorCarga::Formato, "mapa de Tiled truncado o demasiado grande");
+        in.mapaTiled.reserve(lm);
+        for (std::uint32_t i = 0; i < lm; ++i) in.mapaTiled.push_back(static_cast<char>(r.u8()));
+    }
     g.ticks = r.u32();
     g.huella = r.u64();
     const std::uint32_t numTramos = r.u32();
     if (!r.ok) return fallo(ErrorCarga::Formato, "cabecera de la partida truncada");
-    if (in.ancho < 16 || in.ancho > 256 || in.alto < 16 || in.alto > 256)
+    // Con mapa de Tiled el tamaño es el del mapa (4 a 256, lo comprueba su lector al restaurar).
+    const int ladoMin = in.mapaTiled.empty() ? 16 : 4;
+    if (in.ancho < ladoMin || in.ancho > 256 || in.alto < ladoMin || in.alto > 256)
         return fallo(ErrorCarga::Formato, "tamaño de mapa fuera de rango");
     if (in.infectados > 256) return fallo(ErrorCarga::Formato, "demasiados infectados");
     if (in.flowfieldUmbral < 1 || in.flowfieldUmbral > 1000) return fallo(ErrorCarga::Formato, "flowfield_umbral fuera de rango");
@@ -400,6 +434,7 @@ ResultadoLecturaPartida decodificar(std::span<const std::uint8_t> bytes) {
         e.interactuar = (bits & kBitInteractuar) != 0;
         e.lanzarSenuelo = (bits & kBitSenuelo) != 0;
         e.colocarBarricada = (bits & kBitBarricada) != 0;
+        e.usarMedicamento = (bits & kBitMedicamento) != 0;
         if (e.lanzarSenuelo || e.colocarBarricada) {
             e.apuntar.x = r.f32();
             e.apuntar.y = r.f32();

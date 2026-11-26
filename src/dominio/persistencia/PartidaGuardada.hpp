@@ -33,8 +33,12 @@
 
 namespace refugio::persistencia {
 
-/// 1: hasta la 0.12.0. 2: añade los pesos de ia.json (HU-21); el 1 se sigue leyendo.
-inline constexpr std::uint16_t kVersionFormato = 2;
+/// 1: hasta la 0.12.0. 2: añade los pesos de ia.json (HU-21). 3 (0.18.0): añade la cura y el
+/// ruido de puerta, los prototipos de infectado (RF-048), el mapa de Tiled si la partida usa uno
+/// (RF-001) y el bit de usar medicamento (RF-015). El 1 y el 2 se siguen leyendo.
+inline constexpr std::uint16_t kVersionFormato = 3;
+/// Un mapa de Tiled guardado dentro de la partida no puede pasar de 4 MB.
+inline constexpr std::size_t kMaxBytesMapaTiled = 4u * 1024u * 1024u;
 inline constexpr std::size_t kTamCabecera = 16;
 /// RNF-021: no se analiza ningún archivo de más de 10 MB.
 inline constexpr std::size_t kMaxBytesArchivo = 10u * 1024u * 1024u;
@@ -51,6 +55,9 @@ struct InicioPartida {
     int flowfieldUmbral{5};  ///< El prototipo usa 5 con 10 infectados (ver main_juego.cpp).
     navegacion::Algoritmo algoritmo{navegacion::Algoritmo::AEstrella};
     bool coordinado{true};
+    /// RF-001: texto del mapa de Tiled; vacío, la ciudad se genera con la semilla. Con mapa,
+    /// ancho, alto e infectados son los del mapa (solo informativos).
+    std::string mapaTiled;
     friend bool operator==(const InicioPartida&, const InicioPartida&) = default;
 };
 

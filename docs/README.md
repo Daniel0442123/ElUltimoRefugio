@@ -77,15 +77,15 @@ Los identificadores **nunca se reutilizan**. Un requisito eliminado se marca com
 * Estados de un caso de prueba: `Pasa` (automatizado y en verde, o revisado), `Parcial` o `Pendiente`.
 * Estados de una historia: `Terminada`, `Terminada con pendientes` (algún RF sigue `Aprobado`) o `Pendiente`.
 
-## 4.1 Estado en 0.16.0
+## 4.1 Estado en 0.18.0
 
 | Elemento | Total | Estado |
 |---|---|---|
-| Historias de usuario | 23 | 20 terminadas y 3 terminadas con pendientes (HU-01, HU-02, HU-08) |
-| Requisitos funcionales | 68 | 59 verificados, 5 implementados, 4 pendientes (RF-001, RF-006, RF-015, RF-048) |
+| Historias de usuario | 23 | 23 terminadas |
+| Requisitos funcionales | 68 | 63 verificados y 5 implementados (RF-001, RF-006, RF-015 y RF-048 desde 0.18.0) |
 | Requisitos no funcionales | 32 | 6 verificados, 25 implementados con la medición incompleta, 1 pendiente (RNF-029) |
-| Casos de prueba | 104 | 65 pasan, 19 parciales, 20 pendientes |
-| Pruebas automatizadas | 172 | 172 en verde (GCC 13.3, Release) |
+| Casos de prueba | 104 | 69 pasan, 19 parciales, 16 pendientes |
+| Pruebas automatizadas | 198 | 198 en verde (GCC 13.3, Release) |
 
 Las cifras salen de `python tools/trazabilidad.py generar` ([matriz §1](06_matriz_trazabilidad.md)). Lo que
 cambió respecto de la línea base está en [SRS §8](03_SRS_requisitos_funcionales.md) y en los ADR 0018 a 0020.

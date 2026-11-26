@@ -6,14 +6,14 @@ Epic,EP-04,Superviviente de la radio,M,,,Terminada,,
 Epic,EP-05,Panel de monitoreo y registro,M,,,Terminada,,
 Epic,EP-06,Experimentación y optimización,M,,,Terminada,,
 Epic,EP-07,Persistencia y configuración local,M,,,Terminada,,
-Story,HU-01,Moverse en sigilo,M,EP-01,RF-001 RF-002 RF-003 RF-004 RF-016,Terminada con pendientes,0.2.0,PR #1. El mapa se genera por código (RF-001 pendiente).
-Story,HU-02,Recoger objetos de misión,M,EP-01,RF-005 RF-006 RF-015 RF-016,Terminada con pendientes,0.2.0,PR #1. Falta la puerta metálica (RF-006) y usar medicamentos (RF-015).
+Story,HU-01,Moverse en sigilo,M,EP-01,RF-001 RF-002 RF-003 RF-004 RF-016,Terminada,0.2.0,PR #1. Mapas de Tiled (RF-001) desde 0.18.0.
+Story,HU-02,Recoger objetos de misión,M,EP-01,RF-005 RF-006 RF-015 RF-016,Terminada,0.2.0,PR #1. Puerta metálica (RF-006) y medicamento para curarse (RF-015) desde 0.18.0.
 Story,HU-03,Activar la radio del refugio,M,EP-01,RF-007 RF-008,Terminada,0.2.0,PR #1; ayuda del superviviente en 0.8.0.
 Story,HU-04,Escapar por la extracción,M,EP-01,RF-009 RF-010,Terminada,0.7.0,PR #6.
 Story,HU-05,Perder la partida,M,EP-01,RF-011 RF-012 RF-055 RF-063,Terminada,0.7.0,PR #6 (derrota por salud desde 0.2.0).
 Story,HU-06,Lanzar un señuelo sonoro,M,EP-01,RF-013,Terminada,0.5.0,PR #4.
 Story,HU-07,Colocar una barricada,M,EP-01,RF-014 RF-025 RF-052,Terminada,0.5.0,PR #4.
-Story,HU-08,Infectados que exploran sin información global,M,EP-03,RF-040 RF-041 RF-042 RF-043 RF-044 RF-045 RF-048,Terminada con pendientes,0.2.0,PR #1. Un solo tipo de infectado (RF-048 pendiente).
+Story,HU-08,Infectados que exploran sin información global,M,EP-03,RF-040 RF-041 RF-042 RF-043 RF-044 RF-045 RF-048,Terminada,0.2.0,PR #1. Roles explorador y perseguidor (RF-048) desde 0.18.0.
 Story,HU-09,Investigar ruidos y propagar alertas,M,EP-03,RF-042 RF-043 RF-046 RF-047 RF-073,Terminada,0.3.0,PR #2.
 Story,HU-10,Horda que reparte la aproximación,M,EP-03,RF-029 RF-030 RF-049 RF-051,Terminada,0.4.0,PR #3.
 Story,HU-11,Horda que reconsidera objetivos ante señuelos,M,EP-03,RF-025 RF-043 RF-050 RF-052 RF-072,Terminada,0.5.0,PR #4.
@@ -29,12 +29,12 @@ Story,HU-20,Tutorial de sigilo,S,EP-01,RF-017,Terminada,0.12.0,PR #11.
 Story,HU-21,Optimizar parámetros de la IA,S,EP-06,RF-085,Terminada,0.13.0,PR #12.
 Story,HU-22,Controlar la simulación para explicarla,S,EP-05,RF-075,Terminada,0.14.0,PR #13.
 Story,HU-23,Rutas para la horda sin congelar el juego,M,EP-02,RF-026 RF-027 RF-028 RF-030,Terminada,0.15.0,PR #13.
-Requirement,RF-001,Cargar mapa de Tiled,M,HU-01,RNF-008 RNF-016 CP-001 CP-202,Aprobado,,Pendiente: la ciudad se genera por código con semilla; no hay cargador de Tiled (ADR-0019).
+Requirement,RF-001,Cargar mapa de Tiled,M,HU-01,RNF-008 RNF-016 CP-001 CP-202,Verificado,0.18.0,"Lector propio de Tiled JSON (juego::leerMapaTiled), --mapa-tiled y maps/puerto.json (ADR-0019). La ciudad generada sigue siendo la opción por defecto."
 Requirement,RF-002,Modos de movimiento de Mara,M,HU-01,RNF-001 RNF-012 CP-002 CP-202,Verificado,0.2.0,
 Requirement,RF-003,Ruido por movimiento,M,HU-01,RNF-020 CP-003 CP-202,Verificado,0.2.0,
 Requirement,RF-004,Colisiones,M,HU-01,RNF-015 CP-004 CP-202,Verificado,0.2.0,
 Requirement,RF-005,Recoger objeto,M,HU-02,RNF-012 CP-005 CP-202,Verificado,0.2.0,
-Requirement,RF-006,Puerta metálica,M,HU-02,RNF-020 CP-006 CP-202,Aprobado,,Pendiente: no hay puerta metálica. Instalar la radio sí hace ruido (radio 4).
+Requirement,RF-006,Puerta metálica,M,HU-02,RNF-020 CP-006 CP-202,Verificado,0.18.0,Puertas en huecos de muro o calles estrechas de la ciudad generada y en la capa «objetos» de Tiled; Mara las abre con E; la horda no.
 Requirement,RF-007,Instalar batería y activar radio,M,HU-03,RNF-014 CP-007 CP-202,Verificado,0.2.0,
 Requirement,RF-008,Interrupción de la instalación,M,HU-03,RNF-014 CP-008 CP-202,Implementado,0.2.0,CP-008 solo comprueba soltar la tecla; el daño también interrumpe pero no tiene prueba.
 Requirement,RF-009,Ventana de extracción,M,HU-04,RNF-013 CP-009 CP-202,Verificado,0.7.0,La zona se marca en el mapa y el panel muestra el tiempo restante.
@@ -43,7 +43,7 @@ Requirement,RF-011,Derrota por salud,M,HU-05,RNF-020 CP-011 CP-202,Verificado,0.
 Requirement,RF-012,Derrota por refugio,M,HU-05,RNF-020 CP-012 CP-202,Verificado,0.7.0,
 Requirement,RF-013,Señuelo sonoro,M,HU-06,RNF-014 CP-013 CP-201 CP-202,Verificado,0.5.0,
 Requirement,RF-014,Barricada,M,HU-07,RNF-014 CP-014 CP-201 CP-202,Verificado,0.5.0,
-Requirement,RF-015,Usar medicamento,S,HU-02,RNF-012 CP-015 CP-202,Aprobado,,Pendiente: el medicamento es solo objeto de misión; no se puede usar para curarse.
+Requirement,RF-015,Usar medicamento,S,HU-02,RNF-012 CP-015 CP-202,Verificado,0.18.0,Tecla C. Uno de los medicamentos queda reservado para la radio; la ciudad generada trae dos de más.
 Requirement,RF-016,HUD de objetivos,M,HU-01,HU-02 RNF-013 RNF-029 CP-016 CP-202,Implementado,0.2.0,El panel lateral hace de HUD. CP-016 es manual (capturas en capturas/).
 Requirement,RF-017,Tutorial,S,HU-20,RNF-011 CP-017 CP-202,Verificado,0.12.0,En la primera partida nueva (no hay escenas separadas).
 Requirement,RF-020,Grafo de costos,M,HU-16,RNF-005 RNF-019 CP-020,Verificado,0.1.0,
@@ -66,7 +66,7 @@ Requirement,RF-044,Máquina de estados del infectado,M,HU-08,RNF-025 CP-044,Veri
 Requirement,RF-045,Exploración sin información global,M,HU-08,RNF-005 CP-045 CP-204,Implementado,0.2.0,"CP-045 comprueba celdas libres, no la cobertura del 30 %."
 Requirement,RF-046,Investigar ruido,M,HU-09,RNF-002 RNF-018 CP-046 CP-204,Verificado,0.2.0,
 Requirement,RF-047,Propagación recursiva acotada de alertas,M,HU-09,RNF-018 RNF-027 CP-047 CP-204,Verificado,0.3.0,
-Requirement,RF-048,Roles de infectado,M,HU-08,RNF-026 CP-048,Aprobado,,Pendiente: un solo prototipo de infectado; los «prototipos» de config/ia.json no se leen.
+Requirement,RF-048,Roles de infectado,M,HU-08,RNF-026 CP-048,Verificado,0.18.0,"Uno de cada tres infectados es explorador. La sección «pesos» de ia.json (RF-085) reemplaza radio y velocidad del perseguidor (6 y 3,4). Los dos roles alertan (RF-047)."
 Requirement,RF-049,Coordinación con Contract Net,M,HU-10,HU-12 RNF-002 CP-049,Verificado,0.4.0,
 Requirement,RF-050,Reevaluación ante señuelos,M,HU-11,RNF-002 RNF-018 CP-050 CP-201 CP-204,Verificado,0.5.0,
 Requirement,RF-051,Distribución de la aproximación,M,HU-10,RNF-030 CP-051 CP-204,Verificado,0.4.0,Voraz por costo; sin Húngaro.
@@ -129,12 +129,12 @@ Requirement,RNF-028,Instalabilidad,M,,CP-128,Implementado,0.1.0,Dos comandos de 
 Requirement,RNF-029,Adaptabilidad de pantalla,M,,CP-129,Aprobado,,Pendiente: ventana fija de 1280 × 720 sin escalado.
 Requirement,RNF-030,Escalabilidad,M,,CP-130,Implementado,0.15.0,100 infectados en 128² sin pasar el presupuesto (CP-026). Falta la serie hasta 200.
 Requirement,RNF-031,Fotosensibilidad,M,,CP-131,Implementado,0.7.0,Solo parpadea la integridad del refugio; sin análisis de destellos.
-Test,CP-001,Carga de mapa Tiled,,RF-001,,Pendiente,,RF-001 pendiente.
+Test,CP-001,Carga de mapa Tiled,,RF-001,,Pasa,,"test_mapa_tiled.cpp: capas, mapa de ejemplo, errores y guardado con el mapa."
 Test,CP-002,Velocidad por modo,,RF-002,,Pasa,,
 Test,CP-003,Ruido por modo,,RF-003,,Pasa,,
 Test,CP-004,Colisiones,,RF-004,,Pasa,,
 Test,CP-005,Recoger objeto,,RF-005,,Pasa,,
-Test,CP-006,Ruido de puerta metálica,,RF-006,,Pendiente,,RF-006 pendiente.
+Test,CP-006,Ruido de puerta metálica,,RF-006,,Pasa,,
 Test,CP-007,Activar radio,,RF-007,,Pasa,,
 Test,CP-008,Interrumpir instalación,,RF-008,,Parcial,,Falta el caso de daño.
 Test,CP-009,Ventana de extracción,,RF-009,,Pasa,,
@@ -143,7 +143,7 @@ Test,CP-011,Derrota por salud,,RF-011,,Pasa,,
 Test,CP-012,Derrota por refugio,,RF-012,,Pasa,,
 Test,CP-013,Señuelo,,RF-013,,Pasa,,
 Test,CP-014,Barricada,,RF-014,,Pasa,,
-Test,CP-015,Medicamento,,RF-015,,Pendiente,,RF-015 pendiente.
+Test,CP-015,Medicamento,,RF-015,,Pasa,,
 Test,CP-016,HUD,,RF-016,,Parcial,,Manual: capturas en la carpeta capturas/ del proyecto.
 Test,CP-017,Tutorial,,RF-017,,Pasa,,
 Test,CP-020,Construcción del grafo,,RF-020,,Pasa,,
@@ -166,7 +166,7 @@ Test,CP-044,Transiciones FSM,,RF-044,,Pasa,,
 Test,CP-045,Exploración propia,,RF-045,,Parcial,,No mide la cobertura.
 Test,CP-046,Investigar ruido,,RF-046,,Pasa,,Fila «Explorar + ruido» de CP-044.
 Test,CP-047,Propagación recursiva,,RF-047,,Pasa,,
-Test,CP-048,Roles,,RF-048,,Pendiente,,RF-048 pendiente.
+Test,CP-048,Roles,,RF-048,,Pasa,,
 Test,CP-049,Contract Net,,RF-049,,Pasa,,
 Test,CP-050,Reevaluación ante señuelo,,RF-050,,Pasa,,
 Test,CP-051,Distribución de aproximación,,RF-051,,Pasa,,

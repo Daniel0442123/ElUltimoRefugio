@@ -81,10 +81,10 @@ requisitos (STB §03 «Libertad de desarrollo»). Los requisitos citan el parám
 | `TICK_IA_HZ` | 10 | Hz | RF-040 | 10 |
 | `VEL_SIGILO` / `VEL_CAMINAR` / `VEL_CORRER` | 1.5 / 3.0 / 6.0 | celdas/s | RF-002 | Igual |
 | `RUIDO_SIGILO` / `RUIDO_CAMINAR` / `RUIDO_CORRER` | 1 / 3 / 6 | celdas | RF-003 | Igual, cada 0,5 s |
-| `RUIDO_PUERTA_METALICA` | 10 | celdas | RF-006 | Se lee pero no se usa (RF-006 pendiente) |
+| `RUIDO_PUERTA_METALICA` | 10 | celdas | RF-006 | 10 (`ruido.puerta_metalica`, 0.18.0) |
 | `T_INSTALACION` | 8 | s | RF-007 | 8; instalar hace ruido de radio 4 cada segundo |
 | `T_EXTRACCION` | 60 | s | RF-009 | 60 |
-| `SALUD_MAX` / `CURA_MEDICAMENTO` | 100 / 35 | puntos | RF-011, RF-015 | 100 / sin uso (RF-015 pendiente) |
+| `SALUD_MAX` / `CURA_MEDICAMENTO` | 100 / 35 | puntos | RF-011, RF-015 | 100 / 35 (`mision.cura_medicamento`, 0.18.0) |
 | `INTEGRIDAD_REFUGIO_MAX` | 100 | puntos | RF-012, RF-063 | 100 |
 | `SENUELO_ALCANCE` / `SENUELO_RADIO` / `SENUELO_DURACION` / `SENUELO_PERIODO` | 8 / 8 / 10 / 1 | celdas / celdas / s / s | RF-013 | Igual; 2 señuelos por partida |
 | `VISION_RADIO` / `VISION_ANGULO` (explorador) | 7 / 110 | celdas / grados | RF-041 | Un solo tipo de infectado: 6 celdas / 110° (sección `pesos`), y nota a Mara a 1,5 celdas aunque esté detrás |
@@ -138,13 +138,13 @@ Los once pesos que ajusta la optimización (RF-085) están en la sección `"peso
 | IU-01 | Resolución lógica 1280 × 720 escalada sin deformación a la ventana (letterbox). **0.16.0**: ventana fija de 1280 × 720 sin escalado (RNF-029 pendiente); la cámara (Z) sigue a Mara con zoom 2× o muestra el mapa completo. |
 | IU-02 | HUD con salud, inventario, objetivo actual y temporizador de extracción. **0.16.0**: van en el panel lateral junto al monitor de la IA. |
 | IU-03 | Panel de monitoreo (raygui) acoplado a la derecha, 360 px de ancho, conmutable con F1. **0.16.0**: panel dibujado con raylib (sin raygui), 256 px, siempre visible; F1 activa las superposiciones de depuración y quita la oscuridad. |
-| IU-04 | Controles por defecto: WASD mover, Mayús correr, Ctrl sigilo, E interactuar, Q señuelo, B barricada, F1 panel, F2 algoritmo, F3 comparar, F4 aislado/coordinado, Espacio pausa, N paso, +/- velocidad, F5/F9 guardar/cargar. **0.16.0**: WASD o flechas, Mayús, Ctrl, E, Q, B, F1 depuración, F2, F3, F4, N nodos expandidos, L consola de IA, P pausa, F6 paso, F7/F8 velocidad, F5/F9 guardar/cargar, T saltar tutorial, R nueva partida, Tab laboratorio, Z cámara y Esc menú. Las 25 acciones se reasignan en Esc > Opciones > Controles (`config/controles.json`). |
+| IU-04 | Controles por defecto: WASD mover, Mayús correr, Ctrl sigilo, E interactuar, Q señuelo, B barricada, F1 panel, F2 algoritmo, F3 comparar, F4 aislado/coordinado, Espacio pausa, N paso, +/- velocidad, F5/F9 guardar/cargar. **0.16.0**: WASD o flechas, Mayús, Ctrl, E, Q, B, F1 depuración, F2, F3, F4, N nodos expandidos, L consola de IA, P pausa, F6 paso, F7/F8 velocidad, F5/F9 guardar/cargar, T saltar tutorial, R nueva partida, Tab laboratorio, Z cámara y Esc menú. Las 25 acciones se reasignan en Esc > Opciones > Controles (`config/controles.json`). **0.18.0**: C usa un medicamento (26 acciones). |
 
 ### 3.2 Interfaces de software
 
 | ID | Interfaz | Formato |
 |---|---|---|
-| IS-01 | Mapas de Tiled | JSON (formato de mapa Tiled 1.10+), capas: `suelo`, `colision`, `costo`, `objetos`, `spawns`, `zonas`. **No implementada en 0.16.0**: la ciudad se genera por código con semilla (ADR-0019). |
+| IS-01 | Mapas de Tiled | JSON (formato de mapa Tiled 1.10+), capas: `suelo`, `colision`, `costo`, `objetos`, `spawns`, `zonas`. **0.18.0**: implementada con el lector JSON propio (`juego::leerMapaTiled`, ADR-0019): capas de patrones en CSV, sin mapas infinitos; `costo` vale m = (gid − firstgid) + 1; tipos de objeto en `type`, `class` o `name`; rol de infectado en la propiedad `rol`. La ciudad generada con semilla sigue siendo la opción por defecto. |
 | IS-02 | Configuración | `config/juego.json`, `config/ia.json`, `config/controles.json`. Lector JSON propio (`dominio/nucleo/Json`), sin nlohmann/json. |
 | IS-03 | Benchmark / optimización | Entrada JSON; salida CSV (UTF-8, separador `,`, cabecera de metadatos con `#`) y JSON. |
 | IS-04 | Partidas guardadas | Binario versionado con cabecera mágica `REFG`, versión, longitud y CRC32. Formato 2 desde 0.13.0: semilla, parámetros, pesos y entradas por tick comprimidas en tramos (ADR-0016). |
@@ -168,7 +168,7 @@ Los once pesos que ajusta la optimización (RF-085) están en la sección `"peso
 |---|---|---|---|---|---|---|---|---|
 | Evento | M | RES-03 | HU-01 | P · CP-001 | Alta | Estable | Bajo | Aprobado |
 
-> **Estado en 0.16.0**: Aprobado. Pendiente: la ciudad se genera por código con semilla; no hay cargador de Tiled (ADR-0019).
+> **Estado en 0.18.0**: Verificado (CP-001). `refugio --mapa-tiled <archivo.json>` carga un mapa de Tiled con las seis capas de IS-01 y construye el mismo `Escenario` que el generador; un mapa inválido da un error con la capa y el objeto (RNF-016) y se juega en la ciudad generada. Ejemplo: `maps/puerto.json`. Las partidas guardadas llevan el mapa dentro (formato 3).
 
 Justificación: el mapa es la fuente del grafo de navegación y de los elementos de cada escena.
 
@@ -217,7 +217,7 @@ Justificación: el ruido es el canal principal de percepción de los infectados.
 |---|---|---|---|---|---|---|---|---|
 | Evento | M | STB Esc. 2 | HU-02 | P · CP-006 | Media | Estable | Bajo | Aprobado |
 
-> **Estado en 0.16.0**: Aprobado. Pendiente: no hay puerta metálica. Instalar la radio sí hace ruido (radio 4).
+> **Estado en 0.18.0**: Verificado (CP-006). Mara abre con interactuar la puerta que tiene al lado; la celda pasa a ser transitable (CambioDeMapa) y se publica el Ruido. Los infectados no abren puertas. La ciudad generada pone hasta dos (huecos de muro o calles de una celda) y los mapas de Tiled, las de la capa `objetos`.
 
 #### RF-007 · Instalar batería y activar radio
 > **Cuando** la jugadora mantenga interactuar junto a la radio durante `T_INSTALACION` con batería, combustible y al menos un medicamento en el inventario, el sistema deberá marcar la radio como activada y publicar el evento `RadioActivada`.
@@ -298,7 +298,7 @@ Justificación: el ruido es el canal principal de percepción de los infectados.
 |---|---|---|---|---|---|---|---|---|
 | Evento | S | Acuerdo del equipo | HU-02 | P · CP-015 | Baja | Media | Bajo | Aprobado |
 
-> **Estado en 0.16.0**: Aprobado. Pendiente: el medicamento es solo objeto de misión; no se puede usar para curarse.
+> **Estado en 0.18.0**: Verificado (CP-015). Tecla C. «Reservado para la radio» se implementa como: siempre queda un medicamento (RF-007 lo exige para activarla), así que solo se usan los que pasan de uno. Con la salud llena no se gasta. La ciudad generada trae dos medicamentos de más.
 
 #### RF-016 · HUD de objetivos
 > El sistema deberá mostrar en todo momento la salud, el inventario, el siguiente objetivo de la misión y, si existe, el temporizador de extracción.
@@ -442,7 +442,7 @@ Complejidad: construcción O(n log n); consulta O(log n + k) promedio, con k vec
 |---|---|---|---|---|---|---|---|---|
 | Ubicuo | M | GUIA §5 | HU-16 | P · CP-031 | Media | Estable | Bajo | Verificado |
 
-> **Estado en 0.16.0**: Verificado en 0.1.0. El costo viene del mapa generado (escombros), no de una capa de Tiled.
+> **Estado en 0.18.0**: Verificado en 0.1.0. El costo viene de los escombros del mapa generado o, desde 0.18.0, de la capa `costo` de un mapa de Tiled (RF-001).
 
 ---
 
@@ -564,7 +564,7 @@ vecino cercano por un camino largo y corte su propagación. Implementación: `sr
 |---|---|---|---|---|---|---|---|---|
 | Ubicuo | M | STB §01 Personajes | HU-08 | P · CP-048 | Media | Estable | Bajo | Aprobado |
 
-> **Estado en 0.16.0**: Aprobado. Pendiente: un solo prototipo de infectado; los «prototipos» de config/ia.json no se leen.
+> **Estado en 0.18.0**: Verificado (CP-048). Se leen `prototipos.explorador` y `prototipos.perseguidor`; la sección `pesos` (RF-085) se lee después y, si trae `infectados`, reemplaza el radio, la velocidad y el daño del perseguidor (en el `ia.json` del repositorio: 6 celdas y 3,4 celdas/s en lugar de 5 y 4, para que sea jugable). Las alertas (RF-047) las emiten los dos roles; el explorador, que ve más lejos, suele ser el primero. En la ciudad generada uno de cada tres infectados es explorador; en Tiled, el rol es la propiedad `rol`.
 
 #### RF-049 · Coordinación con Contract Net
 > **Cuando** un infectado detecte a Mara en modo coordinado, el sistema deberá actuar como gestor anunciando las tareas `Perseguir`, `Interceptar(punto)` y `Flanquear(acceso)` a los agentes alertados, recibir sus pujas (costo estimado de ruta por heurística octil) durante 1 tick de IA y adjudicar cada tarea a la puja de menor costo, una tarea por agente.
@@ -901,8 +901,8 @@ entidades: guarda semilla, parámetros y entradas, y las reconstruye repitiendo 
 | Mapas | Tiled JSON por escena | Ciudad generada por código con semilla; un solo mapa de 32 × 22 celdas con 10 infectados en el juego y mapas de 32² a 256² en el benchmark | ADR-0019 |
 | Escenas | Cinco escenas separadas | Una partida continua donde aparecen los cinco comportamientos del storyboard | 02_historias_usuario §3 |
 | Modelo de entidades | ECS con bus de eventos | `Partida` con arreglos por tipo y llamadas directas; eventos de ruido y cambio de mapa como colas internas | ADR-0018 |
-| Roles de infectado | Explorador y perseguidor | Un tipo de infectado con los parámetros de la sección `pesos` | RF-048 |
-| Puerta metálica y medicamento | RF-006, RF-015 | No implementados | — |
+| Roles de infectado | Explorador y perseguidor | Explorador y perseguidor desde 0.18.0; `pesos` manda sobre el perseguidor | RF-048 |
+| Puerta metálica y medicamento | RF-006, RF-015 | Implementados en 0.18.0 | — |
 | Guardado | Serializar el estado completo | Inicio + entradas y repetición al cargar | ADR-0016 |
 | Interfaz | raygui, panel de 360 px, letterbox | Panel propio con raylib de 256 px, ventana fija, cámara con zoom y arte pixel generado por código | ADR-0017, ADR-0020 |
 | Controles | Espacio, N, +/- para la simulación | P, F6, F7 y F8 (N muestra los nodos expandidos) | RF-075 |

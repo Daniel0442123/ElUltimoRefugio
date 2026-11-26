@@ -83,7 +83,8 @@ void dibujarAyuda(int x, int alto, const config::Controles& k) {
                   t(Accion::Abajo).c_str(), t(Accion::Derecha).c_str());
     std::snprintf(l[1], sizeof(l[1]), "%s: correr  %s: sigilo  %s: cámara", t(Accion::Correr).c_str(), t(Accion::Sigilo).c_str(),
                   t(Accion::Camara).c_str());
-    std::snprintf(l[2], sizeof(l[2]), "%s: recoger / activar radio", t(Accion::Interactuar).c_str());
+    std::snprintf(l[2], sizeof(l[2]), "%s: recoger / puerta / radio  %s: curarse", t(Accion::Interactuar).c_str(),
+                  t(Accion::Medicamento).c_str());
     std::snprintf(l[3], sizeof(l[3]), "%s: señuelo al cursor  %s: barricada", t(Accion::Senuelo).c_str(),
                   t(Accion::Barricada).c_str());
     std::snprintf(l[4], sizeof(l[4]), "%s: depuración  %s: reiniciar  %s: modo", t(Accion::Depuracion).c_str(),
@@ -166,9 +167,10 @@ void dibujarMonitorAgente(const juego::Partida& p, int x, int y, int limite) {
     const auto& z = p.infectados()[id];
     const auto& m = z.busqueda;
     const auto& pc = z.percibido;
-    std::snprintf(buf, sizeof(buf), "Agente Z%zu", id);
+    const auto rol = juego::nombreRol(z.rol);  // RF-048
+    std::snprintf(buf, sizeof(buf), "Agente Z%zu · %.*s", id, static_cast<int>(rol.size()), rol.data());
     dibujarTexto(buf, x, y, 18, GOLD, Peso::Negrita);
-    dibujarTexto("clic fuera: soltar", x + 130, y + 5, 10, GRAY);
+    dibujarTexto("clic fuera: soltar", x + 200, y + 5, 10, GRAY);
     y += 22;
     const auto est = agentes::nombreEstado(z.estado);
     DrawCircle(x + 5, y + 6, 5, colorEstado(z.estado));
@@ -452,11 +454,11 @@ void dibujarPartida(const juego::Partida& p, const ArteMundo& arte, const Estilo
     }
 
     if (depuracion) {
-        const auto& cfg = p.config();
         for (const auto& z : p.infectados()) {
             const float angulo = std::atan2(z.orientacion.y, z.orientacion.x) * RAD2DEG;
-            DrawCircleSector(aPantalla(z.pos, e), cfg.visionRadio * tc, angulo - cfg.visionAngulo / 2,
-                             angulo + cfg.visionAngulo / 2, 24, Fade(colorEstado(z.estado), 0.12f));
+            const float ang = p.visionAngulo(z);  // RF-048: cada rol con su cono
+            DrawCircleSector(aPantalla(z.pos, e), p.visionRadio(z) * tc, angulo - ang / 2, angulo + ang / 2, 24,
+                             Fade(colorEstado(z.estado), 0.12f));
             for (std::size_t k = z.indiceRuta; k < z.ruta.size(); ++k) {
                 const Vector2 a = k == z.indiceRuta ? aPantalla(z.pos, e) : centroCelda(p.mapa().celda(z.ruta[k - 1]), e);
                 DrawLineEx(a, centroCelda(p.mapa().celda(z.ruta[k]), e), 2.0f, Fade(colorEstado(z.estado), 0.8f));
@@ -570,7 +572,11 @@ void dibujarPanelPartida(const juego::Partida& p, int x, int y, int alto, int fp
     y += 22;
     for (int t = 0; t < juego::kNumTiposObjeto; ++t) {
         const bool tiene = m.inventario[static_cast<std::size_t>(t)];
-        std::snprintf(buf, sizeof(buf), "[%c] %s", tiene ? 'x' : ' ', nombreObjeto(static_cast<juego::TipoObjeto>(t)));
+        if (t == static_cast<int>(juego::TipoObjeto::Medicamento) && p.medicamentosUsables() > 0)  // RF-015
+            std::snprintf(buf, sizeof(buf), "[x] Medicamentos (+%d para curarse: %s)", p.medicamentosUsables(),
+                          config::textoTecla(controles.tecla(config::Accion::Medicamento)).c_str());
+        else
+            std::snprintf(buf, sizeof(buf), "[%c] %s", tiene ? 'x' : ' ', nombreObjeto(static_cast<juego::TipoObjeto>(t)));
         dibujarTexto(buf, x, y, 14, tiene ? Color{120, 220, 130, 255} : LIGHTGRAY);
         y += 18;
     }

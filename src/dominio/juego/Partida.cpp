@@ -102,9 +102,74 @@ Escenario crearEscenarioAleatorio(int ancho, int alto, int numInfectados, std::u
             e.almacen = c;
             break;
         }
+        // Lo que sigue se sortea después de todo lo anterior, así que no cambia dónde quedan Mara,
+        // los objetos de la misión, la radio, los infectados, la extracción ni el almacén.
+        // RF-048: uno de cada tres infectados es explorador (el primero, el cuarto…).
+        for (int z = 0; z < numInfectados; ++z)
+            e.roles.push_back(z % 3 == 0 ? RolInfectado::Explorador : RolInfectado::Perseguidor);
+        // RF-015: dos medicamentos más para curarse, a 6 celdas o más de Mara, en celdas libres.
+        auto ocupada = [&](Celda c) {
+            return c == e.radio || c == e.almacen || c == e.extraccion ||
+                   std::any_of(e.objetos.begin(), e.objetos.end(), [&](const ObjetoMision& o) { return o.celda == c; });
+        };
+        for (int extra = 0; extra < 2; ++extra) {
+            for (int k = 0; k < 256; ++k) {
+                const Celda c = elegir(6.0f);
+                if (ocupada(c)) continue;
+                e.objetos.push_back({TipoObjeto::Medicamento, c, false});
+                break;
+            }
+        }
+        // RF-006: hasta dos puertas metálicas. Primero en huecos de muro de una celda que unen dos
+        // celdas de la región de Mara (abrirla da un atajo; cerrada no cambia el mapa); si no hay
+        // bastantes, en calles de una celda de ancho (cerrada corta el paso a la horda, que no sabe
+        // abrirlas, y Mara la abre). Nunca sobre algo que haya que alcanzar ni donde empieza alguien.
+        std::vector<bool> enRegion(e.mapa.numCeldas(), false);
+        for (const auto n : region) enRegion[n] = true;
+        auto libreRegion = [&](int x, int y) { return e.mapa.transitable(x, y) && enRegion[e.mapa.nodo(x, y)]; };
+        auto muro = [&](int x, int y) { return !e.mapa.transitable(x, y); };
+        auto paso = [&](int x, int y) {  // hueco o calle estrecha: libre a dos lados opuestos, muro en los otros dos
+            return (libreRegion(x - 1, y) && libreRegion(x + 1, y) && muro(x, y - 1) && muro(x, y + 1)) ||
+                   (libreRegion(x, y - 1) && libreRegion(x, y + 1) && muro(x - 1, y) && muro(x + 1, y));
+        };
+        const Celda celdaMara = e.mapa.celda(inicio);
+        auto reservada = [&](Celda c) {
+            if (ocupada(c) || std::abs(c.x - celdaMara.x) + std::abs(c.y - celdaMara.y) < 3) return true;
+            return std::any_of(e.infectados.begin(), e.infectados.end(), [&](Vec2 z) { return celdaDe(z) == c; }) ||
+                   (e.inicioSuperviviente.x >= 0.0f && celdaDe(e.inicioSuperviviente) == c);
+        };
+        std::vector<Celda> huecos;
+        std::vector<Celda> calles;
+        for (int y = 1; y + 1 < alto; ++y)
+            for (int x = 1; x + 1 < ancho; ++x) {
+                if (!paso(x, y)) continue;
+                if (muro(x, y)) huecos.push_back({x, y});
+                else if (enRegion[e.mapa.nodo(x, y)] && !reservada({x, y})) calles.push_back({x, y});
+            }
+        while (huecos.size() < 2 && !calles.empty()) {
+            const auto k = rng.enteroMenorQue(static_cast<std::uint32_t>(calles.size()));
+            huecos.push_back(calles[k]);
+            calles.erase(calles.begin() + static_cast<std::ptrdiff_t>(k));
+        }
+        for (int d = 0; d < 2 && !huecos.empty(); ++d) {
+            const auto k = rng.enteroMenorQue(static_cast<std::uint32_t>(huecos.size()));
+            const Celda c = huecos[k];
+            huecos.erase(huecos.begin() + static_cast<std::ptrdiff_t>(k));
+            // Dos puertas no quedan juntas.
+            if (std::any_of(e.puertas.begin(), e.puertas.end(),
+                            [&](Celda p) { return std::abs(p.x - c.x) + std::abs(p.y - c.y) < 4; })) {
+                --d;
+                continue;
+            }
+            e.puertas.push_back(c);
+        }
         return e;
     }
     throw std::runtime_error("crearEscenarioAleatorio: no se encontró un mapa jugable");
+}
+
+std::string_view nombreRol(RolInfectado r) noexcept {
+    return r == RolInfectado::Explorador ? "explorador" : "perseguidor";
 }
 
 // ----------------------------------------------------------------------------------- Partida
@@ -125,6 +190,13 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     extraccion_ = esc.extraccion.x >= 0 ? esc.extraccion : celdaDe(esc.inicioMara);
     integridad_ = std::min(cfg_.integridadInicial, cfg_.integridadMax);
     mara_.barricadas = cfg_.barricadasIniciales;
+    // RF-006: cada puerta cerrada bloquea su celda (no se puede poner sobre la radio ni fuera).
+    for (const Celda c : esc.puertas) {
+        if (puertas_.size() >= kMaxPuertas || !mapa_.dentro(c.x, c.y) || c == radio_) continue;
+        if (std::any_of(puertas_.begin(), puertas_.end(), [&](const PuertaMetalica& p) { return p.celda == c; })) continue;
+        puertas_.push_back({c, false});
+        mapa_.bloquear(c.x, c.y);
+    }
     // Superviviente de la radio (HU-13)
     sup_.activo = esc.inicioSuperviviente.x >= 0.0f;
     sup_.pos = esc.inicioSuperviviente;
@@ -138,6 +210,7 @@ Partida::Partida(Escenario esc, const ConfigPartida& cfg, std::uint64_t semilla)
     for (std::size_t i = 0; i < infectados_.size(); ++i) {
         auto& z = infectados_[i];
         z.pos = esc.infectados[i];
+        if (i < esc.roles.size()) z.rol = esc.roles[i];  // RF-048
         // Orientación inicial variada y determinista.
         const float a = static_cast<float>(rng_.real01()) * 6.2831853f;
         z.orientacion = {std::cos(a), std::sin(a)};
@@ -437,8 +510,11 @@ void Partida::interactuar(const EntradaJugador& e) {
         if (o.recogido || distancia(mara_.pos, centroDe(o.celda)) > cfg_.alcanceInteraccion) continue;
         o.recogido = true;
         mara_.inventario[static_cast<std::size_t>(o.tipo)] = true;
+        if (o.tipo == TipoObjeto::Medicamento) ++mara_.medicamentos;  // RF-015
         return;  // un objeto por pulsación
     }
+    // RF-006: abrir la puerta metálica que tenga al lado.
+    if (abrirPuertaCercana()) return;
     // RF-007 / RF-008: instalar la radio manteniendo interactuar; el daño reinicia el progreso.
     // Con la zona ya abierta no hace falta: se puede volver a activar cuando se cierre.
     const bool enRadio = distancia(mara_.pos, centroDe(radio_)) <= cfg_.alcanceInteraccion;
@@ -535,7 +611,7 @@ void Partida::percibirYDecidir(std::size_t i) {
     // Percepción local (RF-041, RF-042): cono de visión + línea de visión, y oído.
     agentes::PercepcionInfectado p;
     const float dMara = distancia(z.pos, mara_.pos);
-    p.veAMara = agentes::ve(mapa_, z.pos, z.orientacion, mara_.pos, cfg_.visionRadio, cfg_.visionAngulo) ||
+    p.veAMara = agentes::ve(mapa_, z.pos, z.orientacion, mara_.pos, visionRadio(z), visionAngulo(z)) ||
                 (dMara <= cfg_.sentidoCercano && agentes::lineaDeVisionLibre(mapa_, aqui, celdaMara));
     p.distanciaMara = dMara;
     const double ahora = tiempo();
@@ -744,7 +820,7 @@ void Partida::evaluarTactica(Infectado& z) {
                 et.tieneRumbo = true;
                 et.velocidadMara = rapidez;
                 const Vec2 estimada{z.vista.x + v.x * edadVista, z.vista.y + v.y * edadVista};
-                if (const auto corte = agentes::puntoDeCorte(mapa_, estimada, v, z.pos, cfg_.velPerseguir, cfg_.tactica)) {
+                if (const auto corte = agentes::puntoDeCorte(mapa_, estimada, v, z.pos, velPerseguir(z), cfg_.tactica)) {
                     et.hayCorte = true;
                     et.distanciaCorte = corte->distancia;
                     z.hayCorte = true;
@@ -792,7 +868,38 @@ Celda Partida::destinoSenuelo(Vec2 apuntar) const noexcept {
     return mejor;
 }
 
+// RF-006: Mara abre una puerta cerrada a alcance de interacción (desde una celda vecina, porque la
+// puerta cerrada es muro). La celda pasa a ser transitable (CambioDeMapa) y el chirrido es un
+// Ruido de radio RUIDO_PUERTA_METALICA con origen en la puerta.
+bool Partida::abrirPuertaCercana() {
+    for (auto& pu : puertas_) {
+        if (pu.abierta) continue;
+        const Vec2 c = centroDe(pu.celda);
+        // Distancia al cuadrado de la celda (no a su centro): pegada al muro, Mara queda a radioCuerpo.
+        const float qx = std::clamp(mara_.pos.x, static_cast<float>(pu.celda.x), static_cast<float>(pu.celda.x + 1));
+        const float qy = std::clamp(mara_.pos.y, static_cast<float>(pu.celda.y), static_cast<float>(pu.celda.y + 1));
+        if (distancia(mara_.pos, {qx, qy}) > cfg_.alcanceInteraccion - 0.5f && distancia(mara_.pos, c) > cfg_.alcanceInteraccion)
+            continue;
+        pu.abierta = true;
+        ++puertasAbiertas_;
+        mapa_.fijarMultiplicador(pu.celda.x, pu.celda.y, mundo::kCostoMin);
+        ++cambiosMapa_;  // evento CambioDeMapa (RF-025)
+        campoSucio_ = true;
+        planificador_.reiniciarEnCurso();
+        if (cfg_.ruidoPuertaMetalica > 0.0f && ruidosPendientes_.size() < kMaxRuidosTick)
+            ruidosPendientes_.push_back({c, cfg_.ruidoPuertaMetalica, false});
+        return true;
+    }
+    return false;
+}
+
 void Partida::accionesMara(const EntradaJugador& e) {
+    // RF-015: usar un medicamento que no sea el reservado para la radio. Con la salud llena no se gasta.
+    if (e.usarMedicamento && mara_.medicamentos > 1 && mara_.salud < cfg_.saludMax) {
+        mara_.salud = std::min(cfg_.saludMax, mara_.salud + cfg_.curaMedicamento);
+        --mara_.medicamentos;
+        ++medicamentosUsados_;
+    }
     if (e.lanzarSenuelo && mara_.senuelos > 0) {
         for (auto& sn : senuelos_) {
             if (sn.activo) continue;
@@ -901,7 +1008,7 @@ void Partida::revisarBarricadas() {
             costo += paso * static_cast<double>(b >= 0 ? barricadas_[static_cast<std::size_t>(b)].multiplicadorPrevio
                                                        : mapa_.multiplicador(z.ruta[k]));
             if (b >= 0 && (z.barricada != b)) {
-                const bool laVe = distancia(z.pos, centroDe(c)) <= cfg_.visionRadio && agentes::lineaDeVisionLibre(mapa_, aqui, c);
+                const bool laVe = distancia(z.pos, centroDe(c)) <= visionRadio(z) && agentes::lineaDeVisionLibre(mapa_, aqui, c);
                 if (!laVe) break;
                 // Costo restante de la ruta antigua como si la barricada no estuviera.
                 for (std::size_t j = k + 1; j < z.ruta.size(); ++j) {
@@ -1060,9 +1167,9 @@ void Partida::ejecutarInfectado(std::size_t i) {
 
     if (z.estado == E::Atacar) {
         if (z.tieneLlegada)
-            velocidadHacia(z, puntoDeLlegada(z), cfg_.velPerseguir * factor, kFrenado);
+            velocidadHacia(z, puntoDeLlegada(z), velPerseguir(z) * factor, kFrenado);
         else if (dMara > kDistanciaAtaque)
-            velocidadHacia(z, mara_.pos, cfg_.velPerseguir * factor, kFrenado);
+            velocidadHacia(z, mara_.pos, velPerseguir(z) * factor, kFrenado);
         else
             z.velDeseada = {};
         z.orientacion = normalizar({mara_.pos.x - z.pos.x, mara_.pos.y - z.pos.y});
@@ -1073,9 +1180,12 @@ void Partida::ejecutarInfectado(std::size_t i) {
         return;
     }
 
-    const float vel = (z.estado == E::Perseguir || z.estado == E::Interceptar) ? cfg_.velPerseguir
-                      : z.estado == E::Investigar ? 0.5f * (cfg_.velExplorar + cfg_.velPerseguir)
-                                                  : cfg_.velExplorar;
+    // RF-048: cada rol persigue a su velocidad; explorando van todos igual (o más lento, si el rol lo es).
+    const float velRol = velPerseguir(z);
+    const float velExplorar = std::min(cfg_.velExplorar, velRol);
+    const float vel = (z.estado == E::Perseguir || z.estado == E::Interceptar) ? velRol
+                      : z.estado == E::Investigar ? 0.5f * (velExplorar + velRol)
+                                                  : velExplorar;
     const float velMax = vel * factor;
     // RF-052: junto a la barricada la golpea; si no, va a su puesto de ataque por la ruta.
     if (z.estado == E::AtacarBarricada && z.barricada >= 0) {
@@ -1141,7 +1251,7 @@ void Partida::moverHorda() {
         quadtree_.consultarRadio(z.pos, radio, vecinos_);
         const Vec2 f = navegacion::fuerzaSteering(static_cast<std::uint32_t>(i), moviles_.data(), vecinos_, z.velDeseada,
                                                   mapa_, cfg_.radioCuerpo, sp);
-        const float velMax = longitud(z.velDeseada) > 1e-4f ? longitud(z.velDeseada) : cfg_.velPerseguir * factorTerreno(z.pos);
+        const float velMax = longitud(z.velDeseada) > 1e-4f ? longitud(z.velDeseada) : velPerseguir(z) * factorTerreno(z.pos);
         z.vel = navegacion::integrarVelocidad(z.vel, f, std::max(velMax, 0.5f), dt_);
         const Vec2 antes = z.pos;
         z.pos = moverConColision(z.pos, {z.vel.x * dt_, z.vel.y * dt_});
