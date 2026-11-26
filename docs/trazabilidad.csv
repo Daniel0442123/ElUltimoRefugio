@@ -1,235 +1,235 @@
-Tipo,ID,Resumen,Prioridad,Padre,Enlaces,Estado
-Epic,EP-01,Juego base,M,,,Propuesto
-Epic,EP-02,Navegación y búsqueda de caminos,M,,,Propuesto
-Epic,EP-03,Agentes infectados autónomos y coordinados,M,,,Propuesto
-Epic,EP-04,Superviviente de la radio,M,,,Propuesto
-Epic,EP-05,Panel de monitoreo y registro,M,,,Propuesto
-Epic,EP-06,Experimentación y optimización,M,,,Propuesto
-Epic,EP-07,Persistencia y configuración local,M,,,Propuesto
-Story,HU-01,Moverse en sigilo,M,EP-01,RF-001 RF-002 RF-003 RF-004 RF-016,Propuesto
-Story,HU-02,Recoger objetos de misión,M,EP-01,RF-005 RF-006 RF-015 RF-016,Propuesto
-Story,HU-03,Activar la radio del refugio,M,EP-01,RF-007 RF-008,Propuesto
-Story,HU-04,Escapar por la extracción,M,EP-01,RF-009 RF-010,Propuesto
-Story,HU-05,Perder la partida,M,EP-01,RF-011 RF-012 RF-055 RF-063,Propuesto
-Story,HU-06,Lanzar un señuelo sonoro,M,EP-01,RF-013,Propuesto
-Story,HU-07,Colocar una barricada,M,EP-01,RF-014 RF-025 RF-052,Propuesto
-Story,HU-08,Infectados que exploran sin información global,M,EP-03,RF-040 RF-041 RF-042 RF-043 RF-044 RF-045 RF-048,Propuesto
-Story,HU-09,Investigar ruidos y propagar alertas,M,EP-03,RF-042 RF-043 RF-046 RF-047 RF-073,Propuesto
-Story,HU-10,Horda que reparte la aproximación,M,EP-03,RF-029 RF-030 RF-049 RF-051,Propuesto
-Story,HU-11,Horda que reconsidera objetivos ante señuelos,M,EP-03,RF-025 RF-043 RF-050 RF-052 RF-072,Propuesto
-Story,HU-12,"Perseguir, explorar o interceptar según evidencias",M,EP-03,RF-049 RF-053 RF-054,Propuesto
-Story,HU-13,Superviviente de la radio autónomo,S,EP-04,RF-060 RF-061 RF-062 RF-063 RF-064,Propuesto
-Story,HU-14,Panel de monitoreo del agente,M,EP-05,RF-023 RF-070 RF-071,Propuesto
-Story,HU-15,Registro de planes y mensajes,M,EP-05,RF-072 RF-073,Propuesto
-Story,HU-16,Comparar Dijkstra y A\* en vivo,M,EP-02,RF-020 RF-021 RF-022 RF-023 RF-024 RF-031 RF-074,Propuesto
-Story,HU-17,Benchmark reproducible de búsqueda,M,EP-06,RF-080 RF-081 RF-082 RF-083 RF-086,Propuesto
-Story,HU-18,Comparar agentes aislados y coordinados,M,EP-06,RF-056 RF-084,Propuesto
-Story,HU-19,"Guardar, cargar y configurar",S,EP-07,RF-090 RF-091 RF-092 RF-093,Propuesto
-Story,HU-20,Tutorial de sigilo,S,EP-01,RF-017,Propuesto
-Story,HU-21,Optimizar parámetros de la IA,S,EP-06,RF-085,Propuesto
-Story,HU-22,Controlar la simulación para explicarla,S,EP-05,RF-075,Propuesto
-Story,HU-23,Rutas para la horda sin congelar el juego,M,EP-02,RF-026 RF-027 RF-028 RF-030,Propuesto
-Requirement,RF-001,Cargar mapa de Tiled,M,HU-01,RNF-008 RNF-016 CP-001 CP-202,Propuesto
-Requirement,RF-002,Modos de movimiento de Mara,M,HU-01,RNF-001 RNF-012 CP-002 CP-202,Propuesto
-Requirement,RF-003,Ruido por movimiento,M,HU-01,RNF-020 CP-003 CP-202,Propuesto
-Requirement,RF-004,Colisiones,M,HU-01,RNF-015 CP-004 CP-202,Propuesto
-Requirement,RF-005,Recoger objeto,M,HU-02,RNF-012 CP-005 CP-202,Propuesto
-Requirement,RF-006,Puerta metálica,M,HU-02,RNF-020 CP-006 CP-202,Propuesto
-Requirement,RF-007,Instalar batería y activar radio,M,HU-03,RNF-014 CP-007 CP-202,Propuesto
-Requirement,RF-008,Interrupción de la instalación,M,HU-03,RNF-014 CP-008 CP-202,Propuesto
-Requirement,RF-009,Ventana de extracción,M,HU-04,RNF-013 CP-009 CP-202,Propuesto
-Requirement,RF-010,Victoria,M,HU-04,RNF-020 CP-010 CP-202,Propuesto
-Requirement,RF-011,Derrota por salud,M,HU-05,RNF-020 CP-011 CP-202,Propuesto
-Requirement,RF-012,Derrota por refugio,M,HU-05,RNF-020 CP-012 CP-202,Propuesto
-Requirement,RF-013,Señuelo sonoro,M,HU-06,RNF-014 CP-013 CP-201 CP-202,Propuesto
-Requirement,RF-014,Barricada,M,HU-07,RNF-014 CP-014 CP-201 CP-202,Propuesto
-Requirement,RF-015,Usar medicamento,S,HU-02,RNF-012 CP-015 CP-202,Propuesto
-Requirement,RF-016,HUD de objetivos,M,HU-01,HU-02 RNF-013 RNF-029 CP-016 CP-202,Propuesto
-Requirement,RF-017,Tutorial,S,HU-20,RNF-011 CP-017 CP-202,Propuesto
-Requirement,RF-020,Grafo de costos,M,HU-16,RNF-005 RNF-019 CP-020,Propuesto
-Requirement,RF-021,Dijkstra,M,HU-16,RNF-003 RNF-019 CP-021,Propuesto
-Requirement,RF-022,A\* con heurística octil,M,HU-16,RNF-003 RNF-019 CP-022,Propuesto
-Requirement,RF-023,Métricas de búsqueda,M,HU-14,HU-16 RNF-032 CP-023,Propuesto
-Requirement,RF-024,Algoritmo intercambiable sobre el mismo grafo,M,HU-16,RNF-026 CP-024,Propuesto
-Requirement,RF-025,Replanificación ante cambios del mapa,M,HU-07,HU-11 RNF-002 CP-025 CP-201,Propuesto
-Requirement,RF-026,Presupuesto de búsqueda por tick,M,HU-23,RNF-001 RNF-002 RNF-003 RNF-006 CP-026,Propuesto
-Requirement,RF-027,Sin ruta,M,HU-23,RNF-015 CP-027,Propuesto
-Requirement,RF-028,Flow field compartido,S,HU-23,RNF-004 RNF-030 CP-028,Propuesto
-Requirement,RF-029,Steering y boids,M,HU-10,RNF-002 CP-029,Propuesto
-Requirement,RF-030,Consulta espacial con quadtree,M,HU-10,HU-23 RNF-027 RNF-030 CP-030,Propuesto
-Requirement,RF-031,Costos de terreno,M,HU-16,RNF-016 CP-031,Propuesto
-Requirement,RF-040,Ciclo del agente,M,HU-08,RNF-002 RNF-023 CP-040,Propuesto
-Requirement,RF-041,Percepción visual local sin omnisciencia,M,HU-08,RNF-023 CP-041 CP-201,Propuesto
-Requirement,RF-042,Percepción auditiva,M,HU-08,HU-09 RNF-002 CP-042,Propuesto
-Requirement,RF-043,Memoria de evidencias,M,HU-08,HU-09 HU-11 RNF-005 RNF-006 CP-043,Propuesto
-Requirement,RF-044,Máquina de estados del infectado,M,HU-08,RNF-025 CP-044,Propuesto
-Requirement,RF-045,Exploración sin información global,M,HU-08,RNF-005 CP-045 CP-204,Propuesto
-Requirement,RF-046,Investigar ruido,M,HU-09,RNF-002 RNF-018 CP-046 CP-204,Propuesto
-Requirement,RF-047,Propagación recursiva acotada de alertas,M,HU-09,RNF-018 RNF-027 CP-047 CP-204,Propuesto
-Requirement,RF-048,Roles de infectado,M,HU-08,RNF-026 CP-048,Propuesto
-Requirement,RF-049,Coordinación con Contract Net,M,HU-10,HU-12 RNF-002 CP-049,Propuesto
-Requirement,RF-050,Reevaluación ante señuelos,M,HU-11,RNF-002 RNF-018 CP-050 CP-201 CP-204,Propuesto
-Requirement,RF-051,Distribución de la aproximación,M,HU-10,RNF-030 CP-051 CP-204,Propuesto
-Requirement,RF-052,Respuesta a barricadas,M,HU-07,HU-11 RNF-002 CP-052 CP-201,Propuesto
-Requirement,RF-053,Interceptación,M,HU-12,RNF-002 CP-053,Propuesto
-Requirement,RF-054,Selección de táctica,M,HU-12,RNF-025 CP-054 CP-204,Propuesto
-Requirement,RF-055,Ataque,M,HU-05,RNF-020 CP-055,Propuesto
-Requirement,RF-056,Modo aislado o coordinado,M,HU-18,RNF-020 CP-056 CP-203,Propuesto
-Requirement,RF-060,Selección de meta por utilidad,S,HU-13,RNF-002 CP-060,Propuesto
-Requirement,RF-061,Planificación GOAP,S,HU-13,RNF-027 CP-061,Propuesto
-Requirement,RF-062,Ejecución con árbol de comportamiento,S,HU-13,RNF-027 CP-062,Propuesto
-Requirement,RF-063,Integridad del refugio,M,HU-05,HU-13 RNF-020 CP-063,Propuesto
-Requirement,RF-064,Replanificación del superviviente,S,HU-13,RNF-002 CP-064,Propuesto
-Requirement,RF-070,Panel del agente seleccionado,M,HU-14,RNF-013 CP-070 CP-203,Propuesto
-Requirement,RF-071,Superposiciones de depuración,M,HU-14,RNF-001 CP-071 CP-203,Propuesto
-Requirement,RF-072,Registro de cambios de plan,M,HU-11,HU-15 RNF-007 CP-072 CP-203,Propuesto
-Requirement,RF-073,Registro de mensajes entre agentes,M,HU-09,HU-15 RNF-007 CP-073 CP-203,Propuesto
-Requirement,RF-074,Comparación de algoritmos en vivo,M,HU-16,RNF-019 CP-074 CP-203,Propuesto
-Requirement,RF-075,Control de la simulación,S,HU-22,RNF-020 CP-075 CP-203,Propuesto
-Requirement,RF-080,Benchmark sin ventana,M,HU-17,RNF-005 RNF-032 CP-080,Propuesto
-Requirement,RF-081,Metadatos del experimento,M,HU-17,RNF-032 CP-081,Propuesto
-Requirement,RF-082,Verificación de optimalidad,M,HU-17,RNF-019 CP-082,Propuesto
-Requirement,RF-083,Escenarios dinámicos,M,HU-17,RNF-020 CP-083,Propuesto
-Requirement,RF-084,Experimento aislados frente a coordinados,M,HU-18,RNF-020 CP-084,Propuesto
-Requirement,RF-085,Optimización de parámetros,S,HU-21,RNF-020 CP-085,Propuesto
-Requirement,RF-086,Aleatoriedad con semilla,M,HU-17,RNF-020 CP-086,Propuesto
-Requirement,RF-090,Guardar partida,S,HU-19,RNF-007 RNF-017 CP-090,Propuesto
-Requirement,RF-091,Cargar partida,S,HU-19,RNF-020 CP-091,Propuesto
-Requirement,RF-092,Configuración local,S,HU-19,RNF-012 CP-092,Propuesto
-Requirement,RF-093,Archivos corruptos o inválidos,M,HU-19,RNF-016 RNF-021 CP-093,Propuesto
-Requirement,RNF-001,Tasa de cuadros,M,,CP-101,Propuesto
-Requirement,RNF-002,Tiempo de tick de simulación,M,,CP-102,Propuesto
-Requirement,RNF-003,Tiempo de búsqueda,M,,CP-103,Propuesto
-Requirement,RNF-004,Uso de CPU,M,,CP-104,Propuesto
-Requirement,RNF-005,Memoria,M,,CP-105,Propuesto
-Requirement,RNF-006,Cero asignaciones dinámicas en el bucle,M,,CP-106,Propuesto
-Requirement,RNF-007,Almacenamiento,M,,CP-107,Propuesto
-Requirement,RNF-008,Tiempo de arranque,M,,CP-108,Propuesto
-Requirement,RNF-018,Latencia de reacción de los agentes,M,,CP-118,Propuesto
-Requirement,RNF-027,Capacidad: profundidad de recursión acotada,M,,CP-127,Propuesto
-Requirement,RNF-019,Corrección: optimalidad de A\*,M,,CP-119,Propuesto
-Requirement,RNF-020,Corrección: determinismo,M,,CP-120,Propuesto
-Requirement,RNF-032,Completitud: registro de experimentos,M,,CP-132,Propuesto
-Requirement,RNF-009,Interoperabilidad de plataforma,M,,CP-109,Propuesto
-Requirement,RNF-010,Coexistencia,M,,CP-110,Propuesto
-Requirement,RNF-011,Capacidad de aprendizaje,M,,CP-111,Propuesto
-Requirement,RNF-012,Operabilidad,M,,CP-112,Propuesto
-Requirement,RNF-013,Inclusividad y legibilidad,M,,CP-113,Propuesto
-Requirement,RNF-014,Protección contra errores del usuario,M,,CP-114,Propuesto
-Requirement,RNF-015,Madurez,M,,CP-115,Propuesto
-Requirement,RNF-016,Tolerancia a fallos,M,,CP-116,Propuesto
-Requirement,RNF-017,Recuperabilidad,M,,CP-117,Propuesto
-Requirement,RNF-021,Integridad de los datos locales,M,,CP-121,Propuesto
-Requirement,RNF-022,Superficie de ataque mínima,M,,CP-122,Propuesto
-Requirement,RNF-023,Modularidad del dominio,M,,CP-123,Propuesto
-Requirement,RNF-024,Capacidad de prueba,M,,CP-124,Propuesto
-Requirement,RNF-025,Capacidad de análisis,M,,CP-125,Propuesto
-Requirement,RNF-026,Capacidad de modificación,M,,CP-126,Propuesto
-Requirement,RNF-028,Instalabilidad,M,,CP-128,Propuesto
-Requirement,RNF-029,Adaptabilidad de pantalla,M,,CP-129,Propuesto
-Requirement,RNF-030,Escalabilidad,M,,CP-130,Propuesto
-Requirement,RNF-031,Fotosensibilidad,M,,CP-131,Propuesto
-Test,CP-001,Carga de mapa Tiled,,RF-001,,Diseñado
-Test,CP-002,Velocidad por modo,,RF-002,,Diseñado
-Test,CP-003,Ruido por modo,,RF-003,,Diseñado
-Test,CP-004,Colisiones,,RF-004,,Diseñado
-Test,CP-005,Recoger objeto,,RF-005,,Diseñado
-Test,CP-006,Ruido de puerta metálica,,RF-006,,Diseñado
-Test,CP-007,Activar radio,,RF-007,,Diseñado
-Test,CP-008,Interrumpir instalación,,RF-008,,Diseñado
-Test,CP-009,Ventana de extracción,,RF-009,,Diseñado
-Test,CP-010,Victoria,,RF-010,,Diseñado
-Test,CP-011,Derrota por salud,,RF-011,,Diseñado
-Test,CP-012,Derrota por refugio,,RF-012,,Diseñado
-Test,CP-013,Señuelo,,RF-013,,Diseñado
-Test,CP-014,Barricada,,RF-014,,Diseñado
-Test,CP-015,Medicamento,,RF-015,,Diseñado
-Test,CP-016,HUD,,RF-016,,Diseñado
-Test,CP-017,Tutorial,,RF-017,,Diseñado
-Test,CP-020,Construcción del grafo,,RF-020,,Diseñado
-Test,CP-021,Dijkstra óptimo,,RF-021,,Diseñado
-Test,CP-022,A* óptimo y heurística,,RF-022,,Diseñado
-Test,CP-023,Métricas de búsqueda,,RF-023,,Diseñado
-Test,CP-024,Mismo grafo e interfaz,,RF-024,,Diseñado
-Test,CP-025,Replanificación por cambio,,RF-025,,Diseñado
-Test,CP-026,Presupuesto por tick,,RF-026,,Diseñado
-Test,CP-027,Sin ruta,,RF-027,,Diseñado
-Test,CP-028,Flow field,,RF-028,,Diseñado
-Test,CP-029,Steering,,RF-029,,Diseñado
-Test,CP-030,Quadtree,,RF-030,,Diseñado
-Test,CP-031,Costos de terreno,,RF-031,,Diseñado
-Test,CP-040,Orden del ciclo de agente,,RF-040,,Diseñado
-Test,CP-041,No omnisciencia,,RF-041,,Diseñado
-Test,CP-042,Audición con paredes,,RF-042,,Diseñado
-Test,CP-043,Memoria y decaimiento,,RF-043,,Diseñado
-Test,CP-044,Transiciones FSM,,RF-044,,Diseñado
-Test,CP-045,Exploración propia,,RF-045,,Diseñado
-Test,CP-046,Investigar ruido,,RF-046,,Diseñado
-Test,CP-047,Propagación recursiva,,RF-047,,Diseñado
-Test,CP-048,Roles,,RF-048,,Diseñado
-Test,CP-049,Contract Net,,RF-049,,Diseñado
-Test,CP-050,Reevaluación ante señuelo,,RF-050,,Diseñado
-Test,CP-051,Distribución de aproximación,,RF-051,,Diseñado
-Test,CP-052,Respuesta a barricadas,,RF-052,,Diseñado
-Test,CP-053,Interceptación,,RF-053,,Diseñado
-Test,CP-054,Selección de táctica,,RF-054,,Diseñado
-Test,CP-055,Ataque,,RF-055,,Diseñado
-Test,CP-056,Modo aislado,,RF-056,,Diseñado
-Test,CP-060,Utilidad del superviviente,,RF-060,,Diseñado
-Test,CP-061,GOAP,,RF-061,,Diseñado
-Test,CP-062,Árbol de comportamiento,,RF-062,,Diseñado
-Test,CP-063,Integridad del refugio,,RF-063,,Diseñado
-Test,CP-064,Replanificación del superviviente,,RF-064,,Diseñado
-Test,CP-070,Panel del agente,,RF-070,,Diseñado
-Test,CP-071,Superposiciones,,RF-071,,Diseñado
-Test,CP-072,Registro de cambios de plan,,RF-072,,Diseñado
-Test,CP-073,Registro de mensajes,,RF-073,,Diseñado
-Test,CP-074,Comparación en vivo,,RF-074,,Diseñado
-Test,CP-075,Control de simulación,,RF-075,,Diseñado
-Test,CP-080,Benchmark completo,,RF-080,,Diseñado
-Test,CP-081,Metadatos,,RF-081,,Diseñado
-Test,CP-082,Verificación de optimalidad,,RF-082,,Diseñado
-Test,CP-083,Escenario dinámico,,RF-083,,Diseñado
-Test,CP-084,Experimento aislado/coordinado,,RF-084,,Diseñado
-Test,CP-085,Optimización GA y SA,,RF-085,,Diseñado
-Test,CP-086,Semillas,,RF-086,,Diseñado
-Test,CP-090,Guardar,,RF-090,,Diseñado
-Test,CP-091,Cargar,,RF-091,,Diseñado
-Test,CP-092,Configuración,,RF-092,,Diseñado
-Test,CP-093,Archivos inválidos,,RF-093,,Diseñado
-Test,CP-101,FPS nominales,,RNF-001,,Diseñado
-Test,CP-102,Tiempo de tick,,RNF-002,,Diseñado
-Test,CP-103,Tiempo de búsqueda e IA,,RNF-003,,Diseñado
-Test,CP-104,Uso de CPU,,RNF-004,,Diseñado
-Test,CP-105,Memoria,,RNF-005,,Diseñado
-Test,CP-106,Asignaciones por frame,,RNF-006,,Diseñado
-Test,CP-107,Almacenamiento,,RNF-007,,Diseñado
-Test,CP-108,Arranque,,RNF-008,,Diseñado
-Test,CP-109,Matriz de plataformas,,RNF-009,,Diseñado
-Test,CP-110,Coexistencia,,RNF-010,,Diseñado
-Test,CP-111,Aprendizaje del tutorial,,RNF-011,,Diseñado
-Test,CP-112,Operabilidad,,RNF-012,,Diseñado
-Test,CP-113,Legibilidad y color,,RNF-013,,Diseñado
-Test,CP-114,Errores del usuario,,RNF-014,,Diseñado
-Test,CP-115,Resistencia y sanitizadores,,RNF-015,,Diseñado
-Test,CP-116,Corpus inválido y fuzzing,,RNF-016,,Diseñado
-Test,CP-117,Guardado atómico,,RNF-017,,Diseñado
-Test,CP-118,Latencia de reacción,,RNF-018,,Diseñado
-Test,CP-119,Optimalidad en benchmark,,RNF-019,,Diseñado
-Test,CP-120,Determinismo,,RNF-020,,Diseñado
-Test,CP-121,Integridad por mutación,,RNF-021,,Diseñado
-Test,CP-122,Sin red ni código externo,,RNF-022,,Diseñado
-Test,CP-123,Dominio sin raylib,,RNF-023,,Diseñado
-Test,CP-124,Cobertura,,RNF-024,,Diseñado
-Test,CP-125,Análisis estático,,RNF-025,,Diseñado
-Test,CP-126,Ejercicio de extensibilidad,,RNF-026,,Diseñado
-Test,CP-127,Pila de recursión,,RNF-027,,Diseñado
-Test,CP-128,Instalabilidad,,RNF-028,,Diseñado
-Test,CP-129,Resoluciones,,RNF-029,,Diseñado
-Test,CP-130,Escalabilidad,,RNF-030,,Diseñado
-Test,CP-131,Fotosensibilidad,,RNF-031,,Diseñado
-Test,CP-132,Validación de CSV,,RNF-032,,Diseñado
-Test,CP-201,Prueba de aceptación del docente: señuelo y barricada,,RF-013,RF-014 RF-025 RF-041 RF-050 RF-052,Diseñado
-Test,CP-202,Partida completa de principio a fin,,RF-001,RF-002 RF-003 RF-004 RF-005 RF-006 RF-007 RF-008 RF-009 RF-010 RF-011 RF-012 RF-013 RF-014 RF-015 RF-016 RF-017,Diseñado
-Test,CP-203,Demostración en vivo para la sustentación,,RF-070,RF-071 RF-072 RF-073 RF-074 RF-075 RF-056,Diseñado
-Test,CP-204,Comportamientos del storyboard por escena,,RF-045,RF-046 RF-047 RF-051 RF-050 RF-054,Diseñado
+Tipo,ID,Resumen,Prioridad,Padre,Enlaces,Estado,Version,Notas
+Epic,EP-01,Juego base,M,,,Terminada con pendientes,,
+Epic,EP-02,Navegación y búsqueda de caminos,M,,,Terminada,,
+Epic,EP-03,Agentes infectados autónomos y coordinados,M,,,Terminada con pendientes,,
+Epic,EP-04,Superviviente de la radio,M,,,Terminada,,
+Epic,EP-05,Panel de monitoreo y registro,M,,,Terminada,,
+Epic,EP-06,Experimentación y optimización,M,,,Terminada,,
+Epic,EP-07,Persistencia y configuración local,M,,,Terminada,,
+Story,HU-01,Moverse en sigilo,M,EP-01,RF-001 RF-002 RF-003 RF-004 RF-016,Terminada con pendientes,0.2.0,PR #1. El mapa se genera por código (RF-001 pendiente).
+Story,HU-02,Recoger objetos de misión,M,EP-01,RF-005 RF-006 RF-015 RF-016,Terminada con pendientes,0.2.0,PR #1. Falta la puerta metálica (RF-006) y usar medicamentos (RF-015).
+Story,HU-03,Activar la radio del refugio,M,EP-01,RF-007 RF-008,Terminada,0.2.0,PR #1; ayuda del superviviente en 0.8.0.
+Story,HU-04,Escapar por la extracción,M,EP-01,RF-009 RF-010,Terminada,0.7.0,PR #6.
+Story,HU-05,Perder la partida,M,EP-01,RF-011 RF-012 RF-055 RF-063,Terminada,0.7.0,PR #6 (derrota por salud desde 0.2.0).
+Story,HU-06,Lanzar un señuelo sonoro,M,EP-01,RF-013,Terminada,0.5.0,PR #4.
+Story,HU-07,Colocar una barricada,M,EP-01,RF-014 RF-025 RF-052,Terminada,0.5.0,PR #4.
+Story,HU-08,Infectados que exploran sin información global,M,EP-03,RF-040 RF-041 RF-042 RF-043 RF-044 RF-045 RF-048,Terminada con pendientes,0.2.0,PR #1. Un solo tipo de infectado (RF-048 pendiente).
+Story,HU-09,Investigar ruidos y propagar alertas,M,EP-03,RF-042 RF-043 RF-046 RF-047 RF-073,Terminada,0.3.0,PR #2.
+Story,HU-10,Horda que reparte la aproximación,M,EP-03,RF-029 RF-030 RF-049 RF-051,Terminada,0.4.0,PR #3.
+Story,HU-11,Horda que reconsidera objetivos ante señuelos,M,EP-03,RF-025 RF-043 RF-050 RF-052 RF-072,Terminada,0.5.0,PR #4.
+Story,HU-12,"Perseguir, explorar o interceptar según evidencias",M,EP-03,RF-049 RF-053 RF-054,Terminada,0.6.0,PR #5.
+Story,HU-13,Superviviente de la radio autónomo,S,EP-04,RF-060 RF-061 RF-062 RF-063 RF-064,Terminada,0.8.0,PR #7.
+Story,HU-14,Panel de monitoreo del agente,M,EP-05,RF-023 RF-070 RF-071,Terminada,0.9.0,PR #8.
+Story,HU-15,Registro de planes y mensajes,M,EP-05,RF-072 RF-073,Terminada,0.9.0,PR #8.
+Story,HU-16,Comparar Dijkstra y A\* en vivo,M,EP-02,RF-020 RF-021 RF-022 RF-023 RF-024 RF-031 RF-074,Terminada,0.10.0,PR #9 (núcleo de búsqueda desde 0.1.0).
+Story,HU-17,Benchmark reproducible de búsqueda,M,EP-06,RF-080 RF-081 RF-082 RF-083 RF-086,Terminada,0.10.0,PR #9.
+Story,HU-18,Comparar agentes aislados y coordinados,M,EP-06,RF-056 RF-084,Terminada,0.11.0,PR #10.
+Story,HU-19,"Guardar, cargar y configurar",S,EP-07,RF-090 RF-091 RF-092 RF-093,Terminada,0.12.0,PR #11.
+Story,HU-20,Tutorial de sigilo,S,EP-01,RF-017,Terminada,0.12.0,PR #11.
+Story,HU-21,Optimizar parámetros de la IA,S,EP-06,RF-085,Terminada,0.13.0,PR #12.
+Story,HU-22,Controlar la simulación para explicarla,S,EP-05,RF-075,Terminada,0.14.0,PR #13.
+Story,HU-23,Rutas para la horda sin congelar el juego,M,EP-02,RF-026 RF-027 RF-028 RF-030,Terminada,0.15.0,PR #13.
+Requirement,RF-001,Cargar mapa de Tiled,M,HU-01,RNF-008 RNF-016 CP-001 CP-202,Aprobado,,Pendiente: la ciudad se genera por código con semilla; no hay cargador de Tiled (ADR-0019).
+Requirement,RF-002,Modos de movimiento de Mara,M,HU-01,RNF-001 RNF-012 CP-002 CP-202,Verificado,0.2.0,
+Requirement,RF-003,Ruido por movimiento,M,HU-01,RNF-020 CP-003 CP-202,Verificado,0.2.0,
+Requirement,RF-004,Colisiones,M,HU-01,RNF-015 CP-004 CP-202,Verificado,0.2.0,
+Requirement,RF-005,Recoger objeto,M,HU-02,RNF-012 CP-005 CP-202,Verificado,0.2.0,
+Requirement,RF-006,Puerta metálica,M,HU-02,RNF-020 CP-006 CP-202,Aprobado,,Pendiente: no hay puerta metálica. Instalar la radio sí hace ruido (radio 4).
+Requirement,RF-007,Instalar batería y activar radio,M,HU-03,RNF-014 CP-007 CP-202,Verificado,0.2.0,
+Requirement,RF-008,Interrupción de la instalación,M,HU-03,RNF-014 CP-008 CP-202,Implementado,0.2.0,CP-008 solo comprueba soltar la tecla; el daño también interrumpe pero no tiene prueba.
+Requirement,RF-009,Ventana de extracción,M,HU-04,RNF-013 CP-009 CP-202,Verificado,0.7.0,La zona se marca en el mapa y el panel muestra el tiempo restante.
+Requirement,RF-010,Victoria,M,HU-04,RNF-020 CP-010 CP-202,Verificado,0.7.0,
+Requirement,RF-011,Derrota por salud,M,HU-05,RNF-020 CP-011 CP-202,Verificado,0.2.0,
+Requirement,RF-012,Derrota por refugio,M,HU-05,RNF-020 CP-012 CP-202,Verificado,0.7.0,
+Requirement,RF-013,Señuelo sonoro,M,HU-06,RNF-014 CP-013 CP-201 CP-202,Verificado,0.5.0,
+Requirement,RF-014,Barricada,M,HU-07,RNF-014 CP-014 CP-201 CP-202,Verificado,0.5.0,
+Requirement,RF-015,Usar medicamento,S,HU-02,RNF-012 CP-015 CP-202,Aprobado,,Pendiente: el medicamento es solo objeto de misión; no se puede usar para curarse.
+Requirement,RF-016,HUD de objetivos,M,HU-01,HU-02 RNF-013 RNF-029 CP-016 CP-202,Implementado,0.2.0,El panel lateral hace de HUD. CP-016 es manual (capturas en capturas/).
+Requirement,RF-017,Tutorial,S,HU-20,RNF-011 CP-017 CP-202,Verificado,0.12.0,En la primera partida nueva (no hay escenas separadas).
+Requirement,RF-020,Grafo de costos,M,HU-16,RNF-005 RNF-019 CP-020,Verificado,0.1.0,
+Requirement,RF-021,Dijkstra,M,HU-16,RNF-003 RNF-019 CP-021,Verificado,0.1.0,
+Requirement,RF-022,A\* con heurística octil,M,HU-16,RNF-003 RNF-019 CP-022,Verificado,0.1.0,
+Requirement,RF-023,Métricas de búsqueda,M,HU-14,HU-16 RNF-032 CP-023,Verificado,0.1.0,
+Requirement,RF-024,Algoritmo intercambiable sobre el mismo grafo,M,HU-16,RNF-026 CP-024,Verificado,0.10.0,F2 alterna el algoritmo de todos los agentes.
+Requirement,RF-025,Replanificación ante cambios del mapa,M,HU-07,HU-11 RNF-002 CP-025 CP-201,Verificado,0.5.0,El agente se entera al ver la barricada (no omnisciencia).
+Requirement,RF-026,Presupuesto de búsqueda por tick,M,HU-23,RNF-001 RNF-002 RNF-003 RNF-006 CP-026,Verificado,0.15.0,"A* reanudable entre ticks desde 0.15.0; antes, presupuesto al empezar cada búsqueda."
+Requirement,RF-027,Sin ruta,M,HU-23,RNF-015 CP-027,Verificado,0.15.0,
+Requirement,RF-028,Flow field compartido,S,HU-23,RNF-004 RNF-030 CP-028,Verificado,0.3.0,Umbral 8 en config/ia.json; el juego usa 5 porque solo tiene 10 infectados.
+Requirement,RF-029,Steering y boids,M,HU-10,RNF-002 CP-029,Verificado,0.4.0,
+Requirement,RF-030,Consulta espacial con quadtree,M,HU-10,HU-23 RNF-027 RNF-030 CP-030,Verificado,0.1.0,
+Requirement,RF-031,Costos de terreno,M,HU-16,RNF-016 CP-031,Verificado,0.1.0,"El costo viene del mapa generado (escombros), no de una capa de Tiled."
+Requirement,RF-040,Ciclo del agente,M,HU-08,RNF-002 RNF-023 CP-040,Implementado,0.2.0,"Orden real: percepción, memoria, decisión, planificación (cola de rutas), ejecución en cada paso. CP-040 sin automatizar."
+Requirement,RF-041,Percepción visual local sin omnisciencia,M,HU-08,RNF-023 CP-041 CP-201,Verificado,0.2.0,No hay ECS: la decisión solo recibe la percepción y la memoria del agente.
+Requirement,RF-042,Percepción auditiva,M,HU-08,HU-09 RNF-002 CP-042,Verificado,0.2.0,
+Requirement,RF-043,Memoria de evidencias,M,HU-08,HU-09 HU-11 RNF-005 RNF-006 CP-043,Verificado,0.5.0,
+Requirement,RF-044,Máquina de estados del infectado,M,HU-08,RNF-025 CP-044,Verificado,0.5.0,Interceptar llega en 0.4.0 y AtacarBarricada en 0.5.0.
+Requirement,RF-045,Exploración sin información global,M,HU-08,RNF-005 CP-045 CP-204,Implementado,0.2.0,"CP-045 comprueba celdas libres, no la cobertura del 30 %."
+Requirement,RF-046,Investigar ruido,M,HU-09,RNF-002 RNF-018 CP-046 CP-204,Verificado,0.2.0,
+Requirement,RF-047,Propagación recursiva acotada de alertas,M,HU-09,RNF-018 RNF-027 CP-047 CP-204,Verificado,0.3.0,
+Requirement,RF-048,Roles de infectado,M,HU-08,RNF-026 CP-048,Aprobado,,Pendiente: un solo prototipo de infectado; los «prototipos» de config/ia.json no se leen.
+Requirement,RF-049,Coordinación con Contract Net,M,HU-10,HU-12 RNF-002 CP-049,Verificado,0.4.0,
+Requirement,RF-050,Reevaluación ante señuelos,M,HU-11,RNF-002 RNF-018 CP-050 CP-201 CP-204,Verificado,0.5.0,
+Requirement,RF-051,Distribución de la aproximación,M,HU-10,RNF-030 CP-051 CP-204,Verificado,0.4.0,Voraz por costo; sin Húngaro.
+Requirement,RF-052,Respuesta a barricadas,M,HU-07,HU-11 RNF-002 CP-052 CP-201,Verificado,0.5.0,
+Requirement,RF-053,Interceptación,M,HU-12,RNF-002 CP-053,Verificado,0.6.0,
+Requirement,RF-054,Selección de táctica,M,HU-12,RNF-025 CP-054 CP-204,Verificado,0.6.0,
+Requirement,RF-055,Ataque,M,HU-05,RNF-020 CP-055,Verificado,0.7.0,
+Requirement,RF-056,Modo aislado o coordinado,M,HU-18,RNF-020 CP-056 CP-203,Verificado,0.11.0,F4 en la partida; antes C.
+Requirement,RF-060,Selección de meta por utilidad,S,HU-13,RNF-002 CP-060,Verificado,0.8.0,
+Requirement,RF-061,Planificación GOAP,S,HU-13,RNF-027 CP-061,Verificado,0.8.0,
+Requirement,RF-062,Ejecución con árbol de comportamiento,S,HU-13,RNF-027 CP-062,Verificado,0.8.0,
+Requirement,RF-063,Integridad del refugio,M,HU-05,HU-13 RNF-020 CP-063,Verificado,0.8.0,"Golpes desde 0.7.0, reparación desde 0.8.0."
+Requirement,RF-064,Replanificación del superviviente,S,HU-13,RNF-002 CP-064,Verificado,0.8.0,
+Requirement,RF-070,Panel del agente seleccionado,M,HU-14,RNF-013 CP-070 CP-203,Verificado,0.9.0,
+Requirement,RF-071,Superposiciones de depuración,M,HU-14,RNF-001 CP-071 CP-203,Implementado,0.9.0,"Se dibujan ruta, nodos expandidos, campo de flujo, conos, ruidos y alertas; no la frontera (abierta)."
+Requirement,RF-072,Registro de cambios de plan,M,HU-11,HU-15 RNF-007 CP-072 CP-203,Verificado,0.9.0,
+Requirement,RF-073,Registro de mensajes entre agentes,M,HU-09,HU-15 RNF-007 CP-073 CP-203,Verificado,0.9.0,
+Requirement,RF-074,Comparación de algoritmos en vivo,M,HU-16,RNF-019 CP-074 CP-203,Verificado,0.10.0,
+Requirement,RF-075,Control de la simulación,S,HU-22,RNF-020 CP-075 CP-203,Verificado,0.14.0,"Teclas P, F6, F7 y F8."
+Requirement,RF-080,Benchmark sin ventana,M,HU-17,RNF-005 RNF-032 CP-080,Verificado,0.10.0,
+Requirement,RF-081,Metadatos del experimento,M,HU-17,RNF-032 CP-081,Verificado,0.10.0,
+Requirement,RF-082,Verificación de optimalidad,M,HU-17,RNF-019 CP-082,Verificado,0.10.0,
+Requirement,RF-083,Escenarios dinámicos,M,HU-17,RNF-020 CP-083,Verificado,0.10.0,
+Requirement,RF-084,Experimento aislados frente a coordinados,M,HU-18,RNF-020 CP-084,Verificado,0.11.0,
+Requirement,RF-085,Optimización de parámetros,S,HU-21,RNF-020 CP-085,Verificado,0.13.0,Los pesos optimizados no se copian solos a config/ia.json (ADR-0015).
+Requirement,RF-086,Aleatoriedad con semilla,M,HU-17,RNF-020 CP-086,Verificado,0.1.0,
+Requirement,RF-090,Guardar partida,S,HU-19,RNF-007 RNF-017 CP-090,Verificado,0.12.0,Se guarda inicio + entradas y se repite al cargar (ADR-0016).
+Requirement,RF-091,Cargar partida,S,HU-19,RNF-020 CP-091,Verificado,0.12.0,Solo con la misma versión del juego.
+Requirement,RF-092,Configuración local,S,HU-19,RNF-012 CP-092,Verificado,0.12.0,
+Requirement,RF-093,Archivos corruptos o inválidos,M,HU-19,RNF-016 RNF-021 CP-093,Verificado,0.12.0,Aplica a partidas y configuración; no hay archivos de mapa.
+Requirement,RNF-001,Tasa de cuadros,M,,CP-101,Implementado,0.2.0,Sin medir: no hay Tracy ni tools/fps_report.py.
+Requirement,RNF-002,Tiempo de tick de simulación,M,,CP-102,Implementado,0.2.0,"Medido solo el tiempo de búsqueda por tick: ≤ 0,7 ms con 100 solicitudes en 128² (CP-026)."
+Requirement,RNF-003,Tiempo de búsqueda,M,,CP-103,Implementado,0.1.0,"A* en 128² con 25 % de obstáculos: mediana 108 µs, p95 548 µs (cumple). IA por tick sin medir."
+Requirement,RNF-004,Uso de CPU,M,,CP-104,Implementado,0.2.0,Sin medir: no hay tools/recursos.py.
+Requirement,RNF-005,Memoria,M,,CP-105,Implementado,0.1.0,"Benchmark 128² y 256²: RSS pico 13,7 MB (cumple ≤ 64 MB). Juego en CM-02 sin medir."
+Requirement,RNF-006,Cero asignaciones dinámicas en el bucle,M,,CP-106,Verificado,0.2.0,0 asignaciones por paso con contador global (CP-106).
+Requirement,RNF-007,Almacenamiento,M,,CP-107,Implementado,0.12.0,Partida de 10 min ≈ 16 KB (cumple ≤ 64 KB). Sin medir el .zip ni los registros; no hay rotación.
+Requirement,RNF-008,Tiempo de arranque,M,,CP-108,Implementado,0.2.0,Sin medir.
+Requirement,RNF-018,Latencia de reacción de los agentes,M,,CP-118,Implementado,0.5.0,CP-050: cambio ante señuelo en ≤ 5 ticks de IA (500 ms). Sin tools/latencia_ia.py para el p95.
+Requirement,RNF-027,Capacidad: profundidad de recursión acotada,M,,CP-127,Verificado,0.1.0,CP-127 y estrés de recursión en CI (hasta 2000 agentes con ASan).
+Requirement,RNF-019,Corrección: optimalidad de A\*,M,,CP-119,Verificado,0.10.0,100 % de coincidencia; el benchmark termina con código 2 si no.
+Requirement,RNF-020,Corrección: determinismo,M,,CP-120,Implementado,0.2.0,"Determinismo comprobado en CP-075, CP-084, CP-086 y CP-091, no con 10 × 10 000 ticks."
+Requirement,RNF-032,Completitud: registro de experimentos,M,,CP-132,Implementado,0.10.0,La prueba de CP-080 exige filas completas; no hay tools/validar_csv.py.
+Requirement,RNF-009,Interoperabilidad de plataforma,M,,CP-109,Implementado,0.1.0,"CI con Linux GCC, Linux Clang y Windows MSVC (3 de 4; falta MinGW). Cumple el umbral 2/4."
+Requirement,RNF-010,Coexistencia,M,,CP-110,Implementado,0.12.0,"Solo escribe en config/, saves/, logs/ y results/. Sin traza de archivos."
+Requirement,RNF-011,Capacidad de aprendizaje,M,,CP-111,Implementado,0.12.0,El tutorial registra su duración; falta la prueba con 5 personas.
+Requirement,RNF-012,Operabilidad,M,,CP-112,Implementado,0.12.0,100 % de las acciones reasignables (CP-112). Latencia de entrada sin medir.
+Requirement,RNF-013,Inclusividad y legibilidad,M,,CP-113,Implementado,0.16.0,Estados con color y «?»/«!»; sin revisión de contraste ni escala.
+Requirement,RNF-014,Protección contra errores del usuario,M,,CP-114,Implementado,0.12.0,Confirmación al cargar o salir sin guardar (CP-114).
+Requirement,RNF-015,Madurez,M,,CP-115,Implementado,0.1.0,ASan + UBSan en CI sin errores. Falta la prueba de 30 min a 4×.
+Requirement,RNF-016,Tolerancia a fallos,M,,CP-116,Implementado,0.12.0,Corpus de ≥ 30 entradas inválidas sin cierres (CP-116). Sin libFuzzer.
+Requirement,RNF-017,Recuperabilidad,M,,CP-117,Verificado,0.12.0,"100 interrupciones simuladas, todas cargables (CP-117)."
+Requirement,RNF-021,Integridad de los datos locales,M,,CP-121,Verificado,0.12.0,Todas las mutaciones de 1 byte detectadas (CP-121).
+Requirement,RNF-022,Superficie de ataque mínima,M,,CP-122,Implementado,0.1.0,Sin código de red; sin traza strace ni revisión de CVE.
+Requirement,RNF-023,Modularidad del dominio,M,,CP-123,Verificado,0.1.0,tools/check_deps.sh en CI.
+Requirement,RNF-024,Capacidad de prueba,M,,CP-124,Implementado,0.1.0,"Suite de 172 pruebas en ≈ 1,4 s. Sin trabajo de cobertura."
+Requirement,RNF-025,Capacidad de análisis,M,,CP-125,Implementado,0.1.0,-Werror en CI; clang-tidy a mano. Sin lizard ni Doxygen.
+Requirement,RNF-026,Capacidad de modificación,M,,CP-126,Implementado,0.10.0,IBuscadorRuta permite añadir buscadores; el ejercicio no se ha hecho.
+Requirement,RNF-028,Instalabilidad,M,,CP-128,Implementado,0.1.0,Dos comandos de CMake con presets; no hay .zip portable.
+Requirement,RNF-029,Adaptabilidad de pantalla,M,,CP-129,Aprobado,,Pendiente: ventana fija de 1280 × 720 sin escalado.
+Requirement,RNF-030,Escalabilidad,M,,CP-130,Implementado,0.15.0,100 infectados en 128² sin pasar el presupuesto (CP-026). Falta la serie hasta 200.
+Requirement,RNF-031,Fotosensibilidad,M,,CP-131,Implementado,0.7.0,Solo parpadea la integridad del refugio; sin análisis de destellos.
+Test,CP-001,Carga de mapa Tiled,,RF-001,,Pendiente,,RF-001 pendiente.
+Test,CP-002,Velocidad por modo,,RF-002,,Pasa,,
+Test,CP-003,Ruido por modo,,RF-003,,Pasa,,
+Test,CP-004,Colisiones,,RF-004,,Pasa,,
+Test,CP-005,Recoger objeto,,RF-005,,Pasa,,
+Test,CP-006,Ruido de puerta metálica,,RF-006,,Pendiente,,RF-006 pendiente.
+Test,CP-007,Activar radio,,RF-007,,Pasa,,
+Test,CP-008,Interrumpir instalación,,RF-008,,Parcial,,Falta el caso de daño.
+Test,CP-009,Ventana de extracción,,RF-009,,Pasa,,
+Test,CP-010,Victoria,,RF-010,,Pasa,,
+Test,CP-011,Derrota por salud,,RF-011,,Pasa,,
+Test,CP-012,Derrota por refugio,,RF-012,,Pasa,,
+Test,CP-013,Señuelo,,RF-013,,Pasa,,
+Test,CP-014,Barricada,,RF-014,,Pasa,,
+Test,CP-015,Medicamento,,RF-015,,Pendiente,,RF-015 pendiente.
+Test,CP-016,HUD,,RF-016,,Parcial,,Manual: capturas en la carpeta capturas/ del proyecto.
+Test,CP-017,Tutorial,,RF-017,,Pasa,,
+Test,CP-020,Construcción del grafo,,RF-020,,Pasa,,
+Test,CP-021,Dijkstra óptimo,,RF-021,,Pasa,,
+Test,CP-022,A* óptimo y heurística,,RF-022,,Pasa,,
+Test,CP-023,Métricas de búsqueda,,RF-023,,Pasa,,
+Test,CP-024,Mismo grafo e interfaz,,RF-024,,Pasa,,Cubierto por las pruebas de F2 y de Dijkstra en la partida.
+Test,CP-025,Replanificación por cambio,,RF-025,,Pasa,,
+Test,CP-026,Presupuesto por tick,,RF-026,,Pasa,,
+Test,CP-027,Sin ruta,,RF-027,,Pasa,,
+Test,CP-028,Flow field,,RF-028,,Pasa,,
+Test,CP-029,Steering,,RF-029,,Pasa,,
+Test,CP-030,Quadtree,,RF-030,,Pasa,,
+Test,CP-031,Costos de terreno,,RF-031,,Pasa,,
+Test,CP-040,Orden del ciclo de agente,,RF-040,,Pendiente,,Etapas sin instrumentar.
+Test,CP-041,No omnisciencia,,RF-041,,Pasa,,La inspección del ECS no aplica (ADR-0018).
+Test,CP-042,Audición con paredes,,RF-042,,Pasa,,
+Test,CP-043,Memoria y decaimiento,,RF-043,,Pasa,,
+Test,CP-044,Transiciones FSM,,RF-044,,Pasa,,
+Test,CP-045,Exploración propia,,RF-045,,Parcial,,No mide la cobertura.
+Test,CP-046,Investigar ruido,,RF-046,,Pasa,,Fila «Explorar + ruido» de CP-044.
+Test,CP-047,Propagación recursiva,,RF-047,,Pasa,,
+Test,CP-048,Roles,,RF-048,,Pendiente,,RF-048 pendiente.
+Test,CP-049,Contract Net,,RF-049,,Pasa,,
+Test,CP-050,Reevaluación ante señuelo,,RF-050,,Pasa,,
+Test,CP-051,Distribución de aproximación,,RF-051,,Pasa,,
+Test,CP-052,Respuesta a barricadas,,RF-052,,Pasa,,
+Test,CP-053,Interceptación,,RF-053,,Pasa,,
+Test,CP-054,Selección de táctica,,RF-054,,Pasa,,
+Test,CP-055,Ataque,,RF-055,,Pasa,,
+Test,CP-056,Modo aislado,,RF-056,,Pasa,,
+Test,CP-060,Utilidad del superviviente,,RF-060,,Pasa,,
+Test,CP-061,GOAP,,RF-061,,Pasa,,
+Test,CP-062,Árbol de comportamiento,,RF-062,,Pasa,,
+Test,CP-063,Integridad del refugio,,RF-063,,Pasa,,
+Test,CP-064,Replanificación del superviviente,,RF-064,,Pasa,,
+Test,CP-070,Panel del agente,,RF-070,,Pasa,,Datos del dominio automatizados; vista revisada a mano.
+Test,CP-071,Superposiciones,,RF-071,,Parcial,,Falta dibujar la frontera.
+Test,CP-072,Registro de cambios de plan,,RF-072,,Pasa,,
+Test,CP-073,Registro de mensajes,,RF-073,,Pasa,,
+Test,CP-074,Comparación en vivo,,RF-074,,Pasa,,
+Test,CP-075,Control de simulación,,RF-075,,Pasa,,
+Test,CP-080,Benchmark completo,,RF-080,,Pasa,,
+Test,CP-081,Metadatos,,RF-081,,Pasa,,
+Test,CP-082,Verificación de optimalidad,,RF-082,,Pasa,,
+Test,CP-083,Escenario dinámico,,RF-083,,Pasa,,
+Test,CP-084,Experimento aislado/coordinado,,RF-084,,Pasa,,
+Test,CP-085,Optimización GA y SA,,RF-085,,Pasa,,
+Test,CP-086,Semillas,,RF-086,,Pasa,,
+Test,CP-090,Guardar,,RF-090,,Pasa,,
+Test,CP-091,Cargar,,RF-091,,Pasa,,
+Test,CP-092,Configuración,,RF-092,,Pasa,,
+Test,CP-093,Archivos inválidos,,RF-093,,Pasa,,
+Test,CP-101,FPS nominales,,RNF-001,,Pendiente,,Sin Tracy.
+Test,CP-102,Tiempo de tick,,RNF-002,,Parcial,,Solo búsqueda por tick (CP-026).
+Test,CP-103,Tiempo de búsqueda e IA,,RNF-003,,Parcial,,A* p95 548 µs en 128²; IA por tick sin medir.
+Test,CP-104,Uso de CPU,,RNF-004,,Pendiente,,
+Test,CP-105,Memoria,,RNF-005,,Parcial,,"Benchmark 256²: 13,7 MB."
+Test,CP-106,Asignaciones por frame,,RNF-006,,Pasa,,
+Test,CP-107,Almacenamiento,,RNF-007,,Parcial,,Solo la partida guardada.
+Test,CP-108,Arranque,,RNF-008,,Pendiente,,
+Test,CP-109,Matriz de plataformas,,RNF-009,,Parcial,,CI: 3 de 4 trabajos (sin MinGW).
+Test,CP-110,Coexistencia,,RNF-010,,Pendiente,,
+Test,CP-111,Aprendizaje del tutorial,,RNF-011,,Pendiente,,Requiere 5 personas.
+Test,CP-112,Operabilidad,,RNF-012,,Parcial,,Reasignación sí; latencia no.
+Test,CP-113,Legibilidad y color,,RNF-013,,Pendiente,,
+Test,CP-114,Errores del usuario,,RNF-014,,Parcial,,Confirmaciones sí; mensajes de acción inválida sin prueba.
+Test,CP-115,Resistencia y sanitizadores,,RNF-015,,Parcial,,CI: ASan + UBSan; falta la sesión de 30 min.
+Test,CP-116,Corpus inválido y fuzzing,,RNF-016,,Parcial,,Corpus sí; libFuzzer no.
+Test,CP-117,Guardado atómico,,RNF-017,,Pasa,,
+Test,CP-118,Latencia de reacción,,RNF-018,,Pendiente,,Sin tools/latencia_ia.py.
+Test,CP-119,Optimalidad en benchmark,,RNF-019,,Pasa,,CI: el humo de benchmark falla con código 2 si un costo difiere.
+Test,CP-120,Determinismo,,RNF-020,,Parcial,,"Varias pruebas de determinismo, no 10 × 10 000 ticks."
+Test,CP-121,Integridad por mutación,,RNF-021,,Pasa,,
+Test,CP-122,Sin red ni código externo,,RNF-022,,Pendiente,,
+Test,CP-123,Dominio sin raylib,,RNF-023,,Pasa,,CI: trabajo «Dominio sin raylib» (tools/check_deps.sh).
+Test,CP-124,Cobertura,,RNF-024,,Pendiente,,Sin trabajo de cobertura.
+Test,CP-125,Análisis estático,,RNF-025,,Parcial,,Solo compilación con -Werror.
+Test,CP-126,Ejercicio de extensibilidad,,RNF-026,,Pendiente,,
+Test,CP-127,Pila de recursión,,RNF-027,,Pasa,,
+Test,CP-128,Instalabilidad,,RNF-028,,Parcial,,Sin .zip.
+Test,CP-129,Resoluciones,,RNF-029,,Pendiente,,RNF-029 pendiente.
+Test,CP-130,Escalabilidad,,RNF-030,,Pendiente,,
+Test,CP-131,Fotosensibilidad,,RNF-031,,Pendiente,,
+Test,CP-132,Validación de CSV,,RNF-032,,Parcial,,Sin tools/validar_csv.py.
+Test,CP-201,Prueba de aceptación del docente: señuelo y barricada,,RF-013,RF-014 RF-025 RF-041 RF-050 RF-052,Parcial,,"CP-025, CP-050 y CP-052 cubren cada parte; falta la escena guionizada."
+Test,CP-202,Partida completa de principio a fin,,RF-001,RF-002 RF-003 RF-004 RF-005 RF-006 RF-007 RF-008 RF-009 RF-010 RF-011 RF-012 RF-013 RF-014 RF-015 RF-016 RF-017,Parcial,,"El guion de HU-18 recoge, activa la radio y llega a la extracción; sin guiones de victoria y derrota."
+Test,CP-203,Demostración en vivo para la sustentación,,RF-070,RF-071 RF-072 RF-073 RF-074 RF-075 RF-056,Pendiente,,"Manual, en la sustentación."
+Test,CP-204,Comportamientos del storyboard por escena,,RF-045,RF-046 RF-047 RF-051 RF-050 RF-054,Pendiente,,No hay escenas separadas.

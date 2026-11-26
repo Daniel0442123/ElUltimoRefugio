@@ -7,9 +7,9 @@
 | Campo | Valor |
 |---|---|
 | Documento | SRS-REFUGIO |
-| Versión | 0.1.0 |
-| Fecha | 2026-11-21 |
-| Estado | Borrador |
+| Versión | 0.2.0 (estado real del software 0.16.0) |
+| Fecha | 2026-11-25 |
+| Estado | Línea base revisada contra la implementación |
 | Requisitos no funcionales | En [04_requisitos_no_funcionales.md](04_requisitos_no_funcionales.md) |
 
 ---
@@ -64,7 +64,9 @@ Ver StRS §3.3 (RES-01 a RES-10) y §6.1 (SUP-01 a SUP-04).
 * **Prio.**: MoSCoW. **Crit.**: criticidad para la nota o el funcionamiento (Alta / Media / Baja).
 * **Estab.**: probabilidad de cambio (Estable / Media / Volátil). **Riesgo**: técnico (Alto / Medio / Bajo).
 * **Verif.**: I inspección, A análisis, D demostración, P prueba, seguido del caso de prueba.
-* **Estado** inicial de todos los requisitos: `Propuesto`.
+* **Estado**: `Propuesto` en la línea base 0.1.0. Desde 0.2.0 de este documento, el estado real: `Verificado`,
+  `Implementado` o `Aprobado` (pendiente de implementar), ver [README §4](README.md). La nota «Estado en 0.16.0»
+  bajo cada requisito explica las desviaciones.
 
 ---
 
@@ -73,8 +75,35 @@ Ver StRS §3.3 (RES-01 a RES-10) y §6.1 (SUP-01 a SUP-04).
 Los umbrales se definen como parámetros con nombre en `config/ia.json` para poder ajustarlos sin cambiar
 requisitos (STB §03 «Libertad de desarrollo»). Los requisitos citan el parámetro y su valor por defecto.
 
-| Parámetro | Valor por defecto | Unidad | Usado en |
-|---|---|---|---|
+| Parámetro | Valor por defecto | Unidad | Usado en | En 0.16.0 |
+|---|---|---|---|---|
+| `TICK_SIM_HZ` | 60 | Hz | RF-075, ADR-0005 | 60 |
+| `TICK_IA_HZ` | 10 | Hz | RF-040 | 10 |
+| `VEL_SIGILO` / `VEL_CAMINAR` / `VEL_CORRER` | 1.5 / 3.0 / 6.0 | celdas/s | RF-002 | Igual |
+| `RUIDO_SIGILO` / `RUIDO_CAMINAR` / `RUIDO_CORRER` | 1 / 3 / 6 | celdas | RF-003 | Igual, cada 0,5 s |
+| `RUIDO_PUERTA_METALICA` | 10 | celdas | RF-006 | Se lee pero no se usa (RF-006 pendiente) |
+| `T_INSTALACION` | 8 | s | RF-007 | 8; instalar hace ruido de radio 4 cada segundo |
+| `T_EXTRACCION` | 60 | s | RF-009 | 60 |
+| `SALUD_MAX` / `CURA_MEDICAMENTO` | 100 / 35 | puntos | RF-011, RF-015 | 100 / sin uso (RF-015 pendiente) |
+| `INTEGRIDAD_REFUGIO_MAX` | 100 | puntos | RF-012, RF-063 | 100 |
+| `SENUELO_ALCANCE` / `SENUELO_RADIO` / `SENUELO_DURACION` / `SENUELO_PERIODO` | 8 / 8 / 10 / 1 | celdas / celdas / s / s | RF-013 | Igual; 2 señuelos por partida |
+| `VISION_RADIO` / `VISION_ANGULO` (explorador) | 7 / 110 | celdas / grados | RF-041 | Un solo tipo de infectado: 6 celdas / 110° (sección `pesos`), y nota a Mara a 1,5 celdas aunque esté detrás |
+| `VISION_RADIO` / `VISION_ANGULO` (perseguidor) | 5 / 90 | celdas / grados | RF-041 | Ídem; velocidad 1,4 celdas/s explorando y 3,4 persiguiendo |
+| `MEMORIA_CAPACIDAD` | 16 | evidencias | RF-043 | 16 |
+| `MEMORIA_SEMIVIDA` | 10 | s | RF-043 | 10 |
+| `COM_RADIO` | 5 | celdas | RF-047 | 5 |
+| `ALERTA_PROF_MAX` | 3 | saltos | RF-047 | 3 |
+| `ALERTA_ATENUACION` | 0.7 | factor por salto | RF-047 | 0,7; solo se propaga una evidencia con confianza ≥ 0,6, como mucho cada 2 s por agente |
+| `MAX_AGENTES_POR_CELDA` | 2 | agentes | RF-051 | 2 |
+| `FLOWFIELD_UMBRAL` | 8 | agentes con el mismo destino | RF-028 | 8 en `config/ia.json`; el juego usa 5 porque tiene 10 infectados |
+| `PRESUPUESTO_NODOS_TICK` | 4000 | nodos expandidos por tick de IA | RF-026 | 4000, exacto desde 0.15.0 |
+| `DANIO_ZOMBI` | 10 | puntos/s | RF-055 | 10 (sección `pesos`) |
+| `FACTOR_DESVIO_BARRICADA` | 2.0 | × costo original | RF-052 | 2,0 |
+
+Los once pesos que ajusta la optimización (RF-085) están en la sección `"pesos"` de `config/ia.json` desde
+0.13.0. La sección `"prototipos"` existe pero el juego aún no la lee (RF-048).
+
+---|---|---|---|
 | `TICK_SIM_HZ` | 60 | Hz | RF-075, ADR-0005 |
 | `TICK_IA_HZ` | 10 | Hz | RF-040 |
 | `VEL_SIGILO` / `VEL_CAMINAR` / `VEL_CORRER` | 1.5 / 3.0 / 6.0 | celdas/s | RF-002 |
@@ -106,24 +135,24 @@ requisitos (STB §03 «Libertad de desarrollo»). Los requisitos citan el parám
 
 | ID | Requisito |
 |---|---|
-| IU-01 | Resolución lógica 1280 × 720 escalada sin deformación a la ventana (letterbox). |
-| IU-02 | HUD con salud, inventario, objetivo actual y temporizador de extracción. |
-| IU-03 | Panel de monitoreo (raygui) acoplado a la derecha, 360 px de ancho, conmutable con F1. |
-| IU-04 | Controles por defecto: WASD mover, Mayús correr, Ctrl sigilo, E interactuar, Q señuelo, B barricada, F1 panel, F2 algoritmo, F3 comparar, F4 aislado/coordinado, Espacio pausa, N paso, +/- velocidad, F5/F9 guardar/cargar. |
+| IU-01 | Resolución lógica 1280 × 720 escalada sin deformación a la ventana (letterbox). **0.16.0**: ventana fija de 1280 × 720 sin escalado (RNF-029 pendiente); la cámara (Z) sigue a Mara con zoom 2× o muestra el mapa completo. |
+| IU-02 | HUD con salud, inventario, objetivo actual y temporizador de extracción. **0.16.0**: van en el panel lateral junto al monitor de la IA. |
+| IU-03 | Panel de monitoreo (raygui) acoplado a la derecha, 360 px de ancho, conmutable con F1. **0.16.0**: panel dibujado con raylib (sin raygui), 256 px, siempre visible; F1 activa las superposiciones de depuración y quita la oscuridad. |
+| IU-04 | Controles por defecto: WASD mover, Mayús correr, Ctrl sigilo, E interactuar, Q señuelo, B barricada, F1 panel, F2 algoritmo, F3 comparar, F4 aislado/coordinado, Espacio pausa, N paso, +/- velocidad, F5/F9 guardar/cargar. **0.16.0**: WASD o flechas, Mayús, Ctrl, E, Q, B, F1 depuración, F2, F3, F4, N nodos expandidos, L consola de IA, P pausa, F6 paso, F7/F8 velocidad, F5/F9 guardar/cargar, T saltar tutorial, R nueva partida, Tab laboratorio, Z cámara y Esc menú. Las 25 acciones se reasignan en Esc > Opciones > Controles (`config/controles.json`). |
 
 ### 3.2 Interfaces de software
 
 | ID | Interfaz | Formato |
 |---|---|---|
-| IS-01 | Mapas de Tiled | JSON (formato de mapa Tiled 1.10+), capas: `suelo`, `colision`, `costo`, `objetos`, `spawns`, `zonas`. |
-| IS-02 | Configuración | `config/juego.json`, `config/ia.json`, `config/controles.json`. |
+| IS-01 | Mapas de Tiled | JSON (formato de mapa Tiled 1.10+), capas: `suelo`, `colision`, `costo`, `objetos`, `spawns`, `zonas`. **No implementada en 0.16.0**: la ciudad se genera por código con semilla (ADR-0019). |
+| IS-02 | Configuración | `config/juego.json`, `config/ia.json`, `config/controles.json`. Lector JSON propio (`dominio/nucleo/Json`), sin nlohmann/json. |
 | IS-03 | Benchmark / optimización | Entrada JSON; salida CSV (UTF-8, separador `,`, cabecera de metadatos con `#`) y JSON. |
-| IS-04 | Partidas guardadas | Binario versionado con cabecera mágica `REFG`, versión, longitud y CRC32. |
+| IS-04 | Partidas guardadas | Binario versionado con cabecera mágica `REFG`, versión, longitud y CRC32. Formato 2 desde 0.13.0: semilla, parámetros, pesos y entradas por tick comprimidas en tramos (ADR-0016). |
 | IS-05 | Registros | Texto plano, una línea por evento, campos separados por `\t`. |
 
 ### 3.3 Interfaces de hardware y comunicaciones
 
-* Teclado y ratón obligatorios; mando opcional (raylib Gamepad).
+* Teclado y ratón obligatorios; mando opcional (raylib Gamepad). **0.16.0**: sin soporte de mando.
 * **No hay interfaces de comunicaciones**: el software no abre sockets (RNF-022).
 
 ---
@@ -137,7 +166,9 @@ requisitos (STB §03 «Libertad de desarrollo»). Los requisitos citan el parám
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | RES-03 | HU-01 | P · CP-001 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | RES-03 | HU-01 | P · CP-001 | Alta | Estable | Bajo | Aprobado |
+
+> **Estado en 0.16.0**: Aprobado. Pendiente: la ciudad se genera por código con semilla; no hay cargador de Tiled (ADR-0019).
 
 Justificación: el mapa es la fuente del grafo de navegación y de los elementos de cada escena.
 
@@ -146,14 +177,18 @@ Justificación: el mapa es la fuente del grafo de navegación y de los elementos
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | STB Esc. 1 | HU-01 | P · CP-002 | Media | Estable | Bajo | Propuesto |
+| Estado | M | STB Esc. 1 | HU-01 | P · CP-002 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-003 · Ruido por movimiento
 > **Mientras** Mara se desplace, el sistema deberá publicar cada 0,5 s un evento `Ruido` con origen en la celda de Mara y radio `RUIDO_SIGILO`, `RUIDO_CAMINAR` o `RUIDO_CORRER` según su modo.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | STB §01 | HU-01 | P · CP-003 | Alta | Estable | Bajo | Propuesto |
+| Estado | M | STB §01 | HU-01 | P · CP-003 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 Justificación: el ruido es el canal principal de percepción de los infectados.
 
@@ -162,98 +197,126 @@ Justificación: el ruido es el canal principal de percepción de los infectados.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §01 | HU-01 | P · CP-004 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | M | STB §01 | HU-01 | P · CP-004 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-005 · Recoger objeto
 > **Cuando** la jugadora pulse interactuar a 1 celda o menos de un objeto recogible, el sistema deberá añadir el objeto al inventario y retirarlo del mapa.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §01 | HU-02 | P · CP-005 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB §01 | HU-02 | P · CP-005 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-006 · Puerta metálica
 > **Cuando** se abra una puerta metálica, el sistema deberá publicar un evento `Ruido` de radio `RUIDO_PUERTA_METALICA` con origen en la puerta.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 2 | HU-02 | P · CP-006 | Media | Estable | Bajo | Propuesto |
+| Evento | M | STB Esc. 2 | HU-02 | P · CP-006 | Media | Estable | Bajo | Aprobado |
+
+> **Estado en 0.16.0**: Aprobado. Pendiente: no hay puerta metálica. Instalar la radio sí hace ruido (radio 4).
 
 #### RF-007 · Instalar batería y activar radio
 > **Cuando** la jugadora mantenga interactuar junto a la radio durante `T_INSTALACION` con batería, combustible y al menos un medicamento en el inventario, el sistema deberá marcar la radio como activada y publicar el evento `RadioActivada`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §01, Esc. 4 | HU-03 | P · CP-007 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB §01, Esc. 4 | HU-03 | P · CP-007 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-008 · Interrupción de la instalación
 > **Si** Mara recibe daño o suelta interactuar durante la instalación, **entonces** el sistema deberá interrumpirla y reiniciar su progreso a 0.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | STB Esc. 4 | HU-03 | P · CP-008 | Media | Media | Bajo | Propuesto |
+| No deseado | M | STB Esc. 4 | HU-03 | P · CP-008 | Media | Media | Bajo | Implementado |
+
+> **Estado en 0.16.0**: Implementado en 0.2.0. CP-008 solo comprueba soltar la tecla; el daño también interrumpe pero no tiene prueba.
 
 #### RF-009 · Ventana de extracción
 > **Cuando** se publique `RadioActivada`, el sistema deberá abrir la zona de extracción durante `T_EXTRACCION` segundos y mostrar un temporizador y la ruta de escape en el HUD.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 5 | HU-04 | P · CP-009 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB Esc. 5 | HU-04 | P · CP-009 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.7.0. La zona se marca en el mapa y el panel muestra el tiempo restante.
 
 #### RF-010 · Victoria
 > **Mientras** la zona de extracción esté abierta, **cuando** Mara entre en ella, el sistema deberá terminar la partida con resultado `Victoria`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Complejo | M | STB §01 | HU-04 | P · CP-010 | Alta | Estable | Bajo | Propuesto |
+| Complejo | M | STB §01 | HU-04 | P · CP-010 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.7.0.
 
 #### RF-011 · Derrota por salud
 > **Si** la salud de Mara llega a 0, **entonces** el sistema deberá terminar la partida con resultado `Derrota: Mara ha caído`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | STB §01 | HU-05 | P · CP-011 | Alta | Estable | Bajo | Propuesto |
+| No deseado | M | STB §01 | HU-05 | P · CP-011 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-012 · Derrota por refugio
 > **Si** la integridad del refugio llega a 0, **entonces** el sistema deberá terminar la partida con resultado `Derrota: refugio inutilizado`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | STB §01 | HU-05 | P · CP-012 | Alta | Estable | Bajo | Propuesto |
+| No deseado | M | STB §01 | HU-05 | P · CP-012 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.7.0.
 
 #### RF-013 · Señuelo sonoro
 > **Cuando** la jugadora lance un señuelo hacia una celda, el sistema deberá colocarlo en la celda transitable más lejana de la línea de lanzamiento a `SENUELO_ALCANCE` celdas o menos, y publicar un evento `Ruido` de radio `SENUELO_RADIO` cada `SENUELO_PERIODO` durante `SENUELO_DURACION`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §03 Prueba de aceptación | HU-06 | P · CP-013 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB §03 Prueba de aceptación | HU-06 | P · CP-013 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0.
 
 #### RF-014 · Barricada
 > **Cuando** la jugadora coloque una barricada en una celda adyacente transitable y libre de agentes, el sistema deberá marcarla como no transitable en el grafo con una durabilidad de 100 puntos y publicar el evento `CambioDeMapa` con la celda afectada.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §03 Prueba de aceptación | HU-07 | P · CP-014 | Alta | Estable | Medio | Propuesto |
+| Evento | M | STB §03 Prueba de aceptación | HU-07 | P · CP-014 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0.
 
 #### RF-015 · Usar medicamento
 > **Cuando** la jugadora use un medicamento que no esté reservado para la radio, el sistema deberá sumar `CURA_MEDICAMENTO` a la salud sin superar `SALUD_MAX`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | Acuerdo del equipo | HU-02 | P · CP-015 | Baja | Media | Bajo | Propuesto |
+| Evento | S | Acuerdo del equipo | HU-02 | P · CP-015 | Baja | Media | Bajo | Aprobado |
+
+> **Estado en 0.16.0**: Aprobado. Pendiente: el medicamento es solo objeto de misión; no se puede usar para curarse.
 
 #### RF-016 · HUD de objetivos
 > El sistema deberá mostrar en todo momento la salud, el inventario, el siguiente objetivo de la misión y, si existe, el temporizador de extracción.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §01 Experiencia | HU-01, HU-02 | D · CP-016 | Media | Media | Bajo | Propuesto |
+| Ubicuo | M | STB §01 Experiencia | HU-01, HU-02 | D · CP-016 | Media | Media | Bajo | Implementado |
+
+> **Estado en 0.16.0**: Implementado en 0.2.0. El panel lateral hace de HUD. CP-016 es manual (capturas en capturas/).
 
 #### RF-017 · Tutorial
 > **Donde** el tutorial esté activado, el sistema deberá mostrar en la Escena 1 las indicaciones de mover, sigilo, ruido de carrera y recoger, en ese orden, y retirar cada una cuando la jugadora realice la acción.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Opcional | S | STB Esc. 1 | HU-20 | D · CP-017 | Baja | Media | Bajo | Propuesto |
+| Opcional | S | STB Esc. 1 | HU-20 | D · CP-017 | Baja | Media | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.12.0. En la primera partida nueva (no hay escenas separadas).
 
 ---
 
@@ -264,7 +327,9 @@ Justificación: el ruido es el canal principal de percepción de los infectados.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | GUIA §5 Grafos; STB §03 | HU-16 | A + P · CP-020 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | GUIA §5 Grafos; STB §03 | HU-16 | A + P · CP-020 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 Justificación: define vértices, aristas y costos no negativos exigidos por la guía. Con m ≥ 1 todos los pesos son ≥ 1 > 0, condición de corrección de Dijkstra. |V| ≤ W·H y |E| ≤ 8|V|.
 
@@ -273,7 +338,9 @@ Justificación: define vértices, aristas y costos no negativos exigidos por la 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §5 | HU-16 | P · CP-021 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §5 | HU-16 | P · CP-021 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 Complejidad esperada: O((V + E) log V) en tiempo, O(V) en espacio (GUIA §5).
 
@@ -282,7 +349,9 @@ Complejidad esperada: O((V + E) log V) en tiempo, O(V) en espacio (GUIA §5).
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §5; STB §03 | HU-16 | A + P · CP-022 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §5; STB §03 | HU-16 | A + P · CP-022 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 Justificación de admisibilidad y consistencia: en una rejilla 8-conexa sin obstáculos y con m = 1, la distancia
 octil es exactamente el costo mínimo; los obstáculos y m(v) ≥ 1 solo pueden aumentar el costo real, luego
@@ -295,21 +364,27 @@ la primera vez que un nodo se cierra su g es óptimo, por eso no es necesaria la
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §6, §7 | HU-14, HU-16 | P · CP-023 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §6, §7 | HU-14, HU-16 | P · CP-023 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 #### RF-024 · Algoritmo intercambiable sobre el mismo grafo
 > El sistema deberá ejecutar Dijkstra y A\* a través de la misma interfaz de búsqueda (`IBuscadorRuta`) sobre la misma instancia de grafo y la misma función de costos.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §03 | HU-16 | I + P · CP-024 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | STB §03 | HU-16 | I + P · CP-024 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0. F2 alterna el algoritmo de todos los agentes.
 
 #### RF-025 · Replanificación ante cambios del mapa
 > **Cuando** se publique `CambioDeMapa`, el sistema deberá invalidar las rutas y flow fields que atraviesen las celdas afectadas y encolar una nueva búsqueda para cada agente afectado en el mismo tick de IA.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §4; STB §03 | HU-07, HU-11 | P · CP-025 | Alta | Estable | Medio | Propuesto |
+| Evento | M | GUIA §4; STB §03 | HU-07, HU-11 | P · CP-025 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0. El agente se entera al ver la barricada (no omnisciencia).
 
 Nota: el agente solo «sabe» del cambio si la celda está en su campo de percepción o si le llega por mensaje. Si no, lo descubre al chocar con la barricada (RF-052), lo que respeta la no omnisciencia.
 
@@ -318,35 +393,45 @@ Nota: el agente solo «sabe» del cambio si la celda está en su campo de percep
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | NEG-07 | HU-23 | P · CP-026 | Alta | Estable | Medio | Propuesto |
+| Estado | M | NEG-07 | HU-23 | P · CP-026 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.15.0. A* reanudable entre ticks desde 0.15.0; antes, presupuesto al empezar cada búsqueda.
 
 #### RF-027 · Sin ruta
 > **Si** la búsqueda agota la lista abierta sin alcanzar el destino, **entonces** el sistema deberá devolver el resultado `SinRuta` con sus métricas, y el agente deberá seleccionar otro comportamiento en el siguiente tick de IA.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | GUIA §4 | HU-23 | P · CP-027 | Alta | Estable | Bajo | Propuesto |
+| No deseado | M | GUIA §4 | HU-23 | P · CP-027 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.15.0.
 
 #### RF-028 · Flow field compartido
 > **Cuando** `FLOWFIELD_UMBRAL` agentes o más tengan el mismo destino, el sistema deberá calcular un único campo de flujo mediante Dijkstra inverso desde el destino y guiar a esos agentes con él en lugar de rutas individuales.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | NEG-07 | HU-23 | P · CP-028 | Media | Media | Medio | Propuesto |
+| Evento | S | NEG-07 | HU-23 | P · CP-028 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.3.0. Umbral 8 en config/ia.json; el juego usa 5 porque solo tiene 10 infectados.
 
 #### RF-029 · Steering y boids
 > El sistema deberá combinar para cada agente en movimiento las fuerzas de seguir ruta, separación, alineación, cohesión y evitación de obstáculos con pesos configurables, limitando velocidad y aceleración máximas.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB Esc. 3 | HU-10 | P · CP-029 | Media | Media | Medio | Propuesto |
+| Ubicuo | M | STB Esc. 3 | HU-10 | P · CP-029 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.4.0.
 
 #### RF-030 · Consulta espacial con quadtree
 > El sistema deberá resolver las consultas de vecinos por radio (percepción, comunicación y separación) mediante un quadtree reconstruido o actualizado cada tick de simulación.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | NEG-07 | HU-10, HU-23 | P · CP-030 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | M | NEG-07 | HU-10, HU-23 | P · CP-030 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 Complejidad: construcción O(n log n); consulta O(log n + k) promedio, con k vecinos devueltos. La inserción y la consulta son **recursivas** con profundidad máxima 8.
 
@@ -355,7 +440,9 @@ Complejidad: construcción O(n log n); consulta O(log n + k) promedio, con k vec
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | GUIA §5 | HU-16 | P · CP-031 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | M | GUIA §5 | HU-16 | P · CP-031 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0. El costo viene del mapa generado (escombros), no de una capa de Tiled.
 
 ---
 
@@ -366,14 +453,18 @@ Complejidad: construcción O(n log n); consulta O(log n + k) promedio, con k vec
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | GUIA §4; STB §03 | HU-08 | I + P · CP-040 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | GUIA §4; STB §03 | HU-08 | I + P · CP-040 | Alta | Estable | Bajo | Implementado |
+
+> **Estado en 0.16.0**: Implementado en 0.2.0. Orden real: percepción, memoria, decisión, planificación (cola de rutas), ejecución en cada paso. CP-040 sin automatizar.
 
 #### RF-041 · Percepción visual local sin omnisciencia
 > El sistema deberá entregar a cada agente únicamente las entidades dentro de su cono de visión (`VISION_RADIO`, `VISION_ANGULO`) con línea de visión libre calculada con Bresenham, los eventos `Ruido` dentro de su radio y los mensajes recibidos; ningún agente deberá leer el estado del mundo por otro medio.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §03 Percepción; Prueba de aceptación | HU-08 | I + P · CP-041 | Alta | Estable | Medio | Propuesto |
+| Ubicuo | M | STB §03 Percepción; Prueba de aceptación | HU-08 | I + P · CP-041 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0. No hay ECS: la decisión solo recibe la percepción y la memoria del agente.
 
 Verificación por inspección: el módulo de decisión solo recibe un objeto `Percepcion` construido por el puerto `IPercepcion`; no tiene acceso al registro ECS (ver arc42 §8.3).
 
@@ -382,21 +473,27 @@ Verificación por inspección: el módulo de decisión solo recibe un objeto `Pe
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §01 | HU-08, HU-09 | P · CP-042 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB §01 | HU-08, HU-09 | P · CP-042 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-043 · Memoria de evidencias
 > El sistema deberá mantener por agente una memoria de capacidad `MEMORIA_CAPACIDAD` con evidencias (tipo, celda, tick, confianza, emisor) cuya confianza decae con semivida `MEMORIA_SEMIVIDA`, reemplazando la de menor confianza cuando esté llena.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §03 Memoria; GUIA §5 | HU-08, HU-09, HU-11 | P · CP-043 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | STB §03 Memoria; GUIA §5 | HU-08, HU-09, HU-11 | P · CP-043 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0.
 
 #### RF-044 · Máquina de estados del infectado
 > El sistema deberá controlar a cada infectado con una máquina de estados con los estados `Explorar`, `Investigar`, `Perseguir`, `Interceptar`, `Buscar`, `Atacar` y `AtacarBarricada`, y registrar cada transición con su motivo.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | GUIA §4 | HU-08 | P · CP-044 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | GUIA §4 | HU-08 | P · CP-044 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0. Interceptar llega en 0.4.0 y AtacarBarricada en 0.5.0.
 
 Tabla de transiciones (resumen):
 
@@ -414,7 +511,9 @@ Tabla de transiciones (resumen):
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | STB Esc. 1 | HU-08 | P · CP-045 | Alta | Media | Medio | Propuesto |
+| Estado | M | STB Esc. 1 | HU-08 | P · CP-045 | Alta | Media | Medio | Implementado |
+
+> **Estado en 0.16.0**: Implementado en 0.2.0. CP-045 comprueba celdas libres, no la cobertura del 30 %.
 
 Nota: el mapa de visitas es una rejilla de bits de baja resolución (bloques de 4 × 4 celdas) para limitar memoria (RNF-005).
 
@@ -423,14 +522,18 @@ Nota: el mapa de visitas es una rejilla de bits de baja resolución (bloques de 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 2 | HU-09 | P · CP-046 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB Esc. 2 | HU-09 | P · CP-046 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.2.0.
 
 #### RF-047 · Propagación recursiva acotada de alertas
 > **Cuando** un infectado registre una evidencia de Mara con confianza ≥ 0,6 y el modo coordinado esté activo, el sistema deberá propagar una alerta por el grafo de comunicación (agentes a `COM_RADIO` o menos) mediante una función recursiva con caso base «profundidad = `ALERTA_PROF_MAX`», un conjunto de visitados que impide reenviar a un agente ya alertado y una confianza multiplicada por `ALERTA_ATENUACION` en cada salto.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §03 Recursividad; GUIA §5 | HU-09 | A + P · CP-047 | Alta | Estable | Medio | Propuesto |
+| Evento | M | STB §03 Recursividad; GUIA §5 | HU-09 | A + P · CP-047 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.3.0.
 
 Especificación de la recursión:
 
@@ -459,21 +562,27 @@ vecino cercano por un camino largo y corte su propagación. Implementación: `sr
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | STB §01 Personajes | HU-08 | P · CP-048 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | M | STB §01 Personajes | HU-08 | P · CP-048 | Media | Estable | Bajo | Aprobado |
+
+> **Estado en 0.16.0**: Aprobado. Pendiente: un solo prototipo de infectado; los «prototipos» de config/ia.json no se leen.
 
 #### RF-049 · Coordinación con Contract Net
 > **Cuando** un infectado detecte a Mara en modo coordinado, el sistema deberá actuar como gestor anunciando las tareas `Perseguir`, `Interceptar(punto)` y `Flanquear(acceso)` a los agentes alertados, recibir sus pujas (costo estimado de ruta por heurística octil) durante 1 tick de IA y adjudicar cada tarea a la puja de menor costo, una tarea por agente.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §5 Comunicación; STB Esc. 3, 5 | HU-10, HU-12 | P · CP-049 | Alta | Media | Alto | Propuesto |
+| Evento | M | GUIA §5 Comunicación; STB Esc. 3, 5 | HU-10, HU-12 | P · CP-049 | Alta | Media | Alto | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.4.0.
 
 #### RF-050 · Reevaluación ante señuelos
 > **Cuando** un infectado perciba un ruido de señuelo, el sistema deberá recalcular la utilidad de su objetivo actual y del señuelo y, si la del señuelo es mayor, cambiar su objetivo en 5 ticks de IA (500 ms) o menos y registrar un `CambioDePlan` con ambas utilidades.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 4; Prueba de aceptación | HU-11 | P · CP-050 | Alta | Estable | Medio | Propuesto |
+| Evento | M | STB Esc. 4; Prueba de aceptación | HU-11 | P · CP-050 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0.
 
 Utilidad de un objetivo: U = c · e^(−edad/τ) · 1/(1 + dist/10), con c la confianza, τ = `MEMORIA_SEMIVIDA`/ln 2 y dist en celdas.
 
@@ -482,7 +591,9 @@ Utilidad de un objetivo: U = c · e^(−edad/τ) · 1/(1 + dist/10), con c la co
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 3 | HU-10 | P · CP-051 | Alta | Media | Medio | Propuesto |
+| Evento | M | STB Esc. 3 | HU-10 | P · CP-051 | Alta | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.4.0. Voraz por costo; sin Húngaro.
 
 La asignación se resuelve con un algoritmo voraz por costo (O(n · s log s), s = número de accesos), con opción de Húngaro O(n³) para n ≤ 16.
 
@@ -491,35 +602,45 @@ La asignación se resuelve con un algoritmo voraz por costo (O(n · s log s), s 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | STB §03 Prueba de aceptación | HU-07, HU-11 | P · CP-052 | Alta | Estable | Medio | Propuesto |
+| No deseado | M | STB §03 Prueba de aceptación | HU-07, HU-11 | P · CP-052 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.5.0.
 
 #### RF-053 · Interceptación
 > **Cuando** un infectado tenga la tarea `Interceptar`, el sistema deberá estimar la posición futura de Mara a partir de sus dos últimas evidencias (velocidad y rumbo) y elegir como destino el nodo de su ruta prevista al que el infectado llegue antes que ella.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 5 | HU-12 | P · CP-053 | Media | Media | Medio | Propuesto |
+| Evento | M | STB Esc. 5 | HU-12 | P · CP-053 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.6.0.
 
 #### RF-054 · Selección de táctica
 > **Cuando** un infectado reevalúe su situación, el sistema deberá elegir entre `Perseguir`, `Interceptar` y `Explorar` según la utilidad de cada táctica calculada con la confianza, edad y rumbo de sus evidencias, y registrar la táctica y su puntuación.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB Esc. 5 | HU-12 | P · CP-054 | Alta | Media | Medio | Propuesto |
+| Evento | M | STB Esc. 5 | HU-12 | P · CP-054 | Alta | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.6.0.
 
 #### RF-055 · Ataque
 > **Mientras** un infectado en `Atacar` esté a 1 celda o menos de Mara, el sistema deberá restarle `DANIO_ZOMBI` puntos de salud por segundo.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | STB §01 | HU-05 | P · CP-055 | Media | Estable | Bajo | Propuesto |
+| Estado | M | STB §01 | HU-05 | P · CP-055 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.7.0.
 
 #### RF-056 · Modo aislado o coordinado
 > **Donde** el modo `aislado` esté activado, el sistema deberá desactivar la propagación de alertas (RF-047) y el Contract Net (RF-049), conservando idénticos el resto de comportamientos y la secuencia aleatoria.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Opcional | M | STB §03 | HU-18 | P · CP-056 | Alta | Estable | Bajo | Propuesto |
+| Opcional | M | STB §03 | HU-18 | P · CP-056 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.11.0. F4 en la partida; antes C.
 
 ---
 
@@ -530,35 +651,45 @@ La asignación se resuelve con un algoritmo voraz por costo (O(n · s log s), s 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | STB §01 Personajes | HU-13 | P · CP-060 | Media | Media | Medio | Propuesto |
+| Evento | S | STB §01 Personajes | HU-13 | P · CP-060 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.8.0.
 
 #### RF-061 · Planificación GOAP
 > **Cuando** cambie la meta del superviviente, el sistema deberá generar con GOAP la secuencia de acciones de menor costo que satisfaga la meta a partir del estado actual, con búsqueda A\* regresiva y profundidad máxima de 6 acciones.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | GUIA §4 Planificación | HU-13 | P · CP-061 | Media | Media | Alto | Propuesto |
+| Evento | S | GUIA §4 Planificación | HU-13 | P · CP-061 | Media | Media | Alto | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.8.0.
 
 #### RF-062 · Ejecución con árbol de comportamiento
 > El sistema deberá ejecutar cada acción del plan del superviviente mediante un árbol de comportamiento con nodos secuencia, selector, decorador y hoja, que devuelven `Exito`, `Fallo` o `EnCurso`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | S | GUIA §4 Ejecución | HU-13 | P · CP-062 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | S | GUIA §4 Ejecución | HU-13 | P · CP-062 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.8.0.
 
 #### RF-063 · Integridad del refugio
 > **Mientras** un infectado golpee la puerta del refugio, el sistema deberá restar 5 puntos de integridad por segundo, y **cuando** el superviviente repare, sumar 8 puntos por segundo sin superar `INTEGRIDAD_REFUGIO_MAX`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Complejo | M | STB §01 | HU-05, HU-13 | P · CP-063 | Alta | Media | Bajo | Propuesto |
+| Complejo | M | STB §01 | HU-05, HU-13 | P · CP-063 | Alta | Media | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.8.0. Golpes desde 0.7.0, reparación desde 0.8.0.
 
 #### RF-064 · Replanificación del superviviente
 > **Si** una acción del plan devuelve `Fallo` o sus precondiciones dejan de cumplirse, **entonces** el sistema deberá descartar el plan y generar uno nuevo en el siguiente tick de IA, registrando el motivo.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | S | GUIA §4 | HU-13 | P · CP-064 | Media | Estable | Bajo | Propuesto |
+| No deseado | S | GUIA §4 | HU-13 | P · CP-064 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.8.0.
 
 ---
 
@@ -569,42 +700,54 @@ La asignación se resuelve con un algoritmo voraz por costo (O(n · s log s), s 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Estado | M | GUIA §6; STB §03 | HU-14 | D + P · CP-070 | Alta | Estable | Bajo | Propuesto |
+| Estado | M | GUIA §6; STB §03 | HU-14 | D + P · CP-070 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.9.0.
 
 #### RF-071 · Superposiciones de depuración
 > **Donde** se activen las superposiciones, el sistema deberá dibujar sobre el mapa la ruta, los nodos expandidos y en frontera de la última búsqueda, el flow field, los conos de visión, los radios de ruido y las aristas de comunicación de las alertas.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Opcional | M | GUIA §6 | HU-14 | D · CP-071 | Media | Media | Bajo | Propuesto |
+| Opcional | M | GUIA §6 | HU-14 | D · CP-071 | Media | Media | Bajo | Implementado |
+
+> **Estado en 0.16.0**: Implementado en 0.9.0. Se dibujan ruta, nodos expandidos, campo de flujo, conos, ruidos y alertas; no la frontera (abierta).
 
 #### RF-072 · Registro de cambios de plan
 > **Cuando** un agente cambie de estado, objetivo o plan, el sistema deberá registrar el tick, el id del agente, el plan anterior, el plan nuevo y el motivo, en el panel y en `logs/ia_<semilla>.log`.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §6 | HU-11, HU-15 | P · CP-072 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §6 | HU-11, HU-15 | P · CP-072 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.9.0.
 
 #### RF-073 · Registro de mensajes entre agentes
 > **Cuando** un agente envíe un mensaje (alerta, anuncio, puja o adjudicación), el sistema deberá registrar el tick, el emisor, el receptor, el tipo, el salto y la confianza.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §6 | HU-09, HU-15 | P · CP-073 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §6 | HU-09, HU-15 | P · CP-073 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.9.0.
 
 #### RF-074 · Comparación de algoritmos en vivo
 > **Cuando** el docente pulse F3 con un agente seleccionado, el sistema deberá ejecutar su última consulta con Dijkstra y con A\* sobre el mismo grafo y mostrar una tabla con costo, nodos expandidos, tiempo y memoria de cada uno; **cuando** pulse F2, deberá alternar el algoritmo activo de todos los agentes.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §6 «Comparar Dijkstra y A\* con datos reales» | HU-16 | D + P · CP-074 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §6 «Comparar Dijkstra y A\* con datos reales» | HU-16 | D + P · CP-074 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0.
 
 #### RF-075 · Control de la simulación
 > El sistema deberá permitir pausar, avanzar exactamente un tick y ejecutar a velocidades 0,25×, 0,5×, 1×, 2× y 4× sin alterar el resultado determinista de la simulación.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | S | GUIA §8 Demostración | HU-22 | P · CP-075 | Media | Estable | Bajo | Propuesto |
+| Ubicuo | S | GUIA §8 Demostración | HU-22 | P · CP-075 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.14.0. Teclas P, F6, F7 y F8.
 
 ---
 
@@ -615,7 +758,9 @@ La asignación se resuelve con un algoritmo voraz por costo (O(n · s log s), s 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §7; STB §03 | HU-17 | P · CP-080 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §7; STB §03 | HU-17 | P · CP-080 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0.
 
 Columnas mínimas: `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, repeticion, origen_x, origen_y, destino_x, destino_y, costo, longitud, nodos_expandidos, nodos_generados, max_abierta, tiempo_us, memoria_pico_bytes, replanificaciones`.
 
@@ -624,42 +769,54 @@ Columnas mínimas: `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | GUIA §7 | HU-17 | I + P · CP-081 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | GUIA §7 | HU-17 | I + P · CP-081 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0.
 
 #### RF-082 · Verificación de optimalidad
 > **Cuando** termine el benchmark, el sistema deberá comparar el costo de A\* con el de Dijkstra en cada consulta y reportar como error toda diferencia mayor que 1e-6.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §03 «comparar optimalidad» | HU-17 | P · CP-082 | Alta | Estable | Bajo | Propuesto |
+| Evento | M | STB §03 «comparar optimalidad» | HU-17 | P · CP-082 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0.
 
 #### RF-083 · Escenarios dinámicos
 > **Donde** el escenario de benchmark defina eventos de cambio (barricadas o costos que cambian en un tick dado), el sistema deberá aplicarlos durante la ejecución y registrar las replanificaciones, el costo final y los nodos totales de cada algoritmo.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Opcional | M | GUIA §7 «Probar cambios del entorno» | HU-17 | P · CP-083 | Media | Media | Medio | Propuesto |
+| Opcional | M | GUIA §7 «Probar cambios del entorno» | HU-17 | P · CP-083 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.10.0.
 
 #### RF-084 · Experimento aislados frente a coordinados
 > **Cuando** se ejecute `refugio --coord-exp <semilla> --reps <n>`, el sistema deberá simular sin ventana n partidas en modo aislado y n en modo coordinado con las mismas semillas y un guion de jugadora fijo, y registrar por simulación el tiempo hasta la primera detección, el tiempo hasta el contacto, la cobertura explorada, los mensajes enviados y las celdas sobrecargadas.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | M | STB §03 | HU-18 | P · CP-084 | Alta | Estable | Medio | Propuesto |
+| Evento | M | STB §03 | HU-18 | P · CP-084 | Alta | Estable | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.11.0.
 
 #### RF-085 · Optimización de parámetros
 > **Cuando** se ejecute `refugio --optimize ga|sa --config <archivo>`, el sistema deberá optimizar los pesos de utilidad y steering con un algoritmo genético (selección por torneo, cruce uniforme, mutación gaussiana, elitismo) o con recocido simulado (enfriamiento geométrico), evaluando la aptitud con simulaciones sin ventana, y escribir el mejor conjunto de parámetros y la evolución de la aptitud en JSON.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | Objetivo general «optimización» | HU-21 | P · CP-085 | Media | Media | Medio | Propuesto |
+| Evento | S | Objetivo general «optimización» | HU-21 | P · CP-085 | Media | Media | Medio | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.13.0. Los pesos optimizados no se copian solos a config/ia.json (ADR-0015).
 
 #### RF-086 · Aleatoriedad con semilla
 > El sistema deberá derivar todo valor aleatorio de un generador PCG32 inicializado con una semilla maestra configurable y registrada, con un flujo independiente por subsistema.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | M | GUIA §7; STB §03 | HU-17 | P · CP-086 | Alta | Estable | Bajo | Propuesto |
+| Ubicuo | M | GUIA §7; STB §03 | HU-17 | P · CP-086 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.1.0.
 
 ---
 
@@ -670,28 +827,36 @@ Columnas mínimas: `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, 
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | Acuerdo del equipo | HU-19 | P · CP-090 | Media | Estable | Bajo | Propuesto |
+| Evento | S | Acuerdo del equipo | HU-19 | P · CP-090 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.12.0. Se guarda inicio + entradas y se repite al cargar (ADR-0016).
 
 #### RF-091 · Cargar partida
 > **Cuando** la jugadora cargue una ranura válida, el sistema deberá restaurar el estado de modo que el hash del estado coincida con el del momento del guardado.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Evento | S | Acuerdo del equipo | HU-19 | P · CP-091 | Media | Estable | Bajo | Propuesto |
+| Evento | S | Acuerdo del equipo | HU-19 | P · CP-091 | Media | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.12.0. Solo con la misma versión del juego.
 
 #### RF-092 · Configuración local
 > El sistema deberá leer al iniciar `config/juego.json`, `config/ia.json` y `config/controles.json`, y guardar en ellos los cambios hechos desde el menú de opciones.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| Ubicuo | S | Acuerdo del equipo | HU-19 | P · CP-092 | Baja | Estable | Bajo | Propuesto |
+| Ubicuo | S | Acuerdo del equipo | HU-19 | P · CP-092 | Baja | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.12.0.
 
 #### RF-093 · Archivos corruptos o inválidos
 > **Si** un archivo de partida, configuración o mapa no supera la validación (cabecera, CRC32, esquema o rangos), **entonces** el sistema deberá mostrar o registrar un mensaje de error descriptivo, usar los valores por defecto cuando existan y continuar sin cerrarse.
 
 | Tipo | Prio. | Fuente | HU | Verif. | Crit. | Estab. | Riesgo | Estado |
 |---|---|---|---|---|---|---|---|---|
-| No deseado | M | RNF-016 | HU-19 | P · CP-093 | Alta | Estable | Bajo | Propuesto |
+| No deseado | M | RNF-016 | HU-19 | P · CP-093 | Alta | Estable | Bajo | Verificado |
+
+> **Estado en 0.16.0**: Verificado en 0.12.0. Aplica a partidas y configuración; no hay archivos de mapa.
 
 ---
 
@@ -706,6 +871,10 @@ Columnas mínimas: `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, 
 | ResultadoBusqueda | algoritmo, ruta, costo, expandidos, generados, maxAbierta, tiempo_us, memoria_bytes | CSV / panel |
 | Partida | versión, semilla, tick, estado PRNG, entidades, inventario, integridad, temporizadores | `.sav` |
 
+En 0.16.0 el modelo vive en `juego::Partida` (arreglos de `Infectado`, `ObjetoMision`, `Senuelo` y
+`Barricada` reservados al crear la partida) en lugar de un ECS (ADR-0018). La partida guardada no serializa las
+entidades: guarda semilla, parámetros y entradas, y las reconstruye repitiendo la simulación (ADR-0016).
+
 ## 6. Verificación
 
 * Todos los RF tienen al menos un caso de prueba (ver [05_casos_prueba.md](05_casos_prueba.md)).
@@ -714,13 +883,29 @@ Columnas mínimas: `algoritmo, mapa, ancho, alto, densidad_obstaculos, semilla, 
 
 ## 7. Resumen de requisitos funcionales
 
-| Grupo | Total | M | S | C |
-|---|---|---|---|---|
-| F1 Juego base | 17 | 15 | 2 | 0 |
-| F2 Navegación | 12 | 11 | 1 | 0 |
-| F3 Infectados | 17 | 17 | 0 | 0 |
-| F4 Superviviente | 5 | 1 | 4 | 0 |
-| F5 Monitoreo | 6 | 5 | 1 | 0 |
-| F6 Experimentación | 7 | 6 | 1 | 0 |
-| F7 Persistencia | 4 | 1 | 3 | 0 |
-| **Total** | **68** | **56** | **12** | **0** |
+| Grupo | Total | M | S | C | Verificados | Implementados | Pendientes |
+|---|---|---|---|---|---|---|---|
+| F1 Juego base | 17 | 15 | 2 | 0 | 12 | 2 | 3 (RF-001, RF-006, RF-015) |
+| F2 Navegación | 12 | 11 | 1 | 0 | 12 | 0 | 0 |
+| F3 Infectados | 17 | 17 | 0 | 0 | 14 | 2 | 1 (RF-048) |
+| F4 Superviviente | 5 | 1 | 4 | 0 | 5 | 0 | 0 |
+| F5 Monitoreo | 6 | 5 | 1 | 0 | 5 | 1 | 0 |
+| F6 Experimentación | 7 | 6 | 1 | 0 | 7 | 0 | 0 |
+| F7 Persistencia | 4 | 1 | 3 | 0 | 4 | 0 | 0 |
+| **Total** | **68** | **56** | **12** | **0** | **59** | **5** | **4** |
+
+## 8. Desviaciones respecto de la línea base 0.1.0
+
+| Tema | Línea base | Implementado (0.16.0) | Registro |
+|---|---|---|---|
+| Mapas | Tiled JSON por escena | Ciudad generada por código con semilla; un solo mapa de 32 × 22 celdas con 10 infectados en el juego y mapas de 32² a 256² en el benchmark | ADR-0019 |
+| Escenas | Cinco escenas separadas | Una partida continua donde aparecen los cinco comportamientos del storyboard | 02_historias_usuario §3 |
+| Modelo de entidades | ECS con bus de eventos | `Partida` con arreglos por tipo y llamadas directas; eventos de ruido y cambio de mapa como colas internas | ADR-0018 |
+| Roles de infectado | Explorador y perseguidor | Un tipo de infectado con los parámetros de la sección `pesos` | RF-048 |
+| Puerta metálica y medicamento | RF-006, RF-015 | No implementados | — |
+| Guardado | Serializar el estado completo | Inicio + entradas y repetición al cargar | ADR-0016 |
+| Interfaz | raygui, panel de 360 px, letterbox | Panel propio con raylib de 256 px, ventana fija, cámara con zoom y arte pixel generado por código | ADR-0017, ADR-0020 |
+| Controles | Espacio, N, +/- para la simulación | P, F6, F7 y F8 (N muestra los nodos expandidos) | RF-075 |
+
+El detalle por requisito está en la nota «Estado en 0.16.0» de cada uno y en la
+[matriz de trazabilidad](06_matriz_trazabilidad.md) §4.

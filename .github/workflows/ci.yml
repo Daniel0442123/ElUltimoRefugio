@@ -87,8 +87,10 @@ jobs:
         run: ./build/asan/refugio_bench --estres-recursion --agentes 50,500,2000 --reps 3 --salida results/estres_asan.csv
 
   dependencias-dominio:
-    name: Dominio sin raylib (RNF-023)
+    name: Dominio sin raylib y trazabilidad (RNF-023)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: ./tools/check_deps.sh
+      - name: Trazabilidad HU, RF, RNF y CP coherente con las pruebas
+        run: python3 tools/trazabilidad.py comprobar

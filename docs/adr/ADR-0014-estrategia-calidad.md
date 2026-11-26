@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Aceptada; herramientas y CI modificados por [ADR-0020](ADR-0020-herramientas-reales.md) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RNF-015, RNF-016, RNF-024, RNF-025, RNF-009, RNF-028 |

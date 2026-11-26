@@ -6,9 +6,9 @@
 
 | Campo | Valor |
 |---|---|
-| Versión de la documentación | 0.1.0 (línea base inicial) |
-| Fecha | 2026-11-21 |
-| Estado | Borrador para revisión del equipo y del docente |
+| Versión de la documentación | 0.2.0 (revisada contra el software 0.16.0) |
+| Fecha | 2026-11-25 |
+| Estado | Para revisión del equipo y del docente |
 | Responsable | Pedro (equipo de desarrollo) |
 | Fuentes primarias | `00_guia_proyecto_final.pdf` (guía general), `02_refugio.pdf` (storyboard del proyecto) |
 
@@ -70,6 +70,25 @@ Los identificadores **nunca se reutilizan**. Un requisito eliminado se marca com
 * Prioridad con **MoSCoW**: `M` (Must, debe), `S` (Should, debería), `C` (Could, podría), `W` (Won't, no en esta versión).
 * Métodos de verificación (29148:2018 §6.5): **I** inspección, **A** análisis, **D** demostración, **P** prueba.
 * Estados de un requisito: `Propuesto → Aprobado → Implementado → Verificado` (o `Retirado`).
+  * `Aprobado`: aceptado pero **pendiente de implementar**.
+  * `Implementado`: el código existe, pero su caso de prueba no pasa entero (falta un caso, una medición o una
+    revisión manual). La columna `Notas` de [trazabilidad.csv](trazabilidad.csv) dice qué falta.
+  * `Verificado`: su caso de prueba propio (`RF-0nn → CP-0nn`, `RNF-0nn → CP-1nn`) está en `Pasa`.
+* Estados de un caso de prueba: `Pasa` (automatizado y en verde, o revisado), `Parcial` o `Pendiente`.
+* Estados de una historia: `Terminada`, `Terminada con pendientes` (algún RF sigue `Aprobado`) o `Pendiente`.
+
+## 4.1 Estado en 0.16.0
+
+| Elemento | Total | Estado |
+|---|---|---|
+| Historias de usuario | 23 | 20 terminadas y 3 terminadas con pendientes (HU-01, HU-02, HU-08) |
+| Requisitos funcionales | 68 | 59 verificados, 5 implementados, 4 pendientes (RF-001, RF-006, RF-015, RF-048) |
+| Requisitos no funcionales | 32 | 6 verificados, 25 implementados con la medición incompleta, 1 pendiente (RNF-029) |
+| Casos de prueba | 104 | 65 pasan, 19 parciales, 20 pendientes |
+| Pruebas automatizadas | 172 | 172 en verde (GCC 13.3, Release) |
+
+Las cifras salen de `python tools/trazabilidad.py generar` ([matriz §1](06_matriz_trazabilidad.md)). Lo que
+cambió respecto de la línea base está en [SRS §8](03_SRS_requisitos_funcionales.md) y en los ADR 0018 a 0020.
 
 ## 5. Orden de lectura recomendado
 
@@ -79,8 +98,13 @@ Los identificadores **nunca se reutilizan**. Un requisito eliminado se marca com
 4. [07_arquitectura_arc42.md](07_arquitectura_arc42.md) y [adr/](adr/README.md) para el cómo.
 5. [05_casos_prueba.md](05_casos_prueba.md) y [06_matriz_trazabilidad.md](06_matriz_trazabilidad.md) para la verificación.
 
+Para mantener la trazabilidad: editar [trazabilidad.csv](trazabilidad.csv), ejecutar
+`python tools/trazabilidad.py generar` (reescribe las tablas marcadas con `<!-- generado:… -->` de 05 y 06) y
+`python tools/trazabilidad.py comprobar`, que también corre en CI.
+
 ## 6. Control de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---|---|---|---|
 | 0.1.0 | 2026-11-21 | Equipo | Línea base inicial a partir de la guía y el storyboard del docente. |
+| 0.2.0 | 2026-11-25 | Equipo | Revisión contra el software 0.16.0: estado real de cada HU, RF, RNF y CP con su versión y sus desviaciones; mediciones de búsqueda y memoria; arc42 con la arquitectura implementada; ADR-0018 (sin ECS), ADR-0019 (mapas generados) y ADR-0020 (herramientas usadas); `tools/trazabilidad.py` para generar y comprobar la matriz. |

@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Sustituida por [ADR-0019](ADR-0019-mapas-generados.md) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RF-001, RF-031, RES-03, RNF-016 |

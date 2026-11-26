@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Aceptada; aplicada sin Blackboard compartido (cada agente usa su memoria y sus hechos GOAP) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RF-044, RF-054, RF-060 a RF-064, RNF-002, RNF-027 |

@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | Aceptada; formato de partida concretado en [ADR-0016](ADR-0016-guardado-por-repeticion.md) |
 | Fecha | 2026-11-21 |
 | Decisores | Equipo de desarrollo |
 | Requisitos relacionados | RF-090 a RF-093, RNF-007, RNF-016, RNF-017, RNF-021, RNF-022 |

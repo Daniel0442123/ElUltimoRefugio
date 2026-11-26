@@ -6,9 +6,9 @@
 | Campo | Valor |
 |---|---|
 | Documento | StRS-REFUGIO |
-| Versión | 0.1.0 |
-| Fecha | 2026-11-21 |
-| Estado | Borrador |
+| Versión | 0.2.0 (estado real del software 0.16.0) |
+| Fecha | 2026-11-25 |
+| Estado | Línea base revisada contra la implementación |
 | Fuentes | `00_guia_proyecto_final.pdf` (en adelante **GUIA**), `02_refugio.pdf` (en adelante **STB**) |
 
 ---
@@ -31,7 +31,8 @@ señales locales, de modo que una huida ruidosa puede atraer a una horda (STB §
 
 Dentro del alcance:
 
-* El juego jugable de cinco escenas (STB §02) con victoria y derrota.
+* El juego jugable de cinco escenas (STB §02) con victoria y derrota. *(0.16.0: una sola partida continua en una
+  ciudad generada con semilla, donde aparecen los comportamientos de las cinco escenas; ver §8.)*
 * Agentes autónomos: infectados exploradores, perseguidores y el superviviente de la radio.
 * Navegación con **Dijkstra** y **A\*** sobre el mismo grafo, más técnicas de apoyo (flow fields, steering).
 * Un procedimiento **recursivo** acotado: propagación de alertas con conjunto de visitados (STB §03).
@@ -147,15 +148,15 @@ Fuera del alcance (versión 1.0):
 | ID | Restricción | Origen |
 |---|---|---|
 | RES-01 | Lenguaje **C++20** (compatible con C++17 en el dominio), compilado con CMake. | Acuerdo del equipo (ADR-0002) |
-| RES-02 | Biblioteca gráfica **raylib 5** y **raygui** para la interfaz. | ADR-0002 |
-| RES-03 | Mapas creados en **Tiled** y exportados a JSON, leídos con **nlohmann/json**. | ADR-0013 |
-| RES-04 | Pixel art de **32 × 32 px** por tile. | Acuerdo del equipo |
+| RES-02 | Biblioteca gráfica **raylib 5** y **raygui** para la interfaz. *(0.16.0: raylib 5.5; raygui no se usa, ADR-0020.)* | ADR-0002 |
+| RES-03 | Mapas creados en **Tiled** y exportados a JSON, leídos con **nlohmann/json**. *(0.16.0: sustituida; mapas generados por código y lector JSON propio, ADR-0019.)* | ADR-0013 |
+| RES-04 | Pixel art de **32 × 32 px** por tile. *(0.16.0: sprites de 16 × 16 px dibujados al doble en celdas de 32 px, generados por código, ADR-0017.)* | Acuerdo del equipo |
 | RES-05 | Sin backend, sin nube y sin conexiones de red. | NEG-07 |
 | RES-06 | El dominio de IA no puede depender de raylib (arquitectura hexagonal). | ADR-0003 |
 | RES-07 | Debe existir al menos un procedimiento recursivo con caso base, progreso y límite. | GUIA §5; STB §03 |
 | RES-08 | Dijkstra y A\* deben ejecutarse sobre **el mismo grafo** con costos **no negativos**. | STB §03 |
 | RES-09 | El código y los datos de experimentos deben ser reproducibles (semillas registradas). | GUIA §7; STB §03 |
-| RES-10 | Herramientas libres: Catch2, Tracy, ASan/UBSan, Valgrind, Doxygen, PlantUML, Git y GitHub Actions. | Acuerdo del equipo |
+| RES-10 | Herramientas libres: Catch2, Tracy, ASan/UBSan, Valgrind, Doxygen, PlantUML, Git y GitHub Actions. *(0.16.0: se usan Catch2, ASan/UBSan, PlantUML, Git y GitHub Actions; Tracy, Valgrind y Doxygen no, ADR-0020.)* | Acuerdo del equipo |
 
 ---
 
@@ -188,15 +189,16 @@ Fuera del alcance (versión 1.0):
 
 ### 4.4 Storyboard operativo (escenarios de uso)
 
-Tomado de STB §02 y refinado. Cada escena se convierte en una o más historias de usuario.
+Tomado de STB §02 y refinado. Cada escena se convierte en una o más historias de usuario. En 0.16.0 las escenas
+no son niveles separados sino momentos de una misma partida; la última columna dice dónde se ve cada una.
 
-| Escena | Acción del jugador | Comportamiento inteligente esperado | HU |
-|---|---|---|---|
-| 1 · Ciudad silenciosa | Tutorial de desplazamiento silencioso por calles desiertas. | Los infectados exploran sin información global. | HU-01, HU-08, HU-20 |
-| 2 · La farmacia | Recoge medicamentos; una puerta metálica genera ruido. | Los agentes cercanos investigan el origen y transmiten alertas. | HU-02, HU-09 |
-| 3 · La horda | Cruza calles con obstáculos y grupos de infectados. | Los zombis distribuyen aproximaciones y evitan concentrarse en una celda. | HU-10 |
-| 4 · El refugio | Instala la batería mientras los infectados se aproximan. | La horda reconsidera objetivos ante señuelos sonoros. | HU-03, HU-06, HU-07, HU-11, HU-13 |
-| 5 · Extracción | Una señal abre una ruta de escape temporal. | Los agentes eligen perseguir, explorar o interceptar según evidencias. | HU-04, HU-12 |
+| Escena | Acción del jugador | Comportamiento inteligente esperado | HU | En 0.16.0 |
+|---|---|---|---|---|
+| 1 · Ciudad silenciosa | Tutorial de desplazamiento silencioso por calles desiertas. | Los infectados exploran sin información global. | HU-01, HU-08, HU-20 | Inicio de la partida: tutorial y horda explorando con su mapa de visitas. |
+| 2 · La farmacia | Recoge medicamentos; una puerta metálica genera ruido. | Los agentes cercanos investigan el origen y transmiten alertas. | HU-02, HU-09 | Al recoger objetos. No hay puerta metálica: el ruido de Mara o de un señuelo dispara la investigación y las alertas. |
+| 3 · La horda | Cruza calles con obstáculos y grupos de infectados. | Los zombis distribuyen aproximaciones y evitan concentrarse en una celda. | HU-10 | Cuando varios infectados la persiguen: Contract Net, reparto de accesos y campo de flujo. |
+| 4 · El refugio | Instala la batería mientras los infectados se aproximan. | La horda reconsidera objetivos ante señuelos sonoros. | HU-03, HU-06, HU-07, HU-11, HU-13 | En el refugio: instalar hace ruido, el superviviente repara y ayuda, señuelos y barricadas. |
+| 5 · Extracción | Una señal abre una ruta de escape temporal. | Los agentes eligen perseguir, explorar o interceptar según evidencias. | HU-04, HU-12 | Tras activar la radio: 60 s para llegar a la extracción; los infectados eligen táctica. |
 
 ---
 
@@ -261,3 +263,44 @@ Tomado de STB §02 y refinado. Cada escena se convierte en una o más historias 
 | Revisión cruzada con la GUIA y el STB, cláusula por cláusula | Equipo | Toda cláusula de la GUIA §4–§8 y del STB §01–§03 tiene al menos un StR asociado (ver 06_matriz_trazabilidad.md §2). |
 | Revisión con el docente | STK-01 | Aprobación o lista de cambios. |
 | Prototipo jugable de la Escena 1 | Equipo | El docente observa la exploración sin información global. |
+
+---
+
+## 8. Estado en 0.16.0
+
+### 8.1 Objetivos de negocio
+
+| ID | Estado | Evidencia o pendiente |
+|---|---|---|
+| NEG-01 | Cumplido | Ciclo percepción → memoria → decisión → planificación → ejecución en infectados y superviviente; el panel muestra cada etapa y el registro de IA las transiciones, planes y mensajes (HU-14, HU-15). |
+| NEG-02 | Cumplido | Dijkstra y A\* sobre el mismo grafo; 100 % de costos iguales en el benchmark (RF-082); 4 tamaños × 5 repeticiones en `bench/config.json`. |
+| NEG-03 | Cumplido | Señuelo y barricada sin omnisciencia (CP-025, CP-050, CP-052). La escena guionizada de CP-201 sigue pendiente. |
+| NEG-04 | En curso | Complejidad en arc42 §8.6 y datos del benchmark y del estrés de recursión. Falta el informe con las tablas experimentales. |
+| NEG-05 | Cumplido con cambios | Partida ganable y perdible de principio a fin, en un solo mapa en lugar de cinco escenas. |
+| NEG-06 | En curso | Documentación actualizada a 0.16.0; falta el informe final y la demostración. |
+| NEG-07 | Parcial | Local y sin red. Búsqueda y memoria dentro de objetivo; FPS, CPU y arranque sin medir en el equipo CM-01 (ver 04 §1.1). |
+
+### 8.2 Requisitos de las partes interesadas
+
+| StR | Estado | Comentario |
+|---|---|---|
+| StR-01 | Cumplido | HU-01. |
+| StR-02 | Cumplido | HU-02, HU-03. Falta la puerta metálica (RF-006). |
+| StR-03 | Cumplido | HU-04, HU-05. |
+| StR-04 | Cumplido | HU-06, HU-07. |
+| StR-05 | Cumplido | RF-041, RF-042; los agentes solo usan su percepción, su memoria y los mensajes. |
+| StR-06 | Cumplido | RF-043, RF-050, RF-052, RF-064. |
+| StR-07 | Cumplido | RF-047 con caso base, visitados y profundidad 3; estrés de recursión en CI. |
+| StR-08 | Cumplido | RF-049, RF-051, RF-053, RF-054. |
+| StR-09 | Cumplido | RF-020 a RF-024; heurística octil admisible y consistente (CP-022). |
+| StR-10 | Cumplido | RF-070 con los nueve campos de la guía. |
+| StR-11 | Cumplido | RF-072, RF-073; `logs/ia_<semilla>.log`. |
+| StR-12 | Cumplido | RF-080 a RF-083, RF-086. |
+| StR-13 | Cumplido | RF-056, RF-084 (`--coord-exp`). |
+| StR-14 | En curso | Análisis en arc42 §8.6 y RF-047; falta el informe final. |
+| StR-15 | Parcial | Sin red ni instalación; no hay `.zip` portable ni mediciones en CM-01. |
+| StR-16 | Cumplido | HU-19. |
+| StR-17 | Cumplido | HU-21 (GA y SA). |
+| StR-18 | Cumplido | HU-13. |
+| StR-19 | Cumplido | CMake con presets y CI en cada push (GCC, Clang, MSVC, ASan/UBSan). |
+| StR-20 | Cumplido | HU-20. |

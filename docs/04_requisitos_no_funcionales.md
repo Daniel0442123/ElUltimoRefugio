@@ -7,9 +7,9 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.1.0 |
-| Fecha | 2026-11-21 |
-| Estado | Borrador |
+| Versión | 0.2.0 (estado real del software 0.16.0) |
+| Fecha | 2026-11-25 |
+| Estado | Línea base revisada contra la implementación |
 
 ## 1. Condiciones de medición comunes
 
@@ -20,6 +20,31 @@
 | CM-03 | **Compilación de medición**: `Release` (`-O2`), sin sanitizadores, Tracy activado solo en modo perfil. |
 | CM-04 | **Duración**: 5 minutos de simulación tras 30 s de calentamiento, semilla 42, guion de jugadora fijo `bench/guion_nominal.json`. |
 | CM-05 | **Percentiles** calculados sobre todas las muestras por frame o por tick del periodo medido. |
+
+### 1.1 Estado de las mediciones en 0.16.0
+
+De los 32 RNF, 6 están verificados con pruebas automatizadas (RNF-006, RNF-017, RNF-019, RNF-021, RNF-023 y
+RNF-027), 25 están implementados con la medición incompleta y 1 está pendiente (RNF-029, escalado de pantalla).
+Las causas principales son tres: no se integró Tracy (CM-03), no se escribieron los scripts de medición previstos
+en `tools/` (`fps_report.py`, `recursos.py`, `latencia_ia.py`, `validar_csv.py`), y faltan las pruebas con
+personas. El escenario nominal CM-02 (100 infectados en 128²) existe como prueba de CP-026, pero no el guion
+`bench/guion_nominal.json` de CM-04. Cada RNF tiene una fila «Estado (0.16.0)» con lo medido y lo que falta, y la
+[matriz](06_matriz_trazabilidad.md) §5.1 los resume.
+
+Mediciones disponibles (contenedor de desarrollo, Xeon 2,3 GHz, 4 núcleos, GCC 13.3, Release, 2026-11-25):
+
+| Medida | Valor | RNF |
+|---|---|---|
+| A\* en 128² con 25 % de obstáculos (100 consultas) | mediana 108 µs, p95 548 µs, máx. 1,15 ms | RNF-003 (objetivo p95 ≤ 1 ms) |
+| Dijkstra en el mismo escenario | mediana 497 µs, p95 1,65 ms | — (referencia) |
+| A\* en 256² con 25 % de obstáculos | mediana 512 µs, p95 1,39 ms | — |
+| RSS pico del benchmark 128² y 256² | 13,7 MB | RNF-005 (objetivo ≤ 64 MB) |
+| Búsquedas de 100 solicitudes en 128², por tick de IA | ≤ 4000 nodos y ≤ 0,7 ms; todas en 5 ticks | RNF-002, RNF-030 (CP-026) |
+| Partida guardada de 10 min | ≈ 16 KB | RNF-007 (objetivo ≤ 64 KB) |
+| Asignaciones por paso tras la carga | 0 | RNF-006 (CP-106) |
+| Suite de pruebas | 172 casos en 1,4 s | RNF-024 (objetivo ≤ 60 s) |
+
+Comando del benchmark: `refugio_bench --bench --tamanos 128,256 --densidad 0.25 --pares 20 --reps 5 --semilla 42`.
 
 ## 2. Resumen por característica
 
@@ -49,6 +74,7 @@
 | Método | Tracy + exportación de `FrameMark`; script `tools/fps_report.py` |
 | Prioridad / fuente / HU | M · NEG-07, StR-15 · HU-01, HU-23 |
 | Verificación | P · CP-101 |
+| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir: no hay Tracy ni tools/fps_report.py. |
 
 ### RNF-002 · Tiempo de tick de simulación
 | Atributo | Valor |
@@ -60,6 +86,7 @@
 | Método | Tracy, zonas instrumentadas |
 | Prioridad / fuente / HU | M · NEG-07 · HU-08, HU-23 |
 | Verificación | P · CP-102 |
+| Estado (0.16.0) | **Implementado en 0.2.0**. Medido solo el tiempo de búsqueda por tick: ≤ 0,7 ms con 100 solicitudes en 128² (CP-026). |
 
 ### RNF-003 · Tiempo de búsqueda
 | Atributo | Valor |
@@ -71,6 +98,7 @@
 | Método | Benchmark RF-080 y Tracy |
 | Prioridad / fuente / HU | M · GUIA §5, §7 · HU-16, HU-17 |
 | Verificación | P · CP-103 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. A* en 128² con 25 % de obstáculos: mediana 108 µs, p95 548 µs (cumple). IA por tick sin medir. |
 
 ### RNF-004 · Uso de CPU
 | Atributo | Valor |
@@ -82,6 +110,7 @@
 | Método | Muestreo cada segundo por `tools/recursos.py`; promedio del periodo CM-04 |
 | Prioridad / fuente | M · NEG-07, StR-15 |
 | Verificación | P · CP-104 |
+| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir: no hay tools/recursos.py. |
 
 ### RNF-005 · Memoria
 | Atributo | Valor |
@@ -93,6 +122,7 @@
 | Método | `tools/recursos.py`; Valgrind Massif en Linux para el desglose |
 | Prioridad / fuente | M · NEG-07 |
 | Verificación | P · CP-105 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. Benchmark 128² y 256²: RSS pico 13,7 MB (cumple ≤ 64 MB). Juego en CM-02 sin medir. |
 
 ### RNF-006 · Cero asignaciones dinámicas en el bucle
 | Atributo | Valor |
@@ -104,6 +134,7 @@
 | Método | Compilación `Profile` con contador global de asignaciones |
 | Prioridad / fuente | S · NEG-07; patrón Object Pool (ADR-0004) |
 | Verificación | P · CP-106 |
+| Estado (0.16.0) | **Verificado en 0.2.0**. 0 asignaciones por paso con contador global (CP-106). |
 
 ### RNF-007 · Almacenamiento
 | Atributo | Valor |
@@ -115,6 +146,7 @@
 | Método | Paso de CI `size-check` sobre el `.zip`; prueba de guardado |
 | Prioridad / fuente | M · NEG-07 |
 | Verificación | P · CP-107 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. Partida de 10 min ≈ 16 KB (cumple ≤ 64 KB). Sin medir el .zip ni los registros; no hay rotación. |
 
 ### RNF-008 · Tiempo de arranque
 | Atributo | Valor |
@@ -126,6 +158,7 @@
 | Método | Marcas de tiempo en el registro; promedio de 5 arranques |
 | Prioridad / fuente | S · StR-15 |
 | Verificación | P · CP-108 |
+| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir. |
 
 ### RNF-018 · Latencia de reacción de los agentes
 | Atributo | Valor |
@@ -137,6 +170,7 @@
 | Método | Análisis de `logs/ia_<semilla>.log` del escenario CM-02 con `tools/latencia_ia.py` |
 | Prioridad / fuente / HU | M · STB Esc. 2 y 4; GUIA §4 «reconsiderar sus planes ante cambios» · HU-09, HU-11 |
 | Verificación | P · CP-118 |
+| Estado (0.16.0) | **Implementado en 0.5.0**. CP-050: cambio ante señuelo en ≤ 5 ticks de IA (500 ms). Sin tools/latencia_ia.py para el p95. |
 
 ### RNF-027 · Capacidad: profundidad de recursión acotada
 | Atributo | Valor |
@@ -148,6 +182,7 @@
 | Método | Aserciones en compilación `Debug`; análisis de marco con `-fstack-usage` (GCC) |
 | Prioridad / fuente | M · GUIA §5 «análisis de pila»; STB §03 |
 | Verificación | A + P · CP-127 |
+| Estado (0.16.0) | **Verificado en 0.1.0**. CP-127 y estrés de recursión en CI (hasta 2000 agentes con ASan). |
 
 ---
 
@@ -163,6 +198,7 @@
 | Método | RF-082 sobre ≥ 800 consultas |
 | Prioridad / fuente / HU | M · GUIA §5; STB §03 · HU-16, HU-17 |
 | Verificación | P · CP-119 |
+| Estado (0.16.0) | **Verificado en 0.10.0**. 100 % de coincidencia; el benchmark termina con código 2 si no. |
 
 ### RNF-020 · Corrección: determinismo
 | Atributo | Valor |
@@ -174,6 +210,7 @@
 | Método | Prueba `determinismo` en CI |
 | Prioridad / fuente | M · GUIA §7; STB §03 «semillas registradas»; RES-09 |
 | Verificación | P · CP-120 |
+| Estado (0.16.0) | **Implementado en 0.2.0**. Determinismo comprobado en CP-075, CP-084, CP-086 y CP-091, no con 10 × 10 000 ticks. |
 
 ### RNF-032 · Completitud: registro de experimentos
 | Atributo | Valor |
@@ -185,6 +222,7 @@
 | Método | Validador `tools/validar_csv.py` en CI |
 | Prioridad / fuente | M · GUIA §7 |
 | Verificación | P · CP-132 |
+| Estado (0.16.0) | **Implementado en 0.10.0**. La prueba de CP-080 exige filas completas; no hay tools/validar_csv.py. |
 
 ---
 
@@ -200,6 +238,7 @@
 | Método | GitHub Actions `build.yml` |
 | Prioridad / fuente | M · StR-15 |
 | Verificación | P · CP-109 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. CI con Linux GCC, Linux Clang y Windows MSVC (3 de 4; falta MinGW). Cumple el umbral 2/4. |
 
 ### RNF-010 · Coexistencia
 | Atributo | Valor |
@@ -211,6 +250,7 @@
 | Método | Inspección con herramientas de traza en una ejecución de 5 min |
 | Prioridad / fuente | M · NEG-07; RES-05 |
 | Verificación | I + P · CP-110 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. Solo escribe en config/, saves/, logs/ y results/. Sin traza de archivos. |
 
 ---
 
@@ -226,6 +266,7 @@
 | Método | Prueba de usabilidad con ≥ 5 personas |
 | Prioridad / fuente / HU | S · StR-20 · HU-20 |
 | Verificación | D · CP-111 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. El tutorial registra su duración; falta la prueba con 5 personas. |
 
 ### RNF-012 · Operabilidad
 | Atributo | Valor |
@@ -237,6 +278,7 @@
 | Método | Inspección del menú; marcas de tiempo de entrada y presentación |
 | Prioridad / fuente / HU | S · StR-16 · HU-01, HU-19 |
 | Verificación | I + P · CP-112 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. 100 % de las acciones reasignables (CP-112). Latencia de entrada sin medir. |
 
 ### RNF-013 · Inclusividad y legibilidad
 | Atributo | Valor |
@@ -248,6 +290,7 @@
 | Método | Inspección con capturas y verificador de contraste; simulación de daltonismo |
 | Prioridad / fuente / HU | S · StR-10 · HU-14 |
 | Verificación | I · CP-113 |
+| Estado (0.16.0) | **Implementado en 0.16.0**. Estados con color y «?»/«!»; sin revisión de contraste ni escala. |
 
 ### RNF-014 · Protección contra errores del usuario
 | Atributo | Valor |
@@ -259,6 +302,7 @@
 | Método | Pruebas de interfaz |
 | Prioridad / fuente | S · StR-16 |
 | Verificación | P · CP-114 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. Confirmación al cargar o salir sin guardar (CP-114). |
 
 ---
 
@@ -274,6 +318,7 @@
 | Método | Prueba de resistencia nocturna en CI; trabajo `sanitizers` (Linux, Clang) |
 | Prioridad / fuente | M · NEG-05 |
 | Verificación | P · CP-115 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. ASan + UBSan en CI sin errores. Falta la prueba de 30 min a 4×. |
 
 ### RNF-016 · Tolerancia a fallos
 | Atributo | Valor |
@@ -285,6 +330,7 @@
 | Método | Pruebas con corpus `tests/data/invalid/`; *fuzzing* con libFuzzer 10 min en CI nocturno |
 | Prioridad / fuente | M · RF-093 |
 | Verificación | P · CP-116 |
+| Estado (0.16.0) | **Implementado en 0.12.0**. Corpus de ≥ 30 entradas inválidas sin cierres (CP-116). Sin libFuzzer. |
 
 ### RNF-017 · Recuperabilidad
 | Atributo | Valor |
@@ -296,6 +342,7 @@
 | Método | Prueba que mata el proceso hijo durante `guardar()` (escritura temporal + renombrado atómico) |
 | Prioridad / fuente / HU | S · HU-19 |
 | Verificación | P · CP-117 |
+| Estado (0.16.0) | **Verificado en 0.12.0**. 100 interrupciones simuladas, todas cargables (CP-117). |
 
 ---
 
@@ -311,6 +358,7 @@
 | Método | Prueba de mutación de bytes |
 | Prioridad / fuente | M · RF-093 |
 | Verificación | P · CP-121 |
+| Estado (0.16.0) | **Verificado en 0.12.0**. Todas las mutaciones de 1 byte detectadas (CP-121). |
 
 ### RNF-022 · Superficie de ataque mínima
 | Atributo | Valor |
@@ -322,6 +370,7 @@
 | Método | `strace -f -e trace=network`, Process Monitor; revisión de dependencias en CI |
 | Prioridad / fuente | M · RES-05 |
 | Verificación | I + P · CP-122 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. Sin código de red; sin traza strace ni revisión de CVE. |
 
 ---
 
@@ -337,6 +386,7 @@
 | Método | Script de CI `tools/check_deps.sh` (grep + `cmake --graphviz`) |
 | Prioridad / fuente | M · RES-06; ADR-0003 |
 | Verificación | I · CP-123 |
+| Estado (0.16.0) | **Verificado en 0.1.0**. tools/check_deps.sh en CI. |
 
 ### RNF-024 · Capacidad de prueba
 | Atributo | Valor |
@@ -348,6 +398,7 @@
 | Método | Trabajo `coverage` en CI con informe publicado |
 | Prioridad / fuente | M · StR-19 |
 | Verificación | P · CP-124 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. Suite de 172 pruebas en ≈ 1,4 s. Sin trabajo de cobertura. |
 
 ### RNF-025 · Capacidad de análisis
 | Atributo | Valor |
@@ -359,6 +410,7 @@
 | Método | CI: compilación estricta, `clang-tidy`, `lizard`, Doxygen con `WARN_IF_UNDOCUMENTED` |
 | Prioridad / fuente | S · NEG-06 |
 | Verificación | I · CP-125 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. -Werror en CI; clang-tidy a mano. Sin lizard ni Doxygen. |
 
 ### RNF-026 · Capacidad de modificación
 | Atributo | Valor |
@@ -370,6 +422,7 @@
 | Método | Ejercicio de cambio documentado (rama `spike/extensibilidad`) |
 | Prioridad / fuente | S · ADR-0003, patrones Strategy y Factory |
 | Verificación | D · CP-126 |
+| Estado (0.16.0) | **Implementado en 0.10.0**. IBuscadorRuta permite añadir buscadores; el ejercicio no se ha hecho. |
 
 ---
 
@@ -385,6 +438,7 @@
 | Método | Trabajo de CI cronometrado; prueba manual del `.zip` en un equipo limpio |
 | Prioridad / fuente | M · StR-15, StR-19 |
 | Verificación | P · CP-128 |
+| Estado (0.16.0) | **Implementado en 0.1.0**. Dos comandos de CMake con presets; no hay .zip portable. |
 
 ### RNF-029 · Adaptabilidad de pantalla
 | Atributo | Valor |
@@ -396,6 +450,7 @@
 | Método | Prueba manual con capturas |
 | Prioridad / fuente | S · StR-15 |
 | Verificación | D · CP-129 |
+| Estado (0.16.0) | **Aprobado**. Pendiente: ventana fija de 1280 × 720 sin escalado. |
 
 ### RNF-030 · Escalabilidad
 | Atributo | Valor |
@@ -407,6 +462,7 @@
 | Método | Benchmark de escalado con n ∈ {25, 50, 100, 150, 200}, 5 repeticiones |
 | Prioridad / fuente | S · NEG-04 |
 | Verificación | P · CP-130 |
+| Estado (0.16.0) | **Implementado en 0.15.0**. 100 infectados en 128² sin pasar el presupuesto (CP-026). Falta la serie hasta 200. |
 
 ---
 
@@ -422,6 +478,7 @@
 | Método | Análisis de grabación con herramienta PEAT o equivalente |
 | Prioridad / fuente | C · Buenas prácticas WCAG 2.3.1 |
 | Verificación | A · CP-131 |
+| Estado (0.16.0) | **Implementado en 0.7.0**. Solo parpadea la integridad del refugio; sin análisis de destellos. |
 
 ---
 
