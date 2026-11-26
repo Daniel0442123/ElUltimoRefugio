@@ -358,20 +358,27 @@ def figura(r: dict, carpeta: Path) -> None:
             return list(csv.DictReader(linea for linea in f if not linea.startswith("#")))
 
     fig, ejes = plt.subplots(1, 2, figsize=(10, 3.4))
+    maximo = 0.0
     colores = {"juego": "#2a9d8f", "horda100": "#e76f51"}
     nombres = {"juego": "10 infectados", "horda100": "100 infectados"}
     for n in escenarios:
         fr = leer(f"{n}_frames.csv")
-        ejes[0].plot([float(x["t_s"]) for x in fr], [float(x["ms_actualizar"]) + float(x["ms_dibujar"]) for x in fr],
-                     lw=0.6, color=colores[n], label=f"trabajo, {nombres[n]}")
+        trabajo = [float(x["ms_actualizar"]) + float(x["ms_dibujar"]) for x in fr]
+        maximo = max([maximo, *trabajo])
+        ejes[0].plot([float(x["t_s"]) for x in fr], trabajo, lw=0.5, color=colores[n], alpha=0.8, label=nombres[n])
         sg = leer(f"{n}_segundos.csv")
         ejes[1].plot([float(x["t_s"]) for x in sg], [float(x["cpu_pct"]) for x in sg], color=colores[n], label=nombres[n])
     ejes[0].axhline(1000 / 60, color="#888", ls="--", lw=0.8, label="16,7 ms (60 FPS)")
+    # Un tirón aislado aplasta la escala: se recorta a 25 ms y se indica el máximo.
+    if maximo > 25.0:
+        ejes[0].set_ylim(0, 25)
+        ejes[0].text(0.99, 0.97, f"máx. {coma(maximo, 0)} ms (fuera de escala)", transform=ejes[0].transAxes,
+                     ha="right", va="top", fontsize=7, color="#555")
     ejes[0].set(xlabel="tiempo (s)", ylabel="ms por frame (sin VSync)", title="Trabajo por frame")
     ejes[1].axhline(35, color="#888", ls="--", lw=0.8, label="objetivo 35 %")
     ejes[1].set(xlabel="tiempo (s)", ylabel="% de un núcleo", title="CPU del proceso", ylim=(0, None))
     for ax in ejes:
-        ax.legend(fontsize=7, frameon=False)
+        ax.legend(fontsize=7, frameon=False, loc="upper left")
         ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     FIGURA.parent.mkdir(parents=True, exist_ok=True)

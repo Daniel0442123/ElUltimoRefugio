@@ -23,8 +23,10 @@
 
 ### 1.1 Estado de las mediciones en 0.16.0
 
-De los 32 RNF, 6 están verificados con pruebas automatizadas (RNF-006, RNF-017, RNF-019, RNF-021, RNF-023 y
-RNF-027), 25 están implementados con la medición incompleta y 1 está pendiente (RNF-029, escalado de pantalla).
+De los 32 RNF, 10 están verificados: 6 con pruebas automatizadas (RNF-006, RNF-017, RNF-019, RNF-021, RNF-023 y
+RNF-027) y 4 con la medición con ventana de `tools/rendimiento.py` en 0.18.0 (RNF-001, RNF-002, RNF-004 y RNF-008);
+21 están implementados con la medición incompleta (RNF-005 cumple el umbral, no el objetivo) y 1 está pendiente
+(RNF-029, escalado de pantalla).
 Las causas principales son tres: no se integró Tracy (CM-03), no se escribieron los scripts de medición previstos
 en `tools/` (`fps_report.py`, `recursos.py`, `latencia_ia.py`, `validar_csv.py`), y faltan las pruebas con
 personas. El escenario nominal CM-02 (100 infectados en 128²) existe como prueba de CP-026, pero no el guion
