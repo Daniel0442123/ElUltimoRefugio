@@ -11,6 +11,8 @@ Qué cuenta como evidencia de un caso de prueba CP-nnn:
   * relacionada: un TEST_CASE etiquetado con el requisito del mismo número
     (RF-0nn -> CP-0nn, RNF-0nn -> CP-1nn);
   * CI: la columna Notas del caso empieza por «CI:» (trabajos de .github/workflows).
+  * medición: la columna Notas empieza por «Medición: <archivo>» y el archivo existe (resultados de
+    tools/rendimiento.py en el equipo real, RNF-001, RNF-002, RNF-004, RNF-005, RNF-008).
 
 Reglas que comprueba (ver docs/06_matriz_trazabilidad.md §6):
   1. Los ID no se repiten y todo ID citado en Padre o Enlaces existe.
@@ -77,6 +79,15 @@ def cp_de_requisito(req: str) -> str | None:
     return None
 
 
+MEDICION_RE = re.compile(r"^Medición: (\S+?)[.,;]?(?:\s|$)")
+
+
+def medicion(nota: str) -> bool:
+    """La nota cita un archivo de resultados que existe en el repositorio."""
+    m = MEDICION_RE.match(nota)
+    return bool(m) and (RAIZ / m.group(1)).is_file()
+
+
 def evidencias(casos: list[dict]) -> tuple[dict[str, list[dict]], dict[str, list[dict]]]:
     directa: dict[str, list[dict]] = defaultdict(list)
     relacionada: dict[str, list[dict]] = defaultdict(list)
@@ -115,8 +126,11 @@ def comprobar(filas: list[dict[str, str]], casos: list[dict]) -> list[str]:
 
     for f in filas:
         if f["Tipo"] == "Test" and f["Estado"] == "Pasa":
-            if not directa.get(f["ID"]) and not relacionada.get(f["ID"]) and not f["Notas"].startswith("CI:"):
-                errores.append(f"{f['ID']}: está en «Pasa» sin ninguna prueba ni trabajo de CI que lo respalde")
+            if (not directa.get(f["ID"]) and not relacionada.get(f["ID"]) and not f["Notas"].startswith("CI:")
+                    and not medicion(f["Notas"])):
+                errores.append(f"{f['ID']}: está en «Pasa» sin ninguna prueba, trabajo de CI ni medición que lo respalde")
+        if f["Notas"].startswith("Medición:") and not medicion(f["Notas"]):
+            errores.append(f"{f['ID']}: cita una medición que no existe en el repositorio")
         if f["Tipo"] == "Requirement":
             propio = cp_de_requisito(f["ID"])
             propios = [g for g in filas if g["Tipo"] == "Test" and g["ID"] == propio]
@@ -162,7 +176,8 @@ def bloque_cobertura(filas, casos) -> str:
         return cuenta(xs, lambda x: x["Estado"] == e)
 
     con_cp = lambda r: any(c in r["Enlaces"].split() for c in (f["ID"] for f in cp))  # noqa: E731
-    automatizados = cuenta(cp, lambda c: directa.get(c["ID"]) or relacionada.get(c["ID"]) or c["Notas"].startswith("CI:"))
+    automatizados = cuenta(cp, lambda c: directa.get(c["ID"]) or relacionada.get(c["ID"]) or c["Notas"].startswith("CI:")
+                           or medicion(c["Notas"]))
     filas_md = [
         "| Indicador | Valor | Objetivo |",
         "|---|---|---|",
@@ -173,7 +188,7 @@ def bloque_cobertura(filas, casos) -> str:
         f"| RF verificados / implementados / pendientes | {n_estado(rf, 'Verificado')} / {n_estado(rf, 'Implementado')} / {n_estado(rf, 'Aprobado')} de {len(rf)} | {len(rf)} / 0 / 0 |",
         f"| RNF verificados / implementados / pendientes | {n_estado(rnf, 'Verificado')} / {n_estado(rnf, 'Implementado')} / {n_estado(rnf, 'Aprobado')} de {len(rnf)} | {len(rnf)} / 0 / 0 |",
         f"| CP que pasan / parciales / pendientes | {n_estado(cp, 'Pasa')} / {n_estado(cp, 'Parcial')} / {n_estado(cp, 'Pendiente')} de {len(cp)} | {len(cp)} / 0 / 0 |",
-        f"| CP con alguna prueba automatizada o trabajo de CI | {automatizados}/{len(cp)} | ≥ 80 % |",
+        f"| CP con alguna prueba automatizada, trabajo de CI o medición | {automatizados}/{len(cp)} | ≥ 80 % |",
         f"| Pruebas automatizadas (TEST_CASE) | {len(casos)} | — |",
     ]
     return "\n".join(filas_md)

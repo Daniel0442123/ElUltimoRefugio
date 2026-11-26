@@ -85,7 +85,7 @@ Los identificadores **nunca se reutilizan**. Un requisito eliminado se marca com
 | Requisitos funcionales | 68 | 63 verificados y 5 implementados (RF-001, RF-006, RF-015 y RF-048 desde 0.18.0) |
 | Requisitos no funcionales | 32 | 6 verificados, 25 implementados con la medición incompleta, 1 pendiente (RNF-029) |
 | Casos de prueba | 104 | 69 pasan, 19 parciales, 16 pendientes |
-| Pruebas automatizadas | 192 | 192 en verde (GCC 13.3, Release) |
+| Pruebas automatizadas | 198 | 198 en verde (GCC 13.3, Release) |
 
 Las cifras salen de `python tools/trazabilidad.py generar` ([matriz §1](06_matriz_trazabilidad.md)). Lo que
 cambió respecto de la línea base está en [SRS §8](03_SRS_requisitos_funcionales.md) y en los ADR 0018 a 0020.

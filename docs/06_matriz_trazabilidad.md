@@ -27,8 +27,8 @@ verificación está incompleta, y **Aprobado** si sigue pendiente de implementar
 | RF verificados / implementados / pendientes | 63 / 5 / 0 de 68 | 68 / 0 / 0 |
 | RNF verificados / implementados / pendientes | 6 / 25 / 1 de 32 | 32 / 0 / 0 |
 | CP que pasan / parciales / pendientes | 69 / 19 / 16 de 104 | 104 / 0 / 0 |
-| CP con alguna prueba automatizada o trabajo de CI | 84/104 | ≥ 80 % |
-| Pruebas automatizadas (TEST_CASE) | 192 | — |
+| CP con alguna prueba automatizada, trabajo de CI o medición | 84/104 | ≥ 80 % |
+| Pruebas automatizadas (TEST_CASE) | 198 | — |
 <!-- generado:cobertura fin -->
 
 Los RNF no enlazados con un RF concreto (RNF-009, RNF-010, RNF-022, RNF-024, RNF-028, RNF-031) son

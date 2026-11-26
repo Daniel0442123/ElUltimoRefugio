@@ -23,7 +23,7 @@ Los resultados principales, medidos para este informe con la versión 0.16.0, so
 | Escenario dinámico (barricada en la ruta) | 400 de 400 recorridos replanifican y llegan | §6.3 |
 | Horda coordinada frente a aislada (10 pares) | rodea a Mara con 7,5 infectados frente a 5,3 (p = 0,02) | §7 |
 | Optimización GA / SA | aptitud 0,42 → 1,41 (GA) y 1,36 (SA); pesos no adoptados | §8 |
-| Pruebas automáticas | 192 de 192 pasan en 0.18.0 (Catch2 + CTest) | §10 |
+| Pruebas automáticas | 198 de 198 pasan en 0.18.0 (Catch2 + CTest) | §10 |
 | Memoria del benchmark (RSS pico) | 13,1 MB (umbral 64 MB) | §9 |
 
 ![Ciudad de noche en 0.16.0: linterna de Mara con sombras, horda y refugio.](informe/capturas/arte_mapa_0.16.0.png)
@@ -391,18 +391,28 @@ victorias del guion fuera de [20 %, 40 %], con presión = 1 − t_contacto / 90 
 | RNF-019 Optimalidad de A\* | 0 discrepancias | 0 de 400 | Cumple |
 | RNF-020 Determinismo | misma huella | 10 de 10 pares idénticos hasta la detección; 600 ticks a cualquier velocidad dan la misma huella (CP-075) | Cumple |
 | RNF-027 Recursión acotada | profundidad ≤ límite declarado | 100 % de las llamadas, con estrés de hasta 2000 agentes en ASan (CP-127) | Cumple |
-| RNF-001 FPS | ≥ 60 en la carga nominal | el panel muestra 60 FPS en las capturas; sin medición formal | Sin medir |
-| RNF-004 CPU | ≤ 35 % de un núcleo | — | Sin medir |
-| RNF-008 Tiempo de arranque | — | — | Sin medir |
-| RNF-002 IA por tick bajo carga nominal | p95 ≤ 2 ms | 0,7 ms por tick con 100 solicitudes (CP-026), no en la carga nominal completa | Parcial |
 
 De los 32 RNF, 6 están verificados, 25 implementados con la medición incompleta y 1 pendiente (RNF-029,
-escalado de pantalla). FPS, CPU y arranque necesitan la versión con ventana en el equipo de la sustentación;
-el método está en `docs/04_requisitos_no_funcionales.md`.
+escalado de pantalla). FPS, tiempo de tick, CPU, memoria del juego y arranque se miden con ventana en el
+equipo de la sustentación (§9.1); el método está en `docs/04_requisitos_no_funcionales.md`.
+
+<!-- generado:rendimiento inicio -->
+### 9.1 Rendimiento con ventana en el equipo de la sustentación
+
+Pendiente de medir. En el equipo de la sustentación, con el juego compilado en Release:
+
+```bash
+python tools/rendimiento.py medir
+```
+
+El juego se abre, arranca 5 veces y juega solo dos partidas (10 y 100 infectados) durante unos 12 minutos;
+al terminar, la herramienta rellena esta sección, `docs/trazabilidad.csv` y las filas de estado de RNF-001,
+RNF-002, RNF-004, RNF-005 y RNF-008.
+<!-- generado:rendimiento fin -->
 
 ## 10. Calidad y pruebas
 
-* **192 pruebas automáticas** (Catch2 v3 + CTest) en 0.18.0, todas en verde (172 en 0.16.0); además se ejecutan con
+* **198 pruebas automáticas** (Catch2 v3 + CTest) en 0.18.0, todas en verde (172 en 0.16.0); además se ejecutan con
   AddressSanitizer y UBSan (preset `asan`) y en integración continua.
 * **Trazabilidad** (0.18.0): 23 historias de usuario terminadas, 68 RF (63 verificados y 5 implementados, ninguno
   pendiente), 32 RNF y 104 casos de prueba (69 pasan, 19 parciales, 16 pendientes), enlazados en
@@ -414,7 +424,7 @@ el método está en `docs/04_requisitos_no_funcionales.md`.
 | Pendiente | Situación |
 |---|---|
 | RF-001, RF-006, RF-015 y RF-048 | Hechos en 0.18.0 (§2.1). Queda: el perseguidor usa los 6 celdas y 3,4 celdas/s de `pesos`, no los 5 y 4 del prototipo, para que la horda sea jugable. |
-| RNF-001, 004, 008 | FPS, CPU y arranque sin medir formalmente. |
+| RNF-001, 002, 004, 005, 008 | FPS, tick, CPU, memoria y arranque con ventana: ver §9.1 (`tools/rendimiento.py`). |
 | RNF-029 | Ventana fija de 1280 × 720, sin escalado. |
 | Concentración de la horda | La coordinación duplica las celdas sobrecargadas (§7). |
 | Aptitud del GA/SA | Sobreajusta al guion fijo; falta una restricción de velocidad o un oponente que esquive (§8). |

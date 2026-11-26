@@ -579,6 +579,25 @@ supera 64 KB (RNF-027). El experimento de coordinación termina con código 4 si
 difiere antes de la primera detección (RF-056). La optimización termina con código 5 si la aptitud del
 mejor individuo del GA baja entre generaciones (RF-085).
 
+### Medir FPS, CPU, memoria y arranque con ventana (RNF-001, 002, 004, 005, 008)
+
+Con el juego compilado en Release, desde la raíz del repositorio y sin tocar el teclado mientras mide:
+
+```bash
+python tools/rendimiento.py medir            # 5 arranques + partidas de 10 y 100 infectados, 30 s + 5 min cada una (≈ 12 min)
+python tools/rendimiento.py medir --rapido   # lo mismo con 10 s + 60 s (≈ 3 min), para probar
+python tools/rendimiento.py medir --exe build/Release/refugio.exe   # si no encuentra el juego solo
+```
+
+Cada corrida es `refugio --medir-rendimiento [--segundos N] [--calentamiento N] [--infectados N]
+[--escenario nombre] [--salida prefijo]`: la partida se juega sola con un guion fijo, sin tutorial, y al
+terminar escribe `<prefijo>.json` (resumen), `<prefijo>_frames.csv` (cada frame: duración, actualización,
+dibujo, paso de simulación más largo, búsquedas de IA) y `<prefijo>_segundos.csv` (CPU y memoria del
+proceso cada segundo). Con `--segundos 0` solo mide el arranque. La herramienta guarda todo en
+`results/rendimiento/<fecha>/`, lo copia a `docs/informe/datos/rendimiento/` y actualiza
+`docs/informe_final.md` §9.1, `docs/04_requisitos_no_funcionales.md` y `docs/trazabilidad.csv` (con las
+tablas de 05 y 06). `python tools/rendimiento.py informe` rehace la documentación con la última medición.
+
 ## Integración continua
 
 | Flujo | Cuándo | Qué hace |
