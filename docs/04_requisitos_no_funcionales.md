@@ -54,7 +54,15 @@ medidos, VSync). La CPU se lee con `GetProcessTimes` en Windows y `getrusage` en
 juego mide cada frame y cada segundo y la herramienta escribe el bloque siguiente.
 
 <!-- generado:rendimiento inicio -->
-Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el equipo de la sustentación).
+Mediciones con ventana (`tools/rendimiento.py`, 2026-11-26, 12th Gen Intel(R) Core(TM) i7-12650H, 16 hilos, 15,7 GB, Intel(R) UHD Graphics, Windows, msvc 194435230 Release, ventana 1920x991):
+
+| RNF | Resultado | Estado |
+|---|---|---|
+| RNF-001 | FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). | Cumple |
+| RNF-002 | Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). | Cumple |
+| RNF-004 | CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. | Cumple |
+| RNF-005 | Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). | Cumple el umbral |
+| RNF-008 | Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. | Cumple |
 <!-- generado:rendimiento fin -->
 
 ## 2. Resumen por característica
@@ -85,7 +93,7 @@ Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el eq
 | Método | Tracy + exportación de `FrameMark`; script `tools/fps_report.py` |
 | Prioridad / fuente / HU | M · NEG-07, StR-15 · HU-01, HU-23 |
 | Verificación | P · CP-101 |
-| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir: no hay Tracy ni tools/fps_report.py. |
+| Estado (medido) | **Verificado**. FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). Cumple (docs/informe/datos/rendimiento/resumen.json). |
 
 ### RNF-002 · Tiempo de tick de simulación
 | Atributo | Valor |
@@ -97,7 +105,7 @@ Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el eq
 | Método | Tracy, zonas instrumentadas |
 | Prioridad / fuente / HU | M · NEG-07 · HU-08, HU-23 |
 | Verificación | P · CP-102 |
-| Estado (0.16.0) | **Implementado en 0.2.0**. Medido solo el tiempo de búsqueda por tick: ≤ 0,7 ms con 100 solicitudes en 128² (CP-026). |
+| Estado (medido) | **Verificado**. Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). Cumple (docs/informe/datos/rendimiento/resumen.json). |
 
 ### RNF-003 · Tiempo de búsqueda
 | Atributo | Valor |
@@ -121,7 +129,7 @@ Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el eq
 | Método | Muestreo cada segundo por `tools/recursos.py`; promedio del periodo CM-04 |
 | Prioridad / fuente | M · NEG-07, StR-15 |
 | Verificación | P · CP-104 |
-| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir: no hay tools/recursos.py. |
+| Estado (medido) | **Verificado**. CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. Cumple (docs/informe/datos/rendimiento/resumen.json). |
 
 ### RNF-005 · Memoria
 | Atributo | Valor |
@@ -133,7 +141,7 @@ Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el eq
 | Método | `tools/recursos.py`; Valgrind Massif en Linux para el desglose |
 | Prioridad / fuente | M · NEG-07 |
 | Verificación | P · CP-105 |
-| Estado (0.16.0) | **Implementado en 0.1.0**. Benchmark 128² y 256²: RSS pico 13,7 MB (cumple ≤ 64 MB). Juego en CM-02 sin medir. |
+| Estado (medido) | **Implementado**. Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). Cumple el umbral (docs/informe/datos/rendimiento/resumen.json). |
 
 ### RNF-006 · Cero asignaciones dinámicas en el bucle
 | Atributo | Valor |
@@ -169,7 +177,7 @@ Mediciones con ventana: pendientes (`python tools/rendimiento.py medir` en el eq
 | Método | Marcas de tiempo en el registro; promedio de 5 arranques |
 | Prioridad / fuente | S · StR-15 |
 | Verificación | P · CP-108 |
-| Estado (0.16.0) | **Implementado en 0.2.0**. Sin medir. |
+| Estado (medido) | **Verificado**. Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. Cumple (docs/informe/datos/rendimiento/resumen.json). |
 
 ### RNF-018 · Latencia de reacción de los agentes
 | Atributo | Valor |

@@ -399,15 +399,24 @@ equipo de la sustentación (§9.1); el método está en `docs/04_requisitos_no_f
 <!-- generado:rendimiento inicio -->
 ### 9.1 Rendimiento con ventana en el equipo de la sustentación
 
-Pendiente de medir. En el equipo de la sustentación, con el juego compilado en Release:
+Medido con `python tools/rendimiento.py medir` (versión 0.18.0, commit 5cc0d87, 2026-11-26) en **12th Gen Intel(R) Core(TM) i7-12650H, 16 hilos, 15,7 GB, Intel(R) UHD Graphics, Windows, msvc 194435230 Release, ventana 1920x991**. El juego se jugó solo con un guion fijo de movimientos (Mara recorre las 8 direcciones, camina, corre y va en sigilo) y VSync; cuando la partida termina empieza otra. Se midieron dos escenarios en el mapa del juego (32 × 22): la partida normal con 10 infectados y una horda de 100, que es la carga de CM-02 en número de agentes (el juego con ventana no tiene el mapa de 128 × 128).
 
-```bash
-python tools/rendimiento.py medir
-```
+| RNF | Objetivo / umbral | Resultado | Estado |
+|---|---|---|---|
+| RNF-001 FPS | p5 ≥ 60 FPS / p5 ≥ 30 FPS | FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). | Cumple |
+| RNF-002 Tiempo de tick | p99 ≤ 4 ms / p99 ≤ 8 ms | Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). | Cumple |
+| RNF-004 CPU | ≤ 35 % de un núcleo / ≤ 60 % | CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. | Cumple |
+| RNF-005 Memoria del juego | ≤ 128 MB / ≤ 256 MB | Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). | Cumple el umbral |
+| RNF-008 Arranque | ≤ 3 s y escena ≤ 2 s / ≤ 6 s y escena ≤ 4 s | Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. | Cumple |
 
-El juego se abre, arranca 5 veces y juega solo dos partidas (10 y 100 infectados) durante unos 12 minutos;
-al terminar, la herramienta rellena esta sección, `docs/trazabilidad.csv` y las filas de estado de RNF-001,
-RNF-002, RNF-004, RNF-005 y RNF-008.
+| Escenario | Frames | FPS medio | FPS p5 | Trabajo por frame p95 | Paso p99 | Búsquedas IA p95 | CPU media | Memoria pico | Partidas reiniciadas |
+|---|---|---|---|---|---|---|---|---|---|
+| 10 infectados, 300 s | 17946 | 59,9 | 58,0 | 6,40 ms | 0,14 ms | 39 µs | 27,5 % | 174,9 MB | 10 |
+| 100 infectados, 300 s | 17949 | 59,9 | 58,8 | 6,77 ms | 2,25 ms | 312 µs | 28,1 % | 143,9 MB | 29 |
+
+«Trabajo por frame» es la actualización más el dibujo, sin la espera de VSync: lo que queda hasta 16,7 ms es margen. La CPU es tiempo de CPU del proceso (todos los hilos, incluido el controlador gráfico) entre tiempo real, en % de un núcleo lógico. Con VSync a 60 Hz el juego no puede pasar de 60 FPS y el reloj fluctúa, así que un frame de hasta 17,5 ms cuenta como 60 FPS.
+
+Datos: [`resumen.json`](informe/datos/rendimiento/resumen.json) y los JSON y CSV por frame y por segundo de cada corrida en [`informe/datos/rendimiento/`](informe/datos/rendimiento/).
 <!-- generado:rendimiento fin -->
 
 ## 10. Calidad y pruebas

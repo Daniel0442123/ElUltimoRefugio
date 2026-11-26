@@ -1,0 +1,114 @@
+{
+  "formato": "refugio-rendimiento-resumen-1",
+  "carpeta": "20261125-214428",
+  "equipo": {
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12650H",
+    "nucleos_logicos": "16",
+    "ram_mb": "16085",
+    "so": "Windows",
+    "gpu": "Intel(R) UHD Graphics",
+    "opengl": "3.3.0 - Build 31.0.101.5592",
+    "compilador": "msvc 194435230",
+    "opciones": "Release MSVC-19.44.35230.0 C++20",
+    "version": "0.18.0",
+    "commit": "5cc0d87",
+    "fecha_utc": "2026-11-26T02:44:30Z",
+    "ventana": "1920x991",
+    "monitor_hz": "144"
+  },
+  "escenarios": {
+    "juego": {
+      "infectados": 10,
+      "segundos": 300.0,
+      "frames": 17946,
+      "reinicios": 10,
+      "fps_p5": 58.05,
+      "fps_media": 59.92,
+      "fps_min": 8.52,
+      "frames_lentos_pct": 0.01671681711802073,
+      "frame_ms_p95": 17.228,
+      "trabajo_ms_p95": 6.396,
+      "dibujar_ms_p95": 6.339,
+      "paso_ms_p99": 0.135,
+      "paso_ms_max": 1.156,
+      "busqueda_ia_us_p95": 39.4,
+      "cpu_media_pct": 27.49,
+      "cpu_max_pct": 60.2,
+      "memoria_pico_mb": 174.9
+    },
+    "horda100": {
+      "infectados": 100,
+      "segundos": 300.0,
+      "frames": 17949,
+      "reinicios": 29,
+      "fps_p5": 58.84,
+      "fps_media": 59.87,
+      "fps_min": 6.1,
+      "frames_lentos_pct": 0.005571341021783943,
+      "frame_ms_p95": 16.994,
+      "trabajo_ms_p95": 6.768,
+      "dibujar_ms_p95": 6.346,
+      "paso_ms_p99": 2.245,
+      "paso_ms_max": 12.754,
+      "busqueda_ia_us_p95": 311.6,
+      "cpu_media_pct": 28.05,
+      "cpu_max_pct": 49.8,
+      "memoria_pico_mb": 143.9
+    }
+  },
+  "rnf": {
+    "RNF-001": {
+      "valor": 58.05,
+      "objetivo": "p5 ≥ 60 FPS",
+      "umbral": "p5 ≥ 30 FPS",
+      "veredicto": "Cumple"
+    },
+    "RNF-002": {
+      "valor": 2.245,
+      "objetivo": "p99 ≤ 4 ms",
+      "umbral": "p99 ≤ 8 ms",
+      "veredicto": "Cumple"
+    },
+    "RNF-004": {
+      "valor": 28.05,
+      "objetivo": "≤ 35 % de un núcleo",
+      "umbral": "≤ 60 %",
+      "veredicto": "Cumple"
+    },
+    "RNF-005": {
+      "valor": 174.9,
+      "objetivo": "≤ 128 MB",
+      "umbral": "≤ 256 MB",
+      "veredicto": "Cumple el umbral"
+    },
+    "RNF-008": {
+      "valor": 487.9838,
+      "objetivo": "≤ 3 s y escena ≤ 2 s",
+      "umbral": "≤ 6 s y escena ≤ 4 s",
+      "veredicto": "Cumple"
+    }
+  },
+  "arranque": {
+    "n": 5,
+    "ms": [
+      1157.357,
+      345.917,
+      314.269,
+      300.716,
+      321.66
+    ],
+    "media_ms": 487.9838,
+    "max_ms": 1157.357,
+    "primero_ms": 1157.357,
+    "escena_media_ms": 2.9829999999999997,
+    "escena_max_ms": 8.097,
+    "fases_ms_primero": {
+      "ventana": 302.82,
+      "audio": 388.112,
+      "fuentes": 388.13,
+      "sonidos": 389.209,
+      "escena": 397.311,
+      "laboratorio": 397.319
+    }
+  }
+}

@@ -25,9 +25,9 @@ verificación está incompleta, y **Aprobado** si sigue pendiente de implementar
 | RNF con al menos un CP | 32/32 | 100 % |
 | HU terminadas (con o sin pendientes) | 23/23 | 100 % |
 | RF verificados / implementados / pendientes | 63 / 5 / 0 de 68 | 68 / 0 / 0 |
-| RNF verificados / implementados / pendientes | 6 / 25 / 1 de 32 | 32 / 0 / 0 |
-| CP que pasan / parciales / pendientes | 69 / 19 / 16 de 104 | 104 / 0 / 0 |
-| CP con alguna prueba automatizada, trabajo de CI o medición | 84/104 | ≥ 80 % |
+| RNF verificados / implementados / pendientes | 10 / 21 / 1 de 32 | 32 / 0 / 0 |
+| CP que pasan / parciales / pendientes | 73 / 18 / 13 de 104 | 104 / 0 / 0 |
+| CP con alguna prueba automatizada, trabajo de CI o medición | 88/104 | ≥ 80 % |
 | Pruebas automatizadas (TEST_CASE) | 198 | — |
 <!-- generado:cobertura fin -->
 
@@ -220,14 +220,14 @@ sirven para ver el orden de magnitud y se repetirán en CM-01 para el informe fi
 <!-- generado:rnf inicio -->
 | RNF | Título | CP | Estado | Resultado o pendiente |
 |---|---|---|---|---|
-| RNF-001 | Tasa de cuadros | CP-101 | Implementado | Sin medir: no hay Tracy ni tools/fps_report.py. |
-| RNF-002 | Tiempo de tick de simulación | CP-102 | Implementado | Medido solo el tiempo de búsqueda por tick: ≤ 0,7 ms con 100 solicitudes en 128² (CP-026). |
+| RNF-001 | Tasa de cuadros | CP-101 | Verificado | Medición: docs/informe/datos/rendimiento/resumen.json. FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). Cumple. |
+| RNF-002 | Tiempo de tick de simulación | CP-102 | Verificado | Medición: docs/informe/datos/rendimiento/resumen.json. Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). Cumple. |
 | RNF-003 | Tiempo de búsqueda | CP-103 | Implementado | A* en 128² con 25 % de obstáculos: mediana 108 µs, p95 548 µs (cumple). IA por tick sin medir. |
-| RNF-004 | Uso de CPU | CP-104 | Implementado | Sin medir: no hay tools/recursos.py. |
-| RNF-005 | Memoria | CP-105 | Implementado | Benchmark 128² y 256²: RSS pico 13,7 MB (cumple ≤ 64 MB). Juego en CM-02 sin medir. |
+| RNF-004 | Uso de CPU | CP-104 | Verificado | Medición: docs/informe/datos/rendimiento/resumen.json. CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. Cumple. |
+| RNF-005 | Memoria | CP-105 | Implementado | Medición: docs/informe/datos/rendimiento/resumen.json. Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). Cumple el umbral. |
 | RNF-006 | Cero asignaciones dinámicas en el bucle | CP-106 | Verificado | 0 asignaciones por paso con contador global (CP-106). |
 | RNF-007 | Almacenamiento | CP-107 | Implementado | Partida de 10 min ≈ 16 KB (cumple ≤ 64 KB). Sin medir el .zip ni los registros; no hay rotación. |
-| RNF-008 | Tiempo de arranque | CP-108 | Implementado | Sin medir. |
+| RNF-008 | Tiempo de arranque | CP-108 | Verificado | Medición: docs/informe/datos/rendimiento/resumen.json. Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. Cumple. |
 | RNF-009 | Interoperabilidad de plataforma | CP-109 | Implementado | CI con Linux GCC, Linux Clang y Windows MSVC (3 de 4; falta MinGW). Cumple el umbral 2/4. |
 | RNF-010 | Coexistencia | CP-110 | Implementado | Solo escribe en config/, saves/, logs/ y results/. Sin traza de archivos. |
 | RNF-011 | Capacidad de aprendizaje | CP-111 | Implementado | El tutorial registra su duración; falta la prueba con 5 personas. |

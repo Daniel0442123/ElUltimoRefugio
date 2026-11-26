@@ -97,14 +97,14 @@ Requirement,RF-090,Guardar partida,S,HU-19,RNF-007 RNF-017 CP-090,Verificado,0.1
 Requirement,RF-091,Cargar partida,S,HU-19,RNF-020 CP-091,Verificado,0.12.0,Solo con la misma versión del juego.
 Requirement,RF-092,Configuración local,S,HU-19,RNF-012 CP-092,Verificado,0.12.0,
 Requirement,RF-093,Archivos corruptos o inválidos,M,HU-19,RNF-016 RNF-021 CP-093,Verificado,0.12.0,Aplica a partidas y configuración; no hay archivos de mapa.
-Requirement,RNF-001,Tasa de cuadros,M,,CP-101,Implementado,0.2.0,Sin medir: no hay Tracy ni tools/fps_report.py.
-Requirement,RNF-002,Tiempo de tick de simulación,M,,CP-102,Implementado,0.2.0,"Medido solo el tiempo de búsqueda por tick: ≤ 0,7 ms con 100 solicitudes en 128² (CP-026)."
+Requirement,RNF-001,Tasa de cuadros,M,,CP-101,Verificado,0.18.0,"Medición: docs/informe/datos/rendimiento/resumen.json. FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). Cumple."
+Requirement,RNF-002,Tiempo de tick de simulación,M,,CP-102,Verificado,0.18.0,"Medición: docs/informe/datos/rendimiento/resumen.json. Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). Cumple."
 Requirement,RNF-003,Tiempo de búsqueda,M,,CP-103,Implementado,0.1.0,"A* en 128² con 25 % de obstáculos: mediana 108 µs, p95 548 µs (cumple). IA por tick sin medir."
-Requirement,RNF-004,Uso de CPU,M,,CP-104,Implementado,0.2.0,Sin medir: no hay tools/recursos.py.
-Requirement,RNF-005,Memoria,M,,CP-105,Implementado,0.1.0,"Benchmark 128² y 256²: RSS pico 13,7 MB (cumple ≤ 64 MB). Juego en CM-02 sin medir."
+Requirement,RNF-004,Uso de CPU,M,,CP-104,Verificado,0.18.0,"Medición: docs/informe/datos/rendimiento/resumen.json. CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. Cumple."
+Requirement,RNF-005,Memoria,M,,CP-105,Implementado,0.1.0,"Medición: docs/informe/datos/rendimiento/resumen.json. Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). Cumple el umbral."
 Requirement,RNF-006,Cero asignaciones dinámicas en el bucle,M,,CP-106,Verificado,0.2.0,0 asignaciones por paso con contador global (CP-106).
 Requirement,RNF-007,Almacenamiento,M,,CP-107,Implementado,0.12.0,Partida de 10 min ≈ 16 KB (cumple ≤ 64 KB). Sin medir el .zip ni los registros; no hay rotación.
-Requirement,RNF-008,Tiempo de arranque,M,,CP-108,Implementado,0.2.0,Sin medir.
+Requirement,RNF-008,Tiempo de arranque,M,,CP-108,Verificado,0.18.0,"Medición: docs/informe/datos/rendimiento/resumen.json. Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. Cumple."
 Requirement,RNF-018,Latencia de reacción de los agentes,M,,CP-118,Implementado,0.5.0,CP-050: cambio ante señuelo en ≤ 5 ticks de IA (500 ms). Sin tools/latencia_ia.py para el p95.
 Requirement,RNF-027,Capacidad: profundidad de recursión acotada,M,,CP-127,Verificado,0.1.0,CP-127 y estrés de recursión en CI (hasta 2000 agentes con ASan).
 Requirement,RNF-019,Corrección: optimalidad de A\*,M,,CP-119,Verificado,0.10.0,100 % de coincidencia; el benchmark termina con código 2 si no.
@@ -197,14 +197,14 @@ Test,CP-090,Guardar,,RF-090,,Pasa,,
 Test,CP-091,Cargar,,RF-091,,Pasa,,
 Test,CP-092,Configuración,,RF-092,,Pasa,,
 Test,CP-093,Archivos inválidos,,RF-093,,Pasa,,
-Test,CP-101,FPS nominales,,RNF-001,,Pendiente,,Sin Tracy.
-Test,CP-102,Tiempo de tick,,RNF-002,,Parcial,,Solo búsqueda por tick (CP-026).
+Test,CP-101,FPS nominales,,RNF-001,,Pasa,,"Medición: docs/informe/datos/rendimiento/resumen.json. FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). Cumple."
+Test,CP-102,Tiempo de tick,,RNF-002,,Pasa,,"Medición: docs/informe/datos/rendimiento/resumen.json. Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). Cumple."
 Test,CP-103,Tiempo de búsqueda e IA,,RNF-003,,Parcial,,A* p95 548 µs en 128²; IA por tick sin medir.
-Test,CP-104,Uso de CPU,,RNF-004,,Pendiente,,
-Test,CP-105,Memoria,,RNF-005,,Parcial,,"Benchmark 256²: 13,7 MB."
+Test,CP-104,Uso de CPU,,RNF-004,,Pasa,,"Medición: docs/informe/datos/rendimiento/resumen.json. CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. Cumple."
+Test,CP-105,Memoria,,RNF-005,,Parcial,,"Medición: docs/informe/datos/rendimiento/resumen.json. Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). Cumple el umbral."
 Test,CP-106,Asignaciones por frame,,RNF-006,,Pasa,,
 Test,CP-107,Almacenamiento,,RNF-007,,Parcial,,Solo la partida guardada.
-Test,CP-108,Arranque,,RNF-008,,Pendiente,,
+Test,CP-108,Arranque,,RNF-008,,Pasa,,"Medición: docs/informe/datos/rendimiento/resumen.json. Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. Cumple."
 Test,CP-109,Matriz de plataformas,,RNF-009,,Parcial,,CI: 3 de 4 trabajos (sin MinGW).
 Test,CP-110,Coexistencia,,RNF-010,,Pendiente,,
 Test,CP-111,Aprendizaje del tutorial,,RNF-011,,Pendiente,,Requiere 5 personas.

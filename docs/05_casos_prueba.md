@@ -174,9 +174,9 @@ manual. El estado real de cada caso y las pruebas que lo respaldan están en §5
 | Grupo | Casos | Pasan | Parciales | Pendientes |
 |---|---|---|---|---|
 | Funcionales (CP-0nn) | 68 | 63 | 4 | 1 |
-| No funcionales (CP-1nn) | 32 | 6 | 13 | 13 |
+| No funcionales (CP-1nn) | 32 | 10 | 12 | 10 |
 | Aceptación (CP-2nn) | 4 | 0 | 2 | 2 |
-| **Total** | **104** | **69** | **19** | **16** |
+| **Total** | **104** | **73** | **18** | **13** |
 <!-- generado:resumen fin -->
 
 El único pendiente funcional es CP-040 (etapas del ciclo sin instrumentar); CP-001, CP-006, CP-015 y CP-048 pasan desde 0.18.0.
@@ -261,14 +261,14 @@ cita el CP en su nombre.
 | CP-091 | RF-091 | Pasa | `test_persistencia.cpp`: CP-091 guardar y cargar reproduce el estado exacto<br>`test_mapa_tiled.cpp`: CP-001 Una partida en un mapa de Tiled se guarda y se carga con su mapa *(relacionada)*<br>`test_optimizacion.cpp`: Partida guardada conserva los pesos y lee los formatos 1 y 2 *(relacionada)* |  |
 | CP-092 | RF-092 | Pasa | `test_configuracion.cpp`: CP-092 cambiar volumen y una tecla se guarda en los JSON y se relee<br>`test_menu_pausa.cpp`: CP-092 opciones: volumen y tutorial desde el menu<br>`test_configuracion.cpp`: RF-092 config/ia.json del repositorio se lee sin errores *(relacionada)*<br>`test_configuracion.cpp`: RF-092 ia.json cambia los parametros y valida las reglas entre campos *(relacionada)*<br>`test_optimizacion.cpp`: ia.json: la seccion pesos se lee, se valida y se aplica *(relacionada)*<br>`test_puertas_curas_roles.cpp`: CP-048 Los prototipos de config/ia.json configuran los roles *(relacionada)* |  |
 | CP-093 | RF-093 | Pasa | `test_configuracion.cpp`: CP-093 JSON mal formado usa los valores por defecto con un mensaje<br>`test_configuracion.cpp`: CP-093 campos fuera de rango vuelven a su valor por defecto<br>`test_persistencia.cpp`: CP-093 rangos invalidos con CRC correcto se rechazan<br>`test_persistencia.cpp`: CP-093 ranura con un byte alterado avisa que esta danada<br>`test_benchmark.cpp`: Una configuracion invalida da un mensaje que dice que corregir *(relacionada)*<br>`test_monitoreo.cpp`: CP-072 Si la carpeta de registros no se puede crear el juego sigue sin archivo *(relacionada)*<br>`test_optimizacion.cpp`: ia.json: la seccion pesos se lee, se valida y se aplica *(relacionada)* |  |
-| CP-101 | RNF-001 | Pendiente | — | Sin Tracy. |
-| CP-102 | RNF-002 | Parcial | `test_planificador_rutas.cpp`: CP-026 100 solicitudes en el mismo tick: 4000 nodos por tick y 10 ticks como maximo *(relacionada)*<br>`test_planificador_rutas.cpp`: CP-026 Horda de 100 infectados en 128x128 sin superar el presupuesto *(relacionada)* | Solo búsqueda por tick (CP-026). |
+| CP-101 | RNF-001 | Pasa | — | Medición: docs/informe/datos/rendimiento/resumen.json. FPS p5 58,0 (10 infectados) y 58,8 (100 infectados); frames de más de 25 ms: 0,02 % (10 infectados) y 0,01 % (100 infectados). Cumple. |
+| CP-102 | RNF-002 | Pasa | `test_planificador_rutas.cpp`: CP-026 100 solicitudes en el mismo tick: 4000 nodos por tick y 10 ticks como maximo *(relacionada)*<br>`test_planificador_rutas.cpp`: CP-026 Horda de 100 infectados en 128x128 sin superar el presupuesto *(relacionada)* | Medición: docs/informe/datos/rendimiento/resumen.json. Paso de simulación p99 0,14 ms (10 infectados) y 2,25 ms (100 infectados). Cumple. |
 | CP-103 | RNF-003 | Parcial | — | A* p95 548 µs en 128²; IA por tick sin medir. |
-| CP-104 | RNF-004 | Pendiente | — |  |
-| CP-105 | RNF-005 | Parcial | — | Benchmark 256²: 13,7 MB. |
+| CP-104 | RNF-004 | Pasa | — | Medición: docs/informe/datos/rendimiento/resumen.json. CPU media 27,5 % (10 infectados) y 28,1 % (100 infectados) de un núcleo lógico, con VSync. Cumple. |
+| CP-105 | RNF-005 | Parcial | — | Medición: docs/informe/datos/rendimiento/resumen.json. Memoria residente pico del juego 174,9 MB (10 infectados) y 143,9 MB (100 infectados); benchmark 256²: 13,7 MB (≤ 64 MB). Cumple el umbral. |
 | CP-106 | RNF-006 | Pasa | `test_busqueda.cpp`: CP-106 A* reutilizando el resultado no asigna memoria<br>`test_comparacion.cpp`: CP-106 La partida con Dijkstra es determinista y no asigna memoria<br>`test_coordinacion_horda.cpp`: CP-106 Alertas y campo de flujo tampoco asignan memoria en el bucle<br>`test_horda_coordinada.cpp`: CP-106 Contract Net, reparto de accesos y steering no asignan memoria en el bucle<br>`test_monitoreo.cpp`: CP-106 Monitorear un agente y registrar en un sumidero no asigna memoria<br>`test_partida.cpp`: CP-106 El paso de simulacion no asigna memoria tras la carga<br>`test_senuelos_barricadas.cpp`: CP-106 Senuelos, barricadas y memoria no asignan memoria en el bucle<br>`test_monitoreo.cpp`: RegistroIa guarda las ultimas lineas en anillo y recorta las largas *(relacionada)* |  |
 | CP-107 | RNF-007 | Parcial | `test_persistencia.cpp`: CP-107 cabecera REFG y partida de 10 minutos de 64 KB o menos | Solo la partida guardada. |
-| CP-108 | RNF-008 | Pendiente | — |  |
+| CP-108 | RNF-008 | Pasa | — | Medición: docs/informe/datos/rendimiento/resumen.json. Primer frame de la partida en 0,49 s de media en 5 arranques (máx. 1,16 s); escena en 3,0 ms. No hay menú principal: cuenta el primer frame. Cumple. |
 | CP-109 | RNF-009 | Parcial | — | CI: 3 de 4 trabajos (sin MinGW). |
 | CP-110 | RNF-010 | Pendiente | — |  |
 | CP-111 | RNF-011 | Pendiente | `test_tutorial.cpp`: RNF-011 el tutorial mide su duracion y no cambia la simulacion *(relacionada)* | Requiere 5 personas. |

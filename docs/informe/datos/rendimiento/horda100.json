@@ -1,0 +1,29 @@
+{
+  "formato": "refugio-rendimiento-1",
+  "meta": ["juego=ElUltimoRefugio version=0.18.0 commit=5cc0d87", "cpu=12th Gen Intel(R) Core(TM) i7-12650H", "nucleos_logicos=16", "ram_mb=16085", "so=Windows", "compilador=msvc 194435230", "opciones=Release MSVC-19.44.35230.0 C++20", "fecha_utc=2026-11-26T02:55:38Z"],
+  "escenario": "horda100",
+  "infectados": 100,
+  "calentamiento_s": 30.0,
+  "medicion_s": 300.0,
+  "entorno": {"ventana": "1920x991", "monitor_hz": "144", "mapa": "32x22", "vsync": "si", "fps_objetivo": "60", "gpu": "Intel(R) UHD Graphics", "opengl": "3.3.0 - Build 31.0.101.5592", "audio": "si"},
+  "arranque": {
+    "fases_ms": {"ventana": 193.900, "audio": 283.574, "fuentes": 283.585, "sonidos": 284.668, "escena": 286.382, "laboratorio": 286.390},
+    "primer_frame_desde_main_ms": 306.432,
+    "primer_frame_desde_proceso_ms": 326.644,
+    "escenas_ms": [1.709, 1.658, 1.059, 1.433, 1.266, 1.241, 4.225, 0.900, 1.414, 1.832, 4.105, 1.129, 3.048, 1.836, 2.102, 0.703, 0.677, 0.801, 0.743, 0.642, 2.400, 1.401, 0.868, 1.003, 2.066, 1.119, 1.052, 1.488, 4.032, 2.727, 1.578, 0.938]
+  },
+  "frames": 17949,
+  "reinicios": 29,
+  "frames_mas_de_25ms": 1,
+  "fps": {"n": 17949, "media": 59.87, "min": 6.10, "p5": 58.84, "p50": 60.00, "p95": 60.12, "p99": 61.40, "max": 75.02},
+  "frame_ms": {"n": 17949, "media": 16.714, "min": 13.331, "p5": 16.632, "p50": 16.668, "p95": 16.994, "p99": 17.484, "max": 163.975},
+  "actualizar_ms": {"n": 17949, "media": 0.238, "min": 0.044, "p5": 0.055, "p50": 0.099, "p95": 0.636, "p99": 2.311, "max": 161.848},
+  "dibujar_ms": {"n": 17949, "media": 3.123, "min": 0.788, "p5": 1.285, "p50": 2.666, "p95": 6.346, "p99": 8.082, "max": 17.631},
+  "trabajo_ms": {"n": 17949, "media": 3.361, "min": 0.843, "p5": 1.367, "p50": 2.878, "p95": 6.768, "p99": 8.892, "max": 163.903},
+  "paso_ms": {"n": 17949, "media": 0.218, "min": 0.040, "p5": 0.051, "p50": 0.093, "p95": 0.593, "p99": 2.245, "max": 12.754},
+  "busqueda_ia_us": {"n": 17949, "media": 65.1, "min": 0.0, "p5": 0.0, "p50": 13.3, "p95": 311.6, "p99": 762.5, "max": 2851.6},
+  "cpu_pct": {"n": 299, "media": 28.0, "min": 7.8, "p5": 15.6, "p50": 28.0, "p95": 40.5, "p99": 45.1, "max": 49.8},
+  "cpu_media_pct": 28.05,
+  "memoria_mb": {"n": 299, "media": 136.1, "min": 131.2, "p5": 133.7, "p50": 137.1, "p95": 138.0, "p99": 138.0, "max": 138.0},
+  "memoria_pico_mb": 143.9
+}

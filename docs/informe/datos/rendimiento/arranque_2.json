@@ -1,0 +1,29 @@
+{
+  "formato": "refugio-rendimiento-1",
+  "meta": ["juego=ElUltimoRefugio version=0.18.0 commit=5cc0d87", "cpu=12th Gen Intel(R) Core(TM) i7-12650H", "nucleos_logicos=16", "ram_mb=16085", "so=Windows", "compilador=msvc 194435230", "opciones=Release MSVC-19.44.35230.0 C++20", "fecha_utc=2026-11-26T02:44:31Z"],
+  "escenario": "arranque_2",
+  "infectados": 10,
+  "calentamiento_s": 0.0,
+  "medicion_s": 0.0,
+  "entorno": {"ventana": "1920x991", "monitor_hz": "144", "mapa": "32x22", "vsync": "si", "fps_objetivo": "60", "gpu": "Intel(R) UHD Graphics", "opengl": "3.3.0 - Build 31.0.101.5592", "audio": "si"},
+  "arranque": {
+    "fases_ms": {"ventana": 170.229, "audio": 256.275, "fuentes": 256.285, "sonidos": 257.448, "escena": 259.569, "laboratorio": 259.579},
+    "primer_frame_desde_main_ms": 276.350,
+    "primer_frame_desde_proceso_ms": 345.917,
+    "escenas_ms": [2.118]
+  },
+  "frames": 0,
+  "reinicios": 0,
+  "frames_mas_de_25ms": 0,
+  "fps": {"n": 0, "media": 0.00, "min": 0.00, "p5": 0.00, "p50": 0.00, "p95": 0.00, "p99": 0.00, "max": 0.00},
+  "frame_ms": {"n": 0, "media": 0.000, "min": 0.000, "p5": 0.000, "p50": 0.000, "p95": 0.000, "p99": 0.000, "max": 0.000},
+  "actualizar_ms": {"n": 0, "media": 0.000, "min": 0.000, "p5": 0.000, "p50": 0.000, "p95": 0.000, "p99": 0.000, "max": 0.000},
+  "dibujar_ms": {"n": 0, "media": 0.000, "min": 0.000, "p5": 0.000, "p50": 0.000, "p95": 0.000, "p99": 0.000, "max": 0.000},
+  "trabajo_ms": {"n": 0, "media": 0.000, "min": 0.000, "p5": 0.000, "p50": 0.000, "p95": 0.000, "p99": 0.000, "max": 0.000},
+  "paso_ms": {"n": 0, "media": 0.000, "min": 0.000, "p5": 0.000, "p50": 0.000, "p95": 0.000, "p99": 0.000, "max": 0.000},
+  "busqueda_ia_us": {"n": 0, "media": 0.0, "min": 0.0, "p5": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0},
+  "cpu_pct": {"n": 0, "media": 0.0, "min": 0.0, "p5": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0},
+  "cpu_media_pct": 0.00,
+  "memoria_mb": {"n": 0, "media": 0.0, "min": 0.0, "p5": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0},
+  "memoria_pico_mb": 142.6
+}
