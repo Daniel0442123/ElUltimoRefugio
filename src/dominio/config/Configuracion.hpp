@@ -43,7 +43,8 @@ struct OpcionesJuego {
 [[nodiscard]] std::string escribirOpciones(const OpcionesJuego& o);
 
 // ------------------------------------------------------------------------- controles.json
-/// Acciones de juego reasignables (RNF-012). El menú (Esc), Enter y las flechas están reservados.
+/// Acciones de juego reasignables (RNF-012). El menú (Esc), Enter, las flechas y F11 (pantalla
+/// completa) están reservados.
 enum class Accion : std::uint8_t {
     Arriba,
     Abajo,
@@ -92,6 +93,8 @@ inline constexpr int kIzquierda = 263;
 inline constexpr int kAbajo = 264;
 inline constexpr int kArriba = 265;
 inline constexpr int kF1 = 290;  ///< F1..F12 son 290..301.
+/// F11 alterna pantalla completa en toda la aplicación, como en la mayoría de programas.
+inline constexpr int kPantallaCompleta = kF1 + 10;
 inline constexpr int kShiftIzq = 340;
 inline constexpr int kCtrlIzq = 341;
 inline constexpr int kAltIzq = 342;

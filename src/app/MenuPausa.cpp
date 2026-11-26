@@ -107,7 +107,7 @@ PeticionMenu MenuPausa::pulsar(int t, bool sinGuardar) {
         pantalla_ = PantallaMenu::Controles;
         if (t == tecla::kEscape) return {};
         if (!config::teclaAsignable(t)) {
-            fijarMensaje(config::teclaReservada(t) ? "Esa tecla está reservada para el menú" : "Esa tecla no se puede asignar", true);
+            fijarMensaje(config::teclaReservada(t) ? "Esa tecla está reservada (menú o pantalla completa)" : "Esa tecla no se puede asignar", true);
             return {};
         }
         const int otra = controles_.accionDe(t);

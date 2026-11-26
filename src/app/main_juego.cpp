@@ -25,6 +25,12 @@
 /// Arte: adaptadores::ArteMundo dibuja calles, edificios, sprites y la luz de la linterna; F1
 /// quita la oscuridad para ver la información de la IA. La cámara solo cambia el dibujo.
 ///
+/// Ventana: se abre maximizada, se puede redimensionar y F11 alterna la pantalla completa. Cada
+/// frame vista::calcularDisposicion reparte la ventana: el mapa ocupa todo lo que deja el panel
+/// lateral, ampliado para caber entero, y el HUD se escala con la ventana (x1,5 en 1920 x 1080).
+/// Los textos usan Inter rasterizada al tamaño final en píxeles (adaptadores/raylib/Interfaz).
+/// --ventana AxB fija el tamaño (para capturas a otras resoluciones).
+///
 /// Bucle de paso fijo (ADR-0005): la simulación avanza en pasos de 1/60 s acumulando el tiempo
 /// real del frame; el dibujo va aparte y no cambia el resultado de la simulación. La pausa, el
 /// paso a paso y la velocidad (juego::ControlSimulacion, RF-075) solo cambian ese acumulador.
@@ -42,9 +48,11 @@
 #include "adaptadores/archivo/ArchivosLocales.hpp"
 #include "adaptadores/archivo/RegistroArchivo.hpp"
 
+#include "adaptadores/raylib/Interfaz.hpp"
 #include "adaptadores/raylib/Sonidos.hpp"
 #include "adaptadores/raylib/VistaDepuracion.hpp"
 #include "adaptadores/raylib/VistaPartida.hpp"
+#include "adaptadores/vista/Disposicion.hpp"
 #include "app/Cli.hpp"
 #include "app/MenuPausa.hpp"
 #include "dominio/experimentos/GeneradorMapas.hpp"
@@ -55,6 +63,9 @@
 #include "dominio/persistencia/PartidaGuardada.hpp"
 
 using namespace refugio;
+using adaptadores::dibujarTexto;
+using adaptadores::medirTexto;
+using adaptadores::Peso;
 using config::Accion;
 
 // Los códigos de tecla del dominio son los de raylib (config::tecla, RNF-023).
@@ -67,12 +78,31 @@ static_assert(config::tecla::kAltDer == KEY_RIGHT_ALT && config::tecla::kRetroce
 static_assert(config::tecla::kEspacio == KEY_SPACE && 'W' == KEY_W && '0' == KEY_ZERO);
 
 namespace {
-constexpr int kAnchoVentana = 1280;
+constexpr int kAnchoVentana = 1280;  ///< Tamaño de referencia (y de las capturas); la ventana se redimensiona.
 constexpr int kAltoVentana = 720;
-constexpr int kAnchoPanel = 256;
+constexpr int kAnchoVentanaMin = 800;
+constexpr int kAltoVentanaMin = 450;
 constexpr int kCelda = 32;
-constexpr int kColumnas = (kAnchoVentana - kAnchoPanel) / kCelda;  // 32
-constexpr int kFilas = kAltoVentana / kCelda;                       // 22
+constexpr int kColumnas = (kAnchoVentana - static_cast<int>(vista::kAnchoPanel)) / kCelda;  // 32
+constexpr int kFilas = kAltoVentana / kCelda;                                                 // 22
+constexpr float kAnchoMundo = static_cast<float>(kColumnas * kCelda);  ///< Píxeles de mundo.
+constexpr float kAltoMundo = static_cast<float>(kFilas * kCelda);
+constexpr Color kFondoMapa{14, 15, 18, 255};  ///< Lo que rodea al mapa si la ventana no es 16:9.
+
+Rectangle aRect(const vista::Rect& r) { return {r.x, r.y, r.ancho, r.alto}; }
+
+/// Cámara de la interfaz: todo el HUD se dibuja en unidades y la escala lo lleva a píxeles.
+Camera2D camaraInterfaz(const vista::Disposicion& d) {
+    Camera2D c{};
+    c.zoom = d.escala;
+    return c;
+}
+
+/// Encierra el dibujo en @p r (píxeles de la ventana).
+void recortar(const vista::Rect& r) {
+    BeginScissorMode(static_cast<int>(r.x), static_cast<int>(r.y), static_cast<int>(std::ceil(r.ancho)),
+                     static_cast<int>(std::ceil(r.alto)));
+}
 constexpr int kInfectados = 10;
 constexpr float kZoomCamara = 2.0f;
 // config/ia.json fija flowfield_umbral = 8 para la horda completa; con 10 infectados en el
@@ -110,6 +140,8 @@ public:
     }
     [[nodiscard]] bool menuAbierto() const noexcept { return menu_.abierto(); }
     [[nodiscard]] int tecla(Accion a) const noexcept { return config_.controles.tecla(a); }
+    /// Reparto de la ventana de este frame (cambia al redimensionarla).
+    void disponer(const vista::Disposicion& d) noexcept { disp_ = d; }
 
     void reiniciar(std::uint64_t semilla) {
         persistencia::InicioPartida inicio;
@@ -172,9 +204,10 @@ public:
         // clic sobre «Saltar tutorial» solo salta el tutorial.
         const Vector2 r = GetMousePosition();
         const Vector2 w = ratonEnMundo();
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && tutorial_.activo() && CheckCollisionPointRec(r, botonTutorial_))
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && tutorial_.activo() &&
+            CheckCollisionPointRec(adaptadores::ratonInterfaz(), botonTutorial_))
             saltarTutorial();
-        else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && r.x < static_cast<float>(kColumnas * kCelda))
+        else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(r, aRect(disp_.mapaPx)))
             partida_->seleccionar(
                 partida_->agenteEn({w.x / static_cast<float>(kCelda), w.y / static_cast<float>(kCelda)}, 0.7f));
         if (++frames_ % 60 == 0 && registro_) registro_->vaciar();  // el archivo se puede abrir con el juego en marcha
@@ -220,65 +253,89 @@ public:
 
     void dibujar() {
         const adaptadores::EstiloVista estilo{kCelda, 0, 0};
-        constexpr int anchoMapa = kColumnas * kCelda;
-        constexpr int altoMapa = kFilas * kCelda;
         moverCamara();
         arte_.preparar(*partida_, !depuracion_);  // F1 quita la oscuridad
-        BeginScissorMode(0, 0, anchoMapa, altoMapa);
-        if (zoom_) BeginMode2D(camara_);
-        adaptadores::dibujarPartida(*partida_, arte_, estilo, depuracion_, nodos_);
-        if (zoom_) EndMode2D();
-        if (!depuracion_) vineta(anchoMapa, altoMapa);
+        // 1. Mapa, en píxeles de la ventana: la cámara lo amplía para llenar su zona (Z: sigue a
+        //    Mara con zoom x2 o lo enseña entero). Los rótulos del mundo se rasterizan a ese zoom.
+        DrawRectangleRec(aRect(disp_.mapaPx), kFondoMapa);
+        recortar(mapaVisible());  // nada del mundo (conos, rutas) se sale del mapa
+        BeginMode2D(camara_);
+        {
+            const adaptadores::AmbitoEscalaTexto textoMundo(camara_.zoom);
+            adaptadores::dibujarPartida(*partida_, arte_, estilo, depuracion_, nodos_);
+        }
+        EndMode2D();
+        if (!depuracion_) vineta(mapaVisible());
         EndScissorMode();
-        adaptadores::dibujarConsolaIa(*partida_, consola_, 0, kFilas * kCelda - 12 * 13 - 8, kColumnas * kCelda, 11);
-        adaptadores::dibujarFinPartida(*partida_, kColumnas * kCelda, kFilas * kCelda);
-        adaptadores::dibujarPanelPartida(*partida_, kColumnas * kCelda + 12, 12, kAltoVentana, GetFPS(), config_.controles);
-        botonTutorial_ = menu_.abierto() ? Rectangle{}
-                                         : adaptadores::dibujarTutorial(tutorial_, config_.controles, kColumnas * kCelda);
+
+        // 2. Interfaz, en unidades (vista::Disposicion): mismo diseño a cualquier tamaño.
+        const int anchoMapa = static_cast<int>(disp_.mapa.ancho);
+        const int altoMapa = static_cast<int>(disp_.mapa.alto);
+        BeginMode2D(camaraInterfaz(disp_));
+        adaptadores::dibujarConsolaIa(*partida_, consola_, 0, altoMapa - 12 * 13 - 8, anchoMapa, 11);
+        adaptadores::dibujarFinPartida(*partida_, anchoMapa, altoMapa);
+        adaptadores::dibujarPanelPartida(*partida_, static_cast<int>(disp_.panelX) + 12, 12, static_cast<int>(disp_.alto),
+                                         GetFPS(), config_.controles);
+        botonTutorial_ = menu_.abierto() ? Rectangle{} : adaptadores::dibujarTutorial(tutorial_, config_.controles, anchoMapa);
         char buf[96];
-        std::snprintf(buf, sizeof(buf), "semilla %llu  tick %llu  %s", static_cast<unsigned long long>(semilla_),
+        std::snprintf(buf, sizeof(buf), "semilla %llu  ·  tick %llu  ·  %s", static_cast<unsigned long long>(semilla_),
                       static_cast<unsigned long long>(partida_->tick()), textoVelocidad().c_str());
-        // Bajo el mapa, a la derecha: la franja de 16 px que queda libre entre el mapa y la ventana.
-        DrawText(buf, kColumnas * kCelda - MeasureText(buf, 12) - 8, kFilas * kCelda + 2, 12,
-                 control_.pausada() || control_.indiceVelocidad() != juego::ControlSimulacion::kIndiceNormal ? GOLD : GRAY);
+        // Bajo el mapa: la franja de 16 unidades que queda libre entre el mapa y el borde.
+        dibujarTexto(buf, anchoMapa - medirTexto(buf, 12) - 8, altoMapa + 2, 12,
+                     control_.pausada() || control_.indiceVelocidad() != juego::ControlSimulacion::kIndiceNormal ? GOLD : GRAY);
+        dibujarTexto("F11: pantalla completa   Esc: menú", 8, altoMapa + 2, 12, GRAY);
         if (!menu_.abierto()) dibujarControlSimulacion();
         if (aviso_.restante > 0.0f && !menu_.abierto()) dibujarAviso();
         if (menu_.abierto()) dibujarMenu();
+        EndMode2D();
     }
 
 private:
     [[nodiscard]] bool pulsada(Accion a) const { return IsKeyPressed(config_.controles.tecla(a)); }
 
-    /// Posición del ratón en píxeles del mapa (sin zoom coincide con la de la pantalla).
-    [[nodiscard]] Vector2 ratonEnMundo() const {
-        return zoom_ ? GetScreenToWorld2D(GetMousePosition(), camara_) : GetMousePosition();
-    }
+    /// Posición del ratón en píxeles de mundo (32 por celda).
+    [[nodiscard]] Vector2 ratonEnMundo() const { return GetScreenToWorld2D(GetMousePosition(), camara_); }
 
-    /// La cámara sigue a Mara con suavidad y no enseña nada fuera del mapa. Solo afecta al dibujo.
+    /// La cámara llena la zona del mapa: con Z sigue a Mara con suavidad y zoom x2 sin enseñar
+    /// nada fuera del mapa; sin Z lo enseña entero y centrado. Solo afecta al dibujo.
     void moverCamara() {
-        constexpr float anchoMapa = static_cast<float>(kColumnas * kCelda);
-        constexpr float altoMapa = static_cast<float>(kFilas * kCelda);
-        camara_.zoom = kZoomCamara;
-        camara_.offset = {anchoMapa / 2.0f, altoMapa / 2.0f};
-        const float mx = anchoMapa / (2.0f * kZoomCamara);
-        const float my = altoMapa / (2.0f * kZoomCamara);
-        const Vector2 mara{partida_->mara().pos.x * static_cast<float>(kCelda), partida_->mara().pos.y * static_cast<float>(kCelda)};
-        const Vector2 meta{std::clamp(mara.x, mx, anchoMapa - mx), std::clamp(mara.y, my, altoMapa - my)};
+        const auto& v = disp_.mapaPx;
+        camara_.zoom = disp_.zoomMapa * (zoom_ ? kZoomCamara : 1.0f);
+        camara_.offset = {v.x + v.ancho / 2.0f, v.y + v.alto / 2.0f};
+        const vista::Punto mara{partida_->mara().pos.x * static_cast<float>(kCelda),
+                                partida_->mara().pos.y * static_cast<float>(kCelda)};
+        const auto meta = vista::encuadrar(mara, camara_.zoom, v.ancho, v.alto, kAnchoMundo, kAltoMundo);
         const float salto = std::hypot(meta.x - camara_.target.x, meta.y - camara_.target.y);
         const float k = salto > static_cast<float>(4 * kCelda) ? 1.0f : std::fmin(1.0f, GetFrameTime() * 6.0f);
         camara_.target = {camara_.target.x + (meta.x - camara_.target.x) * k, camara_.target.y + (meta.y - camara_.target.y) * k};
     }
 
+    /// Parte de la ventana (en píxeles) donde se ve el mapa con la cámara actual.
+    [[nodiscard]] vista::Rect mapaVisible() const {
+        const Vector2 a = GetWorldToScreen2D({0.0f, 0.0f}, camara_);
+        const Vector2 b = GetWorldToScreen2D({kAnchoMundo, kAltoMundo}, camara_);
+        const auto& v = disp_.mapaPx;
+        const float x0 = std::max(a.x, v.x);
+        const float y0 = std::max(a.y, v.y);
+        const float x1 = std::min(b.x, v.x + v.ancho);
+        const float y1 = std::min(b.y, v.y + v.alto);
+        return {x0, y0, std::max(0.0f, x1 - x0), std::max(0.0f, y1 - y0)};
+    }
+
     /// Bordes oscurecidos del mapa: centran la vista en la zona iluminada.
-    static void vineta(int ancho, int alto) {
+    static void vineta(const vista::Rect& r) {
         constexpr Color borde{0, 0, 0, 110};
         constexpr Color nada{0, 0, 0, 0};
+        const int x = static_cast<int>(r.x);
+        const int y = static_cast<int>(r.y);
+        const int ancho = static_cast<int>(r.ancho);
+        const int alto = static_cast<int>(r.alto);
         const int bx = ancho / 6;
         const int by = alto / 6;
-        DrawRectangleGradientH(0, 0, bx, alto, borde, nada);
-        DrawRectangleGradientH(ancho - bx, 0, bx, alto, nada, borde);
-        DrawRectangleGradientV(0, 0, ancho, by, borde, nada);
-        DrawRectangleGradientV(0, alto - by, ancho, by, nada, borde);
+        DrawRectangleGradientH(x, y, bx, alto, borde, nada);
+        DrawRectangleGradientH(x + ancho - bx, y, bx, alto, nada, borde);
+        DrawRectangleGradientV(x, y, ancho, by, borde, nada);
+        DrawRectangleGradientV(x, y + alto - by, ancho, by, nada, borde);
     }
     [[nodiscard]] bool mantenida(Accion a) const { return IsKeyDown(config_.controles.tecla(a)); }
 
@@ -456,25 +513,26 @@ private:
                           t(Accion::MasLento).c_str(), t(Accion::MasRapido).c_str());
         else
             return;
-        const int ancho = MeasureText(buf, 18) + 24;
-        const int x = (kColumnas * kCelda - ancho) / 2;
+        const int ancho = medirTexto(buf, 18) + 24;
+        const int x = (static_cast<int>(disp_.mapa.ancho) - ancho) / 2;
         DrawRectangle(x, 8, ancho, 30, Fade({16, 18, 24, 255}, 0.85f));
         DrawRectangleLines(x, 8, ancho, 30, control_.pausada() ? GOLD : SKYBLUE);
-        DrawText(buf, x + 12, 14, 18, control_.pausada() ? GOLD : SKYBLUE);
+        dibujarTexto(buf, x + 12, 14, 18, control_.pausada() ? GOLD : SKYBLUE);
     }
 
     void dibujarAviso() const {
-        const int ancho = MeasureText(aviso_.texto.c_str(), 18) + 24;
-        const int x = (kColumnas * kCelda - ancho) / 2;
-        const int y = kFilas * kCelda - 60;
+        const int ancho = medirTexto(aviso_.texto.c_str(), 18) + 24;
+        const int x = (static_cast<int>(disp_.mapa.ancho) - ancho) / 2;
+        const int y = static_cast<int>(disp_.mapa.alto) - 60;
         DrawRectangle(x, y, ancho, 32, Fade({16, 18, 24, 255}, 0.9f));
         DrawRectangleLines(x, y, ancho, 32, aviso_.error ? RED : Color{120, 220, 130, 255});
-        DrawText(aviso_.texto.c_str(), x + 12, y + 7, 18, aviso_.error ? Color{255, 120, 110, 255} : RAYWHITE);
+        dibujarTexto(aviso_.texto.c_str(), x + 12, y + 7, 18, aviso_.error ? Color{255, 120, 110, 255} : RAYWHITE);
     }
 
     void dibujarMenu() const {
-        const int anchoMapa = kColumnas * kCelda;
-        DrawRectangle(0, 0, anchoMapa, kFilas * kCelda, Fade(BLACK, 0.65f));
+        const int anchoMapa = static_cast<int>(disp_.mapa.ancho);
+        const int altoMapa = static_cast<int>(disp_.mapa.alto);
+        DrawRectangle(0, 0, anchoMapa, altoMapa, Fade(BLACK, 0.65f));
         const auto lineas = menu_.lineas();
         const bool controles = menu_.pantalla() == app::PantallaMenu::Controles ||
                                menu_.pantalla() == app::PantallaMenu::EsperandoTecla;
@@ -484,7 +542,7 @@ private:
         const int x = (anchoMapa - ancho) / 2;
         const int y0 = controles ? 56 : 170;
         const std::string titulo = menu_.titulo();
-        DrawText(titulo.c_str(), x, controles ? 16 : y0 - 40, controles ? 22 : 30, GOLD);
+        dibujarTexto(titulo.c_str(), x, controles ? 16 : y0 - 40, controles ? 22 : 30, GOLD, Peso::Negrita);
         for (std::size_t i = 0; i < lineas.size(); ++i) {
             const int y = y0 + static_cast<int>(i) * (alto + 6);
             const bool sel = static_cast<int>(i) == menu_.cursor();
@@ -492,24 +550,25 @@ private:
             const Color c = sel ? (menu_.pantalla() == app::PantallaMenu::EsperandoTecla ? ORANGE : RAYWHITE) : LIGHTGRAY;
             const auto tab = lineas[i].find('\t');
             if (tab == std::string::npos) {
-                DrawText(lineas[i].c_str(), x, y, fuente, c);
+                dibujarTexto(lineas[i].c_str(), x, y, fuente, c);
             } else {
-                DrawText(lineas[i].substr(0, tab).c_str(), x, y, fuente, c);
+                dibujarTexto(lineas[i].substr(0, tab).c_str(), x, y, fuente, c);
                 const std::string t = menu_.pantalla() == app::PantallaMenu::EsperandoTecla && sel ? "..." : lineas[i].substr(tab + 1);
-                DrawText(t.c_str(), x + ancho - MeasureText(t.c_str(), fuente), y, fuente, sel ? GOLD : c);
+                dibujarTexto(t.c_str(), x + ancho - medirTexto(t.c_str(), fuente), y, fuente, sel ? GOLD : c);
             }
         }
-        const int yPie = kFilas * kCelda - 70;
+        const int yPie = altoMapa - 70;
         if (!menu_.mensaje().empty()) {
-            const int w = MeasureText(menu_.mensaje().c_str(), 18);
-            DrawText(menu_.mensaje().c_str(), (anchoMapa - w) / 2, yPie, 18,
+            const int w = medirTexto(menu_.mensaje().c_str(), 18);
+            dibujarTexto(menu_.mensaje().c_str(), (anchoMapa - w) / 2, yPie, 18,
                      menu_.mensajeEsError() ? Color{255, 120, 110, 255} : Color{120, 220, 130, 255});
         }
         const char* ayuda = menu_.pantalla() == app::PantallaMenu::Opciones ? "Flechas: elegir y cambiar   Enter: aceptar   Esc: volver"
                                                                           : "Flechas: elegir   Enter: aceptar   Esc: volver";
-        DrawText(ayuda, (anchoMapa - MeasureText(ayuda, 14)) / 2, yPie + 30, 14, GRAY);
+        dibujarTexto(ayuda, (anchoMapa - medirTexto(ayuda, 14)) / 2, yPie + 30, 14, GRAY);
     }
 
+    vista::Disposicion disp_ = vista::calcularDisposicion(kAnchoVentana, kAltoVentana, kAnchoMundo, kAltoMundo);
     adaptadores::ConfigLocal config_;
     app::MenuPausa menu_;
     const adaptadores::Sonidos& sonidos_;
@@ -546,23 +605,23 @@ void textoMetricas(const navegacion::ResultadoBusqueda& r, int x, int& y) {
     char buf[160];
     const auto nombre = navegacion::nombreAlgoritmo(r.algoritmo);
     std::snprintf(buf, sizeof(buf), "%.*s", static_cast<int>(nombre.size()), nombre.data());
-    DrawText(buf, x, y, 20, r.algoritmo == navegacion::Algoritmo::Dijkstra ? Color{0, 200, 220, 255}
+    dibujarTexto(buf, x, y, 20, r.algoritmo == navegacion::Algoritmo::Dijkstra ? Color{0, 200, 220, 255}
                                                                           : Color{220, 60, 220, 255});
     y += 24;
     std::snprintf(buf, sizeof(buf), "costo: %.3f", r.costo);
-    DrawText(r.encontrada ? buf : "sin ruta", x, y, 16, RAYWHITE);
+    dibujarTexto(r.encontrada ? buf : "sin ruta", x, y, 16, RAYWHITE);
     y += 20;
     std::snprintf(buf, sizeof(buf), "expandidos: %u", r.expandidos);
-    DrawText(buf, x, y, 16, RAYWHITE);
+    dibujarTexto(buf, x, y, 16, RAYWHITE);
     y += 20;
     std::snprintf(buf, sizeof(buf), "generados: %u", r.generados);
-    DrawText(buf, x, y, 16, RAYWHITE);
+    dibujarTexto(buf, x, y, 16, RAYWHITE);
     y += 20;
     std::snprintf(buf, sizeof(buf), "tiempo: %.1f us", r.tiempoUs);
-    DrawText(buf, x, y, 16, RAYWHITE);
+    dibujarTexto(buf, x, y, 16, RAYWHITE);
     y += 20;
     std::snprintf(buf, sizeof(buf), "memoria: %.1f KB", static_cast<double>(r.memoriaBytes) / 1024.0);
-    DrawText(buf, x, y, 16, RAYWHITE);
+    dibujarTexto(buf, x, y, 16, RAYWHITE);
     y += 30;
 }
 
@@ -574,11 +633,14 @@ public:
         grafo_.fijarMultiplicador(kColumnas - 1, kFilas - 1, 1);
     }
 
+    void disponer(const vista::Disposicion& d) noexcept { disp_ = d; }
+
     void actualizar() {
         const Vector2 raton = GetMousePosition();
-        const int cx = static_cast<int>(raton.x) / kCelda;
-        const int cy = static_cast<int>(raton.y) / kCelda;
-        const bool enMapa = grafo_.dentro(cx, cy) && raton.x < static_cast<float>(kColumnas * kCelda);
+        const Vector2 w = GetScreenToWorld2D(raton, camara());
+        const int cx = static_cast<int>(std::floor(w.x / static_cast<float>(kCelda)));
+        const int cy = static_cast<int>(std::floor(w.y / static_cast<float>(kCelda)));
+        const bool enMapa = grafo_.dentro(cx, cy) && CheckCollisionPointRec(raton, aRect(disp_.mapaPx));
 
         if (enMapa && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && grafo_.transitable(cx, cy)) {
             origen_ = grafo_.nodo(cx, cy);
@@ -621,6 +683,8 @@ public:
 
     void dibujar() const {
         const adaptadores::EstiloVista estilo{kCelda, 0, 0};
+        DrawRectangleRec(aRect(disp_.mapaPx), kFondoMapa);
+        BeginMode2D(camara());
         adaptadores::dibujarGrafo(grafo_, estilo);
         adaptadores::dibujarExpansion(grafo_, resActivo_, estilo);
         adaptadores::dibujarRuta(grafo_, resActivo_, estilo);
@@ -628,14 +692,17 @@ public:
         const auto cd = grafo_.celda(destino_);
         DrawCircle(co.x * kCelda + kCelda / 2, co.y * kCelda + kCelda / 2, 10, GREEN);
         DrawCircle(cd.x * kCelda + kCelda / 2, cd.y * kCelda + kCelda / 2, 10, MAROON);
+        EndMode2D();
 
-        const int px = kColumnas * kCelda + 12;
+        BeginMode2D(camaraInterfaz(disp_));
+        const int px = static_cast<int>(disp_.panelX) + 12;
+        const int alto = static_cast<int>(disp_.alto);
         int py = 12;
-        DrawText("Laboratorio de rutas", px, py, 20, GOLD);
+        dibujarTexto("Laboratorio de rutas", px, py, 20, GOLD, Peso::Negrita);
         py += 32;
         textoMetricas(resActivo_, px, py);
         if (comparar_) {
-            DrawText("Comparacion (F3)", px, py, 18, GOLD);
+            dibujarTexto("Comparación (F3)", px, py, 18, GOLD, Peso::Negrita);
             py += 24;
             textoMetricas(resOtro_, px, py);
             // RF-082 y HU-16: mismo costo con tolerancia 1e-6 y nodos que ahorra la heurística.
@@ -644,18 +711,18 @@ public:
             const double dif = d.encontrada && a.encontrada ? std::fabs(d.costo - a.costo) : 0.0;
             const bool mismo = d.encontrada == a.encontrada && dif <= navegacion::kToleranciaCosto;
             char buf[96];
-            std::snprintf(buf, sizeof(buf), "mismo costo: %s (dif %.1e)", mismo ? "si" : "NO", dif);
-            DrawText(buf, px, py, 16, mismo ? Color{120, 220, 130, 255} : RED);
+            std::snprintf(buf, sizeof(buf), "mismo costo: %s (dif %.1e)", mismo ? "sí" : "NO", dif);
+            dibujarTexto(buf, px, py, 16, mismo ? Color{120, 220, 130, 255} : RED);
             py += 20;
             const double ahorro = d.expandidos > 0 && a.expandidos < d.expandidos
                                       ? 100.0 * (1.0 - static_cast<double>(a.expandidos) / static_cast<double>(d.expandidos))
                                       : 0.0;
             std::snprintf(buf, sizeof(buf), "A* expande %.0f%% menos", ahorro);
-            DrawText(buf, px, py, 16, a.expandidos <= d.expandidos ? Color{120, 220, 130, 255} : RED);
+            dibujarTexto(buf, px, py, 16, a.expandidos <= d.expandidos ? Color{120, 220, 130, 255} : RED);
             py += 20;
         }
         // Leyenda de colores del mapa y de la expansión.
-        int ly = kAltoVentana - 210;
+        int ly = alto - 210;
         const struct {
             Color c;
             const char* t;
@@ -667,24 +734,35 @@ public:
         for (const auto& l : leyenda) {
             DrawRectangle(px, ly, 12, 12, l.c);
             DrawRectangleLines(px, ly, 12, 12, GRAY);
-            DrawText(l.t, px + 18, ly, 13, LIGHTGRAY);
+            dibujarTexto(l.t, px + 18, ly, 13, LIGHTGRAY);
             ly += 16;
         }
         char buf[64];
         std::snprintf(buf, sizeof(buf), "semilla: %llu   FPS: %d", static_cast<unsigned long long>(semilla_), GetFPS());
-        DrawText(buf, px, kAltoVentana - 118, 14, LIGHTGRAY);
-        DrawText("Izq: origen  Der: destino", px, kAltoVentana - 98, 14, LIGHTGRAY);
-        DrawText("B: barricada  R: nuevo mapa", px, kAltoVentana - 78, 14, LIGHTGRAY);
-        DrawText("F2: algoritmo  F3: comparar", px, kAltoVentana - 58, 14, LIGHTGRAY);
-        DrawText("Tab: volver a la partida", px, kAltoVentana - 38, 14, LIGHTGRAY);
+        dibujarTexto(buf, px, alto - 118, 14, LIGHTGRAY);
+        dibujarTexto("Izq: origen  Der: destino", px, alto - 98, 14, LIGHTGRAY);
+        dibujarTexto("B: barricada  R: nuevo mapa", px, alto - 78, 14, LIGHTGRAY);
+        dibujarTexto("F2: algoritmo  F3: comparar", px, alto - 58, 14, LIGHTGRAY);
+        dibujarTexto("Tab: volver a la partida", px, alto - 38, 14, LIGHTGRAY);
+        EndMode2D();
     }
 
 private:
+    /// El laboratorio enseña la rejilla entera, centrada y ampliada para llenar la zona del mapa.
+    [[nodiscard]] Camera2D camara() const {
+        Camera2D c{};
+        c.zoom = disp_.zoomMapa;
+        c.offset = {disp_.mapaPx.x + disp_.mapaPx.ancho / 2.0f, disp_.mapaPx.y + disp_.mapaPx.alto / 2.0f};
+        c.target = {kAnchoMundo / 2.0f, kAltoMundo / 2.0f};
+        return c;
+    }
+
     mundo::GrafoRejilla generar() {
         nucleo::Pcg32 rng(semilla_, 1u);
         return experimentos::generarMapa({kColumnas, kFilas, 0.22, 0.10}, rng);
     }
 
+    vista::Disposicion disp_ = vista::calcularDisposicion(kAnchoVentana, kAltoVentana, kAnchoMundo, kAltoMundo);
     std::uint64_t semilla_{42};
     mundo::GrafoRejilla grafo_;
     mundo::Nodo origen_{0};
@@ -697,41 +775,88 @@ private:
     bool comparar_{false};
     bool recalcular_{true};
 };
+/// Al abrir: ventana maximizada en el monitor actual. Si el usuario la restaura queda al 80 %
+/// del monitor y centrada, como cualquier programa.
+void ventanaInicial() {
+    const int m = GetCurrentMonitor();
+    const int mw = GetMonitorWidth(m);
+    const int mh = GetMonitorHeight(m);
+    if (mw <= 0 || mh <= 0) return;
+    const int w = std::max(kAnchoVentanaMin, mw * 4 / 5);
+    const int h = std::max(kAltoVentanaMin, mh * 4 / 5);
+    const Vector2 pos = GetMonitorPosition(m);
+    SetWindowSize(w, h);
+    SetWindowPosition(static_cast<int>(pos.x) + (mw - w) / 2, static_cast<int>(pos.y) + (mh - h) / 2);
+    MaximizeWindow();
+}
+
+/// F11: pantalla completa sin bordes (no cambia la resolución del monitor) y vuelta a la ventana.
+void alternarPantallaCompleta(bool& estabaMaximizada) {
+    if (!IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) {
+        estabaMaximizada = IsWindowMaximized();
+        if (estabaMaximizada) RestoreWindow();
+        ToggleBorderlessWindowed();
+    } else {
+        ToggleBorderlessWindowed();
+        if (estabaMaximizada) MaximizeWindow();
+    }
+}
 }  // namespace
 
 int main(int argc, char** argv) {
     int codigo = 0;
     if (app::ejecutarModoSinVentana(argc, argv, codigo)) return codigo;
 
-    // --captura <archivo.png> [--frames N] [--mapa] [--depuracion]: juega N frames sin entrada,
-    // guarda la pantalla y sale. Sirve para las capturas de docs/ y para revisar el arte en CI.
+    // --captura <archivo.png> [--frames N] [--mapa] [--depuracion] [--ventana AxB]: juega N frames
+    // sin entrada, guarda la pantalla y sale. Sirve para las capturas de docs/ y para revisar el
+    // arte en CI. Sin --ventana, la captura es de 1280 x 720.
     std::string captura;
     int framesCaptura = 300;
     bool capturaMapa = false;
     bool capturaDepuracion = false;
+    int anchoFijo = 0;
+    int altoFijo = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--captura" && i + 1 < argc) captura = argv[++i];
         else if (a == "--frames" && i + 1 < argc) framesCaptura = std::max(1, std::atoi(argv[++i]));
         else if (a == "--mapa") capturaMapa = true;
         else if (a == "--depuracion") capturaDepuracion = true;
+        else if (a == "--ventana" && i + 1 < argc) {  // AxB, p. ej. 1920x1080
+            const std::string v = argv[++i];
+            const auto x = v.find('x');
+            anchoFijo = x == std::string::npos ? 0 : std::atoi(v.substr(0, x).c_str());
+            altoFijo = x == std::string::npos ? 0 : std::atoi(v.substr(x + 1).c_str());
+        }
     }
+    const bool tamFijo = anchoFijo >= kAnchoVentanaMin && altoFijo >= kAltoVentanaMin;
 
-    SetConfigFlags(FLAG_VSYNC_HINT);
-    InitWindow(kAnchoVentana, kAltoVentana, "El ultimo refugio - prototipo");
+    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+    InitWindow(tamFijo ? anchoFijo : kAnchoVentana, tamFijo ? altoFijo : kAltoVentana, "El último refugio");
+    SetWindowMinSize(kAnchoVentanaMin, kAltoVentanaMin);
+    if (!tamFijo && captura.empty()) ventanaInicial();
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);  // Esc abre el menú de pausa; se sale desde el menú o cerrando la ventana
     InitAudioDevice();     // sin dispositivo de audio el juego sigue en silencio
+    adaptadores::cargarFuentes();
 
     {
         const adaptadores::Sonidos sonidos;
         EscenaPartida partida(42, adaptadores::leerConfigLocal(kCarpetaConfig), sonidos);  // RF-092
         EscenaLaboratorio laboratorio;
         bool enLaboratorio = false;
+        bool estabaMaximizada = false;
         if (!captura.empty()) partida.prepararCaptura(!capturaMapa, capturaDepuracion);
         int frame = 0;
 
         while (!WindowShouldClose() && !partida.salir()) {
+            if (IsKeyPressed(config::tecla::kPantallaCompleta)) alternarPantallaCompleta(estabaMaximizada);
+            // El reparto de la ventana se recalcula cada frame: sigue al redimensionarla.
+            const auto disp = vista::calcularDisposicion(GetScreenWidth(), GetScreenHeight(), kAnchoMundo, kAltoMundo);
+            adaptadores::fijarEscalaInterfaz(disp.escala);
+            partida.disponer(disp);
+            laboratorio.disponer(disp);
+
             if (!partida.menuAbierto() && IsKeyPressed(partida.tecla(Accion::Laboratorio))) enLaboratorio = !enLaboratorio;
             else if (enLaboratorio)
                 laboratorio.actualizar();
@@ -755,6 +880,7 @@ int main(int argc, char** argv) {
             }
         }
     }
+    adaptadores::liberarFuentes();
     if (IsAudioDeviceReady()) CloseAudioDevice();
     CloseWindow();
     return codigo;
