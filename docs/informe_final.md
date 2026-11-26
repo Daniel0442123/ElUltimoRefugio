@@ -2,7 +2,8 @@
 
 **Algoritmos Computacionales · Fundación Universitaria de Popayán**
 Proyecto final 2: *apocalipsis zombi y coordinación*. Versión del juego **0.16.0** (commit `9469143`) para
-las mediciones; la versión **0.18.0** completa los cuatro requisitos que quedaban pendientes (§2.1).
+los experimentos y el benchmark; la versión **0.18.0** completa los cuatro requisitos que quedaban pendientes
+(§2.1) y con ella se midió el rendimiento con ventana en el portátil de la sustentación (§9.1).
 Fecha del informe: 26 de noviembre de 2026.
 
 ## Resumen
@@ -13,7 +14,7 @@ horda de infectados la busca **sin información global**: cada uno ve, oye, recu
 vecinos y decide. Un superviviente aliado defiende el refugio con utilidad, GOAP y un árbol de
 comportamiento.
 
-Los resultados principales, medidos para este informe con la versión 0.16.0, son:
+Los resultados principales, medidos con la versión 0.16.0 (experimentos) y la 0.18.0 (juego con ventana), son:
 
 | Resultado | Valor | Sección |
 |---|---|---|
@@ -25,6 +26,7 @@ Los resultados principales, medidos para este informe con la versión 0.16.0, so
 | Optimización GA / SA | aptitud 0,42 → 1,41 (GA) y 1,36 (SA); pesos no adoptados | §8 |
 | Pruebas automáticas | 198 de 198 pasan en 0.18.0 (Catch2 + CTest) | §10 |
 | Memoria del benchmark (RSS pico) | 13,1 MB (umbral 64 MB) | §9 |
+| Juego con ventana (i7-12650H, Intel UHD, 100 infectados) | FPS p5 58,8; CPU 28 % de un núcleo; tick p99 2,2 ms; arranque 0,49 s | §9.1 |
 
 ![Ciudad de noche en 0.16.0: linterna de Mara con sombras, horda y refugio.](informe/capturas/arte_mapa_0.16.0.png)
 
@@ -392,7 +394,7 @@ victorias del guion fuera de [20 %, 40 %], con presión = 1 − t_contacto / 90 
 | RNF-020 Determinismo | misma huella | 10 de 10 pares idénticos hasta la detección; 600 ticks a cualquier velocidad dan la misma huella (CP-075) | Cumple |
 | RNF-027 Recursión acotada | profundidad ≤ límite declarado | 100 % de las llamadas, con estrés de hasta 2000 agentes en ASan (CP-127) | Cumple |
 
-De los 32 RNF, 6 están verificados, 25 implementados con la medición incompleta y 1 pendiente (RNF-029,
+De los 32 RNF, 10 están verificados, 21 implementados con la medición incompleta y 1 pendiente (RNF-029,
 escalado de pantalla). FPS, tiempo de tick, CPU, memoria del juego y arranque se miden con ventana en el
 equipo de la sustentación (§9.1); el método está en `docs/04_requisitos_no_funcionales.md`.
 
@@ -417,6 +419,8 @@ Medido con `python tools/rendimiento.py medir` (versión 0.18.0, commit 5cc0d87,
 «Trabajo por frame» es la actualización más el dibujo, sin la espera de VSync: lo que queda hasta 16,7 ms es margen. La CPU es tiempo de CPU del proceso (todos los hilos, incluido el controlador gráfico) entre tiempo real, en % de un núcleo lógico. Con VSync a 60 Hz el juego no puede pasar de 60 FPS y el reloj fluctúa, así que un frame de hasta 17,5 ms cuenta como 60 FPS.
 
 Datos: [`resumen.json`](informe/datos/rendimiento/resumen.json) y los JSON y CSV por frame y por segundo de cada corrida en [`informe/datos/rendimiento/`](informe/datos/rendimiento/).
+
+![Rendimiento con ventana](informe/figuras/rendimiento.png)
 <!-- generado:rendimiento fin -->
 
 ## 10. Calidad y pruebas
@@ -424,7 +428,7 @@ Datos: [`resumen.json`](informe/datos/rendimiento/resumen.json) y los JSON y CSV
 * **198 pruebas automáticas** (Catch2 v3 + CTest) en 0.18.0, todas en verde (172 en 0.16.0); además se ejecutan con
   AddressSanitizer y UBSan (preset `asan`) y en integración continua.
 * **Trazabilidad** (0.18.0): 23 historias de usuario terminadas, 68 RF (63 verificados y 5 implementados, ninguno
-  pendiente), 32 RNF y 104 casos de prueba (69 pasan, 19 parciales, 16 pendientes), enlazados en
+  pendiente), 32 RNF (10 verificados) y 104 casos de prueba (73 pasan, 18 parciales, 13 pendientes), enlazados en
   `docs/06_matriz_trazabilidad.md` y `docs/trazabilidad.csv` (generada con `tools/trazabilidad.py`).
 * **Decisiones**: 20 ADR en `docs/adr/`.
 
@@ -433,7 +437,7 @@ Datos: [`resumen.json`](informe/datos/rendimiento/resumen.json) y los JSON y CSV
 | Pendiente | Situación |
 |---|---|
 | RF-001, RF-006, RF-015 y RF-048 | Hechos en 0.18.0 (§2.1). Queda: el perseguidor usa los 6 celdas y 3,4 celdas/s de `pesos`, no los 5 y 4 del prototipo, para que la horda sea jugable. |
-| RNF-001, 002, 004, 005, 008 | FPS, tick, CPU, memoria y arranque con ventana: ver §9.1 (`tools/rendimiento.py`). |
+| RNF-005 Memoria del juego | Pico de 174,9 MB (media 140 MB) en el portátil de la sustentación: por encima del objetivo de 128 MB y dentro del umbral de 256 MB. Ya al abrir la ventana el proceso ocupa unos 140 MB, casi todo del controlador OpenGL de Intel; los datos de la partida son unos pocos MB (§9.1). |
 | RNF-029 | Ventana fija de 1280 × 720, sin escalado. |
 | Concentración de la horda | La coordinación duplica las celdas sobrecargadas (§7). |
 | Aptitud del GA/SA | Sobreajusta al guion fijo; falta una restricción de velocidad o un oponente que esquive (§8). |
